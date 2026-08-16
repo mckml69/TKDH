@@ -11,9 +11,10 @@ This file covers *state* — what's been done, what's live, what's still open.
 
 ## Current state (as of this handoff)
 
-- **Live and deployed**: https://compliance-ledger.onrender.com — a real Render
-  web service, auto-deploying on every push to `main` on GitHub
-  (`github.com/mckml69/TKDH`).
+- **Live and deployed**: https://compliance-ledger.onrender.com, also reachable at
+  the custom domain https://buttcheekslibrary.com (GoDaddy DNS → Render, cert
+  issued) — a real Render web service, auto-deploying on every push to `main`
+  on GitHub (`github.com/mckml69/TKDH`).
 - **Real per-user password authentication** is built and working (`server/auth.js`,
   `/api/auth/*` routes in `server/index.js`) — replacing the original prototype's
   "pick your name" sign-in. See `server/README.md` → "Locked out?" if you need to
@@ -26,6 +27,14 @@ This file covers *state* — what's been done, what's live, what's still open.
 - **The Fire Log weekly export** matches the customer's actual paper form
   (`Fire Weekly Compliance Sheet.xls`), Monday-first per the app's own internal
   week logic — not Sunday-first like the original paper form.
+- **Attachments are stored in Cloudflare R2**, not base64-in-database — the four
+  `R2_*` env vars are set on Render and live uploads/downloads are confirmed
+  working end to end. See `server/README.md` → "Attachments / object storage"
+  for how the dual-mode (R2 vs. legacy base64) fallback works, and `server/r2.js`.
+  One gotcha hit and fixed along the way: the AWS SDK v3 client's default
+  flexible-checksum headers aren't compatible with R2 and made every
+  upload/download fail with no useful error until checksum calculation/validation
+  was explicitly set to `"WHEN_REQUIRED"` in the S3Client config.
 
 ## Things fixed along the way, worth knowing about
 
@@ -45,20 +54,11 @@ lines below it for the precedent).
 
 ## Known open items, roughly in priority order
 
-1. **Point the GoDaddy domain at the Render deployment** — in progress as of
-   this handoff. See `DEPLOY.md` → "3. Point your GoDaddy domain at it."
-2. **Database migration** — the backend still uses the simple `kv_store` table,
+1. **Database migration** — the backend still uses the simple `kv_store` table,
    not the relational schema in `server/db/schema.sql`. Real, scoped, deliberately
    deferred work — see `server/README.md`.
-3. **Object storage for attachments** — code and docs are in place
-   (`server/r2.js`, `server/README.md` → "Attachments / object storage") to
-   offload attachments to Cloudflare R2, but it only activates once the four
-   `R2_*` env vars are actually set on Render (Settings → Environment — added
-   as `sync: false` placeholders in `render.yaml` so Render prompts for them).
-   Until then, attachments still fall back to base64-in-database, same as
-   before.
-4. **Automated tests** — none exist yet.
-5. **Cosmetic, unsolved**: on one specific machine (this session's user, on a
+2. **Automated tests** — none exist yet.
+3. **Cosmetic, unsolved**: on one specific machine (this session's user, on a
    different computer than wherever you're reading this), sidebar icons render
    as invisible/black despite every diagnostic (computed CSS, DevTools, hardware
    acceleration, Night Light, zoom level, incognito) confirming the actual color
