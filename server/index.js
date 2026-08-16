@@ -4,7 +4,7 @@ import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { db } from "./db.js";
 import {
   COOKIE_NAME, authIsActive, createSession, deleteSession, findUserByEmail, findUserById,
@@ -261,9 +261,18 @@ if (existsSync(distDir)) {
   app.get(/^(?!\/api).*/, (req, res) => res.sendFile(path.join(distDir, "index.html")));
 }
 
-app.listen(PORT, () => {
-  console.log(`Compliance Ledger reference server listening on http://localhost:${PORT}`);
-  if (existsSync(distDir)) console.log(`Serving the built frontend from ${distDir}`);
-  else console.log(`No frontend build found at ${distDir} — run "npm run build" in the project root, or point a separate frontend dev server at VITE_API_BASE_URL=http://localhost:${PORT}/api`);
-  if (!isProd && !process.env.COOKIE_SECURE) console.log(`(dev mode: COOKIE_SECURE=false, CORS_ORIGIN=${process.env.CORS_ORIGIN || "http://localhost:5173"})`);
-});
+// Only actually bind a port when this file is run directly (node index.js / npm start),
+// not when it's imported — e.g. by index.test.js, which drives `app` itself via supertest
+// without a real listening socket. See https://nodejs.org/api/esm.html#esm_main for why
+// this is the robust cross-platform way to detect "am I the entry point" under ESM.
+const isMainModule = process.argv[1] && (() => { try { return realpathSync(process.argv[1]) === fileURLToPath(import.meta.url); } catch { return false; } })();
+if (isMainModule) {
+  app.listen(PORT, () => {
+    console.log(`Compliance Ledger reference server listening on http://localhost:${PORT}`);
+    if (existsSync(distDir)) console.log(`Serving the built frontend from ${distDir}`);
+    else console.log(`No frontend build found at ${distDir} — run "npm run build" in the project root, or point a separate frontend dev server at VITE_API_BASE_URL=http://localhost:${PORT}/api`);
+    if (!isProd && !process.env.COOKIE_SECURE) console.log(`(dev mode: COOKIE_SECURE=false, CORS_ORIGIN=${process.env.CORS_ORIGIN || "http://localhost:5173"})`);
+  });
+}
+
+export { app };

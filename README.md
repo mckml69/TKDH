@@ -235,14 +235,18 @@ to build this package does not render pages, so treat the mobile layout as
 - Attachments are base64-in-database by default; optionally offloaded to
   Cloudflare R2 when the `R2_*` env vars are set — see `server/README.md`
   "Attachments / object storage".
-- A small Vitest suite (`npm test`) covers the pure functions in `src/lib/helpers.js`
-  most worth protecting against silent regressions: date arithmetic (including the
-  timezone bug described above), record status/due-date logic, and every form
-  validator. It's a start, not full coverage — most of `helpers.js` (search, the
-  Fire Log export machinery), the server routes, and the UI itself still have no
-  automated tests. Testing beyond that suite has been: (a) a real `vite build`
-  succeeding with zero errors, (b) the reference server's full CRUD cycle verified
-  with real HTTP requests, (c) extensive interactive testing of the original
+- Two small Vitest suites exist so far, both run with `npm test` (frontend: root
+  `package.json`; backend: `server/package.json`, run separately):
+  - `src/lib/helpers.js` — the pure date arithmetic (including the timezone bug
+    described above), record status/due-date logic, and every form validator.
+  - `server/index.test.js` — real integration tests against the actual Express
+    app and a real, throwaway SQLite file (via `supertest`), not mocks: the full
+    auth lifecycle (bootstrap, login, session, logout), the generic storage
+    routes, and the R2 attachment fallback path.
+  It's a start, not full coverage — search/haystack functions and the Fire Log
+  export machinery in `helpers.js`, and the UI itself, still have no automated
+  tests. Testing beyond those two suites has been: (a) a real `vite build`
+  succeeding with zero errors, (b) extensive interactive testing of the original
   single-file prototype before the split (every feature described
   in this README was built and manually tested at some point) — but the *split*
   itself has only been build-verified, not re-run through that full interactive
