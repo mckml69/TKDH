@@ -162,15 +162,20 @@ export function initialsOf(name) {
   const parts = name.trim().split(/\s+/);
   return parts.length === 1 ? parts[0].slice(0, 2).toUpperCase() : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
-/** Who to credit on a locked period's export — the last person who actually touched it before lock,
-    not necessarily who first opened it. Read from the audit trail already recorded on every entry. */
-export function fireLogLastEditor(record) {
+/** The last person who actually touched this record, read from its own audit trail —
+    works for any entity with a `history` array, not just Fire Log. Used as the "who"
+    fallback for record types (Fire Log, Window Restriction checks) that don't have a
+    plain `people` field of their own. */
+export function lastEditor(record) {
   const hist = record.history || [];
   for (let i = hist.length - 1; i >= 0; i--) {
     if (hist[i].by) return hist[i].by;
   }
   return null;
 }
+/** Who to credit on a locked period's export — the last person who actually touched it before lock,
+    not necessarily who first opened it. */
+export const fireLogLastEditor = lastEditor;
 /** Captures what a locked period's export should show, frozen at (or as close as possible to) lock time.
     Taken lazily — the first time anything looks at this record after its lock boundary has passed — so a
     later correction never changes what was already frozen. This is the one honest gap worth naming: if a
@@ -235,11 +240,7 @@ export function checkpointCheckLockBoundary(record) {
   return new Date(y, m, 0, 23, 59, 59, 999); // last day of that month
 }
 export function isCheckpointCheckLocked(record) { return new Date() > checkpointCheckLockBoundary(record); }
-export function checkpointCheckLastEditor(record) {
-  const hist = record.history || [];
-  for (let i = hist.length - 1; i >= 0; i--) { if (hist[i].by) return hist[i].by; }
-  return null;
-}
+export const checkpointCheckLastEditor = lastEditor;
 export function checkpointCheckEnsureSnapshot(record) {
   if (!isCheckpointCheckLocked(record) || record.lockedSnapshot) return record;
   return { ...record, lockedSnapshot: { status: record.status, note: record.note, by: checkpointCheckLastEditor(record), at: new Date().toISOString() } };

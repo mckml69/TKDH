@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { AttachChip, CategoryTag, SaveStatusBanner, Stamp } from "../shared/UI";
 import { RoleContext, STATUS_META, TEMPLATES, TEMPLATE_LIST } from "../../lib/constants";
-import { daysUntil, exportReport, fmtDate, getDueDate, getMode, getStatus, hasPendingCorrection, isOpenIssue, isScheduleMode, matchesQuery, recordsTableHTML, todayStr } from "../../lib/helpers";
+import { daysUntil, exportReport, fmtDate, getDueDate, getMode, getStatus, hasPendingCorrection, isOpenIssue, isScheduleMode, lastEditor, matchesQuery, recordsTableHTML, todayStr } from "../../lib/helpers";
 
 export function RecordRow({ record, assets, rooms, contractors = [], staff = [], onView, onEdit, onDelete, onResolve, onRestore, onRequestCorrection }) {
   const { canDelete, canEdit } = useContext(RoleContext);
@@ -19,14 +19,14 @@ export function RecordRow({ record, assets, rooms, contractors = [], staff = [],
   const due = getDueDate(record);
   const showDue = isScheduleMode(record);
   const d = showDue ? daysUntil(due) : null;
-  const dateCol = showDue ? fmtDate(due) : fmtDate(record.dateReported || record.dateRaised || record.completedDate || record.dateLogged);
+  const dateCol = showDue ? fmtDate(due) : fmtDate(record.dateReported || record.dateRaised || record.completedDate || record.dateLogged || record.periodKey);
   const linkedAsset = record.assetId ? assets.find((a) => a.id === record.assetId) : null;
   const linkedRoom = record.roomId ? rooms.find((r) => r.id === record.roomId) : null;
   const linkedContractor = record.contractorId ? contractors.find((c) => c.id === record.contractorId) : null;
   const linkedStaffMember = record.staffId ? staff.find((s) => s.id === record.staffId) : null;
   const awaitingWhom = record.awaitingContractorId ? contractors.find((c) => c.id === record.awaitingContractorId)?.name : record.awaitingStaffId ? staff.find((s) => s.id === record.awaitingStaffId)?.name : null;
   const resolvedByWhom = record.resolvedContractorId ? contractors.find((c) => c.id === record.resolvedContractorId)?.name : record.resolvedStaffId ? staff.find((s) => s.id === record.resolvedStaffId)?.name : null;
-  const who = record.people || linkedContractor?.name || linkedStaffMember?.name || "—";
+  const who = record.people || linkedContractor?.name || linkedStaffMember?.name || lastEditor(record) || "—";
   let secondary = getMode(record) === "expiry" ? record.detail
     : linkedAsset ? `${linkedAsset.assetCode} · ${record.location || linkedAsset.location || (linkedRoom ? `Room ${linkedRoom.roomNumber}` : "")}`
     : record.location ? record.location
