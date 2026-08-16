@@ -57,7 +57,11 @@ lines below it for the precedent).
 1. **Database migration** — the backend still uses the simple `kv_store` table,
    not the relational schema in `server/db/schema.sql`. Real, scoped, deliberately
    deferred work — see `server/README.md`.
-2. **Automated tests** — none exist yet.
+2. **Automated tests** — a first Vitest suite exists (`src/lib/helpers.test.js`,
+   run via `npm test`) covering the pure date/status/validation functions in
+   `helpers.js`. Everything else (search/haystack functions, the Fire Log export
+   machinery, the server routes, the UI) still has no automated coverage — this
+   was a deliberately small first slice, not the whole job.
 3. **Cosmetic, unsolved**: on one specific machine (this session's user, on a
    different computer than wherever you're reading this), sidebar icons render
    as invisible/black despite every diagnostic (computed CSS, DevTools, hardware

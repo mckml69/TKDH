@@ -235,10 +235,15 @@ to build this package does not render pages, so treat the mobile layout as
 - Attachments are base64-in-database by default; optionally offloaded to
   Cloudflare R2 when the `R2_*` env vars are set — see `server/README.md`
   "Attachments / object storage".
-- No automated test suite ships with this package. Testing so far has been: (a) a
-  real `vite build` succeeding with zero errors, (b) the reference server's full
-  CRUD cycle verified with real HTTP requests, (c) extensive interactive testing
-  of the original single-file prototype before the split (every feature described
+- A small Vitest suite (`npm test`) covers the pure functions in `src/lib/helpers.js`
+  most worth protecting against silent regressions: date arithmetic (including the
+  timezone bug described above), record status/due-date logic, and every form
+  validator. It's a start, not full coverage — most of `helpers.js` (search, the
+  Fire Log export machinery), the server routes, and the UI itself still have no
+  automated tests. Testing beyond that suite has been: (a) a real `vite build`
+  succeeding with zero errors, (b) the reference server's full CRUD cycle verified
+  with real HTTP requests, (c) extensive interactive testing of the original
+  single-file prototype before the split (every feature described
   in this README was built and manually tested at some point) — but the *split*
   itself has only been build-verified, not re-run through that full interactive
   test pass. Do that before trusting this deeply.
