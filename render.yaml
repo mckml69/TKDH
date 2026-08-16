@@ -10,7 +10,10 @@ services:
     name: compliance-ledger
     runtime: node
     plan: starter
-    buildCommand: "npm install && npm run build && cd server && npm install"
+    # --include=dev is required here: NODE_ENV=production (set below) makes npm skip
+    # devDependencies by default, which is where vite itself lives — without this flag
+    # the build step fails with "vite: not found" even though vite is listed in package.json.
+    buildCommand: "npm install --include=dev && npm run build && cd server && npm install"
     startCommand: "node server/index.js"
     envVars:
       - key: NODE_ENV
