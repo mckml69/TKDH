@@ -57,17 +57,19 @@ lines below it for the precedent).
 1. **Database migration** — the backend still uses the simple `kv_store` table,
    not the relational schema in `server/db/schema.sql`. Real, scoped, deliberately
    deferred work — see `server/README.md`.
-2. **Automated tests** — three Vitest suites exist now, frontend and backend
-   as separate npm packages each with their own `npm test`: `src/lib/helpers.test.js`
-   and `src/lib/fireLog.test.js` (pure date/status/validation logic plus the Fire
-   Log/Window Restriction period-lock/export-merge machinery, run at the repo
-   root) and `server/index.test.js` (real integration tests against the Express
-   app + a throwaway SQLite file via `supertest` — auth lifecycle, storage
-   routes, R2 fallback path — run inside `server/`). `vite.config.js` explicitly
-   excludes `server/**` from the root test run since it's a separate package
-   with its own dependencies. Everything else (search/haystack functions and
-   the HTML export builders in `helpers.js`, the UI itself) still has no
-   automated coverage.
+2. **Automated tests** — four Vitest suites exist now, frontend and backend
+   as separate npm packages each with their own `npm test`: `src/lib/helpers.test.js`,
+   `src/lib/fireLog.test.js`, and `src/lib/search.test.js` (pure date/status/
+   validation logic, the Fire Log/Window Restriction period-lock/export-merge
+   machinery, and the search/haystack + Compliance Library matching logic —
+   run at the repo root, 103 tests) and `server/index.test.js` (real
+   integration tests against the Express app + a throwaway SQLite file via
+   `supertest` — auth lifecycle, storage routes, R2 fallback path — run
+   inside `server/`, 12 tests). `vite.config.js` explicitly excludes
+   `server/**` from the root test run since it's a separate package with its
+   own dependencies. Essentially all pure business logic in `helpers.js` is
+   covered now; what's left is the HTML export/report-builder functions
+   (templating, lower value without snapshot-testing infra) and the UI itself.
 3. **Cosmetic, unsolved**: on one specific machine (this session's user, on a
    different computer than wherever you're reading this), sidebar icons render
    as invisible/black despite every diagnostic (computed CSS, DevTools, hardware

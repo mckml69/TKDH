@@ -235,7 +235,7 @@ to build this package does not render pages, so treat the mobile layout as
 - Attachments are base64-in-database by default; optionally offloaded to
   Cloudflare R2 when the `R2_*` env vars are set — see `server/README.md`
   "Attachments / object storage".
-- Three Vitest suites exist so far — frontend and backend are separate npm
+- Four Vitest suites exist so far — frontend and backend are separate npm
   packages, each with its own independent `npm test`:
   - `src/lib/helpers.test.js` — pure date arithmetic (including the timezone
     bug described above), record status/due-date logic, and every form validator.
@@ -243,13 +243,18 @@ to build this package does not render pages, so treat the mobile layout as
     export-merge logic: period keys and labels, lock boundaries, the frozen-
     snapshot merge rules (late filing vs. a real correction), the weekly-key
     repair function, and the timezone-bug detector itself.
+  - `src/lib/search.test.js` — the haystack/search builders, `universalSearch`
+    (including the built-in REQUIREMENTS reference list), the Compliance
+    Library's requirement-matching logic, and the asset/staff compliance
+    rollup functions.
   - `server/index.test.js` — real integration tests against the actual Express
     app and a real, throwaway SQLite file (via `supertest`), not mocks: the full
     auth lifecycle (bootstrap, login, session, logout), the generic storage
     routes, and the R2 attachment fallback path.
-  It's a start, not full coverage — search/haystack functions and the HTML
-  export builders in `helpers.js`, and the UI itself, still have no automated
-  tests. Testing beyond those suites has been: (a) a real `vite build`
+  Between these, essentially all of the pure business logic in `helpers.js` is
+  now covered — what's left untested is the HTML export/report-builder
+  functions (mostly templating, lower value without snapshot-testing infra)
+  and the UI itself. Testing beyond these suites has been: (a) a real `vite build`
   succeeding with zero errors, (b) extensive interactive testing of the original
   single-file prototype before the split (every feature described
   in this README was built and manually tested at some point) — but the *split*
