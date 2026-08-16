@@ -235,17 +235,21 @@ to build this package does not render pages, so treat the mobile layout as
 - Attachments are base64-in-database by default; optionally offloaded to
   Cloudflare R2 when the `R2_*` env vars are set — see `server/README.md`
   "Attachments / object storage".
-- Two small Vitest suites exist so far, both run with `npm test` (frontend: root
-  `package.json`; backend: `server/package.json`, run separately):
-  - `src/lib/helpers.js` — the pure date arithmetic (including the timezone bug
-    described above), record status/due-date logic, and every form validator.
+- Three Vitest suites exist so far — frontend and backend are separate npm
+  packages, each with its own independent `npm test`:
+  - `src/lib/helpers.test.js` — pure date arithmetic (including the timezone
+    bug described above), record status/due-date logic, and every form validator.
+  - `src/lib/fireLog.test.js` — the Fire Log and Window Restriction period/lock/
+    export-merge logic: period keys and labels, lock boundaries, the frozen-
+    snapshot merge rules (late filing vs. a real correction), the weekly-key
+    repair function, and the timezone-bug detector itself.
   - `server/index.test.js` — real integration tests against the actual Express
     app and a real, throwaway SQLite file (via `supertest`), not mocks: the full
     auth lifecycle (bootstrap, login, session, logout), the generic storage
     routes, and the R2 attachment fallback path.
-  It's a start, not full coverage — search/haystack functions and the Fire Log
-  export machinery in `helpers.js`, and the UI itself, still have no automated
-  tests. Testing beyond those two suites has been: (a) a real `vite build`
+  It's a start, not full coverage — search/haystack functions and the HTML
+  export builders in `helpers.js`, and the UI itself, still have no automated
+  tests. Testing beyond those suites has been: (a) a real `vite build`
   succeeding with zero errors, (b) extensive interactive testing of the original
   single-file prototype before the split (every feature described
   in this README was built and manually tested at some point) — but the *split*
