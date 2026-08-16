@@ -2,13 +2,13 @@ import React, { useState, useMemo, useContext } from "react";
 import {
   Plus, Pencil, Trash2, ArrowLeft, Package, MapPin, Repeat, ArchiveRestore, Archive, Search, ListFilter, Blinds, Award, Share2,
 } from "lucide-react";
-import { RoleContext, TEMPLATES, ASSET_TYPES, ASSET_STATUSES, DECOMMISSION_REASONS } from "../../lib/constants";
+import { RoleContext, TEMPLATES, ASSET_TYPES, ASSET_STATUSES, DECOMMISSION_REASONS, STATUS_META } from "../../lib/constants";
 import {
-  uid, todayStr, fmtDate, generateAssetCode, copyLifecycleFields, validateAsset, getEventDate,
+  uid, todayStr, fmtDate, generateAssetCode, copyLifecycleFields, validateAsset, getEventDate, getStatus,
   assetComplianceStatus, isIssueMode, isOpenIssue, findRecurringIssue, findRepeatContractor, findRepeatFailure,
   certificateStatus,
 } from "../../lib/helpers";
-import { CategoryTag, ErrorBanner, FormPage, HistoryList, PatternCallout, SaveStatusBanner, Stamp } from "../shared/UI";
+import { AttachChip, CategoryTag, ErrorBanner, FormPage, HistoryList, PatternCallout, SaveStatusBanner, Stamp } from "../shared/UI";
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
