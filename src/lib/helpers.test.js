@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
-  localDateStr, addDays, weekStartDate, daysUntil, daysSince, fmtDate, formatBytes, escapeHtml,
+  localDateStr, addDays, weekStartDate, daysUntil, daysSince, fmtDate, formatBytes,
   initialsOf, getMode, getDueDate, getStatus, isOverdue, isDueSoon, isDueToday, isOpenIssue,
   insuranceStatus, certificateStatus, visitStatus, validateRecord, validateAsset, validateRoom,
   validateContractor, validateStaff, validateCertificate, validateVisit, validateUser, generateAssetCode,
@@ -60,18 +60,6 @@ describe("formatBytes", () => {
     expect(formatBytes(300)).toBe("0KB");
     expect(formatBytes(1536)).toBe("2KB");
     expect(formatBytes(5 * 1024 * 1024)).toBe("5.0MB");
-  });
-});
-
-describe("escapeHtml", () => {
-  it("escapes &, <, >, and \"", () => {
-    expect(escapeHtml('<script>alert("x")</script>')).toBe("&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;");
-  });
-
-  it("treats null/undefined as an empty string, but keeps falsy non-nullish values", () => {
-    expect(escapeHtml(null)).toBe("");
-    expect(escapeHtml(undefined)).toBe("");
-    expect(escapeHtml(0)).toBe("0");
   });
 });
 

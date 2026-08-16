@@ -18,7 +18,9 @@ import {
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { CategoryTag, ErrorBanner, FormPage, HistoryList, SaveStatusBanner, Stamp, Timeline } from "../shared/UI";
 import { ASSET_TYPES, RoleContext } from "../../lib/constants";
-import { assetComplianceStatus, certificateStatus, contractorHaystack, escapeHtml, exportReport, fmtDate, formatBytes, getEventDate, insuranceStatus, statusChipHTML, todayStr, uid, validateContractor } from "../../lib/helpers";
+import { assetComplianceStatus, certificateStatus, contractorHaystack, fmtDate, formatBytes, getEventDate, insuranceStatus, todayStr, uid, validateContractor } from "../../lib/helpers";
+import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
+import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
 export function ContractorFormPage({ contractor, onSave, onClose }) {
   const [form, setForm] = useState(contractor || { id: uid(), name: "", contactName: "", phone: "", email: "", insuranceExpiry: "", notes: "", attachments: [], tags: [] });
@@ -138,12 +140,22 @@ export function ContractorsList({ contractors, records, onOpen, onAdd, onEdit, o
 
   const [saveStatus, setSaveStatus] = useState(null);
   const handleSave = async () => {
-    const rows = filtered.map((c) => {
-      const visits = records.filter((r) => r.contractorId === c.id).length;
-      return `<tr><td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.contactName || "")}</td><td>${escapeHtml(c.phone || "")}</td><td>${escapeHtml(c.email || "")}</td><td>${visits}</td><td>${statusChipHTML(insuranceStatus(c))}</td></tr>`;
-    }).join("");
-    const body = filtered.length === 0 ? '<p class="muted">None.</p>' : `<table><thead><tr><th>Name</th><th>Contact</th><th>Phone</th><th>Email</th><th>Visits</th><th>Insurance</th></tr></thead><tbody>${rows}</tbody></table>`;
-    const result = await exportReport(`contractor-register-${todayStr()}.html`, "Contractor Register", `Saved ${fmtDate(todayStr())} · ${filtered.length} contractor${filtered.length === 1 ? "" : "s"}`, body, branding);
+    const rows = filtered.map((c) => ({
+      name: c.name, contact: c.contactName || "", phone: c.phone || "", email: c.email || "",
+      visits: records.filter((r) => r.contractorId === c.id).length, insurance: insuranceStatus(c),
+    }));
+    const title = "Contractor Register";
+    const columns = [
+      { key: "name", label: "Name", width: 0.24 },
+      { key: "contact", label: "Contact", width: 0.16 },
+      { key: "phone", label: "Phone", width: 0.14 },
+      { key: "email", label: "Email", width: 0.2 },
+      { key: "visits", label: "Visits", width: 0.1 },
+      { key: "insurance", label: "Insurance", width: 0.16, chip: true },
+    ];
+    const subtitle = `Saved ${fmtDate(todayStr())} · ${filtered.length} contractor${filtered.length === 1 ? "" : "s"}`;
+    const pdfBytes = await buildRegisterPdf({ title, subtitle, branding, sections: [{ type: "table", columns, rows }] });
+    const result = await exportPdfReport(`contractor-register-${todayStr()}.pdf`, title, pdfBytes);
     if (result.status === "fallback") onExportFallback(result);
     else setSaveStatus(result.status);
   };

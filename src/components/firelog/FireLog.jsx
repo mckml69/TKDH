@@ -4,8 +4,10 @@ import { RoleContext, TEMPLATES, FIRE_LOG_ITEMS, FIRE_LOG_PERIOD_LABEL } from ".
 import {
   uid, todayStr, fmtDate, weekStartDate, fireLogCurrentPeriodKey, fireLogPeriodLabel, fireLogFindMissingDaily, fireLogWeeksInRange,
   fireLogLockBoundary, isFireLogLocked, fireLogLastEditor, fireLogEnsureSnapshot, fireLogSuspectedTimezoneAffected,
-  fireLogExportBodyHTML, exportReport, hasPendingCorrection,
+  hasPendingCorrection,
 } from "../../lib/helpers";
+import { buildFireLogPdf } from "../../lib/pdf/fireLogPdf";
+import { exportPdfReport } from "../../lib/pdf/exportPdf";
 import { ErrorBanner, FormPage, HistoryList, PatternCallout, SaveStatusBanner } from "../shared/UI";
 
 export function FireLogMenuPage({ records, onPick, onExport, onOpenSuspected, onClose }) {
@@ -163,8 +165,9 @@ export function FireLogExportPage({ records, onOpenDay, onExportFallback, onClos
 
   const handleExport = async () => {
     if (!canExport) return;
-    const body = fireLogExportBodyHTML(records, startDate, endDate, currentUser?.name, branding);
-    const result = await exportReport(`fire-log-${startDate}-to-${endDate}.html`, "Fire Log", `${fmtDate(startDate)} – ${fmtDate(endDate)}`, body, branding);
+    const title = "Fire Log";
+    const pdfBytes = await buildFireLogPdf({ records, startDate, endDate, managerName: currentUser?.name, branding });
+    const result = await exportPdfReport(`fire-log-${startDate}-to-${endDate}.pdf`, title, pdfBytes);
     if (result.status === "fallback") onExportFallback(result);
     else setSaveStatus(result.status);
   };

@@ -13,7 +13,9 @@ import {
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { ErrorBanner, FormPage, HistoryList, SaveStatusBanner, Stamp } from "../shared/UI";
 import { ASSET_TYPES, CERT_TYPES, RoleContext } from "../../lib/constants";
-import { addDays, certificateHaystack, certificateStatus, escapeHtml, exportReport, fmtDate, formatBytes, statusChipHTML, todayStr, uid, validateCertificate } from "../../lib/helpers";
+import { addDays, certificateHaystack, certificateStatus, fmtDate, formatBytes, todayStr, uid, validateCertificate } from "../../lib/helpers";
+import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
+import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
 export function CertificateFormPage({ cert, assets, contractors, prefill, onSave, onClose }) {
   const [form, setForm] = useState(cert || { id: uid(), title: "", certType: CERT_TYPES[0], issuer: "", contractorId: null, assetId: null, coverage: "", issueDate: todayStr(), expiryDate: addDays(todayStr(), 365), notes: "", attachments: [], tags: [], ...(prefill || {}) });
@@ -118,9 +120,18 @@ export function CertificatesList({ certificates, assets, contractors, onOpen, on
 
   const [saveStatus, setSaveStatus] = useState(null);
   const handleSave = async () => {
-    const rows = filtered.map((c) => `<tr><td>${escapeHtml(c.title)}</td><td>${escapeHtml(c.certType)}</td><td>${escapeHtml(c.issuer || "")}</td><td>${fmtDate(c.expiryDate)}</td><td>${statusChipHTML(certificateStatus(c))}</td></tr>`).join("");
-    const body = filtered.length === 0 ? '<p class="muted">None.</p>' : `<table><thead><tr><th>Title</th><th>Type</th><th>Issuer</th><th>Expires</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
-    const result = await exportReport(`certificate-register-${todayStr()}.html`, "Certificate Register", `Saved ${fmtDate(todayStr())} · ${filtered.length} certificate${filtered.length === 1 ? "" : "s"}`, body, branding);
+    const rows = filtered.map((c) => ({ title: c.title, type: c.certType, issuer: c.issuer || "", expires: fmtDate(c.expiryDate), status: certificateStatus(c) }));
+    const title = "Certificate Register";
+    const columns = [
+      { key: "title", label: "Title", width: 0.28 },
+      { key: "type", label: "Type", width: 0.22 },
+      { key: "issuer", label: "Issuer", width: 0.2 },
+      { key: "expires", label: "Expires", width: 0.14 },
+      { key: "status", label: "Status", width: 0.16, chip: true },
+    ];
+    const subtitle = `Saved ${fmtDate(todayStr())} · ${filtered.length} certificate${filtered.length === 1 ? "" : "s"}`;
+    const pdfBytes = await buildRegisterPdf({ title, subtitle, branding, sections: [{ type: "table", columns, rows }] });
+    const result = await exportPdfReport(`certificate-register-${todayStr()}.pdf`, title, pdfBytes);
     if (result.status === "fallback") onExportFallback(result);
     else setSaveStatus(result.status);
   };

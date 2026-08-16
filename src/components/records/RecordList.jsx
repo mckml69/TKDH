@@ -11,7 +11,9 @@ import {
 } from "lucide-react";
 import { AttachChip, CategoryTag, SaveStatusBanner, Stamp } from "../shared/UI";
 import { RoleContext, STATUS_META, TEMPLATES, TEMPLATE_LIST } from "../../lib/constants";
-import { daysUntil, exportReport, fmtDate, getDueDate, getMode, getStatus, hasPendingCorrection, isOpenIssue, isScheduleMode, lastEditor, matchesQuery, recordsTableHTML, todayStr } from "../../lib/helpers";
+import { daysUntil, fmtDate, getDueDate, getEventDate, getMode, getStatus, hasPendingCorrection, isOpenIssue, isScheduleMode, lastEditor, matchesQuery, todayStr } from "../../lib/helpers";
+import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
+import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
 export function RecordRow({ record, assets, rooms, contractors = [], staff = [], onView, onEdit, onDelete, onResolve, onRestore, onRequestCorrection }) {
   const { canDelete, canEdit } = useContext(RoleContext);
@@ -92,7 +94,25 @@ export function Ledger({ records, assets, rooms, contractors, staff, filters, se
   const handleSave = async () => {
     const title = `Compliance Ledger — ${filterLabel}`;
     const subtitle = `Saved ${fmtDate(todayStr())} · ${filtered.length} record${filtered.length === 1 ? "" : "s"}`;
-    const result = await exportReport(`compliance-ledger-${todayStr()}.html`, title, subtitle, recordsTableHTML(filtered, assets), branding);
+    const rows = filtered.map((r) => {
+      const showDue = isScheduleMode(r);
+      const linkedAsset = r.assetId ? assets.find((a) => a.id === r.assetId) : null;
+      const detail = getMode(r) === "expiry" ? (r.detail || "") : (linkedAsset ? `${linkedAsset.assetCode} · ${r.location || ""}` : (r.location || ""));
+      return {
+        type: TEMPLATES[r.category]?.short || "", title: r.title, detail,
+        who: r.people || "", date: fmtDate(showDue ? getDueDate(r) : getEventDate(r)), status: getStatus(r),
+      };
+    });
+    const columns = [
+      { key: "type", label: "Type", width: 0.12 },
+      { key: "title", label: "Title", width: 0.22 },
+      { key: "detail", label: "Detail", width: 0.24 },
+      { key: "who", label: "Who", width: 0.14 },
+      { key: "date", label: "Date", width: 0.12 },
+      { key: "status", label: "Status", width: 0.16, chip: true },
+    ];
+    const pdfBytes = await buildRegisterPdf({ title, subtitle, branding, sections: [{ type: "table", columns, rows }] });
+    const result = await exportPdfReport(`compliance-ledger-${todayStr()}.pdf`, title, pdfBytes);
     if (result.status === "fallback") onExportFallback(result);
     else setSaveStatus(result.status);
   };

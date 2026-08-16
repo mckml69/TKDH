@@ -97,8 +97,10 @@ compliance-ledger/
 │   │   │                        *_HISTORY_FIELDS map used for diffing.
 │   │   ├── helpers.js           pure functions: date/status logic, search, validation,
 │   │   │                        pattern detection (recurring issues, repeat contractors),
-│   │   │                        the export-to-HTML report builder, and the Fire Log /
-│   │   │                        Window Restriction period-locking and frozen-snapshot logic.
+│   │   │                        and the Fire Log / Window Restriction period-locking and
+│   │   │                        frozen-snapshot logic.
+│   │   ├── pdf/                 real PDF export (pdf-lib, entirely client-side) — see
+│   │   │                        "Report export" below.
 │   │   ├── auditTrail.js        computeUpsert/Archive/Restore — the audit-trail engine.
 │   │   │                        Every entity's create/edit/archive/restore goes through
 │   │   │                        these three functions, which is what makes "every action
@@ -219,6 +221,36 @@ from one to the other is real, scoped work — see "Next steps".
 
 ---
 
+## Report export
+
+Every register export, the Compliance Ledger, the First Day Audit gap report,
+and the Fire Log produce a **real PDF** (`src/lib/pdf/`), generated entirely
+client-side with `pdf-lib` — no server or storage involved, same as everything
+else about export. `pdf-lib` is low-level (you place text/lines by hand, no
+built-in tables), so there's a small custom layout toolkit on top of it:
+
+- `pdfKit.js` — shared primitives: page/cursor management with automatic
+  pagination, word-wrapped text, a generic table renderer, the status chips
+  (reusing `STATUS_META`'s colors/labels), letterhead (logo + business
+  details), footer. One real gotcha worth knowing if you touch this: pdf-lib's
+  standard fonts use WinAnsi encoding, which has **no glyph for ✓** (throws if
+  you try to draw it as text) — `checkmark()` draws it as two vector strokes
+  instead, and `table()` special-cases a literal `"✓"` cell value to use it.
+- `registerPdf.js` — the generic flowing document (heading/paragraph/table
+  blocks) used by every register, the Ledger, and the Audit gap report.
+- `fireLogPdf.js` — a bespoke builder mirroring the Fire Log's exact paper-form
+  grid (one real PDF page per Monday-start week) — not a flowing table, so it
+  doesn't go through `registerPdf.js`.
+- `exportPdf.js` — the same three-tier share/download/fallback strategy the
+  export always used (native Share sheet → direct download → an in-app
+  `<embed>` view for the rare browser where both are blocked), just producing
+  `application/pdf` instead of `text/html`.
+
+This replaced an HTML-only export that was a deliberate workaround from this
+app's original single-file Claude.ai artifact days — `pdf-lib` (proven to work
+even then) wasn't on that sandbox's approved-package allowlist. Once this
+became a real npm project, that restriction no longer applied.
+
 ## Styling & mobile
 
 All CSS lives in `src/styles/global.css`, plain CSS with custom properties, no
@@ -251,10 +283,15 @@ to build this package does not render pages, so treat the mobile layout as
     app and a real, throwaway SQLite file (via `supertest`), not mocks: the full
     auth lifecycle (bootstrap, login, session, logout), the generic storage
     routes, and the R2 attachment fallback path.
+  - `src/lib/pdf/pdf.test.js` — structural tests for the PDF export builders
+    (valid PDF output, page counts/pagination, the empty-data and no-branding
+    edge cases, and a regression test for the WinAnsi ✓-glyph bug described
+    in "Report export" above). Not visual/snapshot tests — every PDF report
+    type was also hand-verified once by generating a real file and checking
+    its actual extracted text content matched expectations.
   Between these, essentially all of the pure business logic in `helpers.js` is
-  now covered — what's left untested is the HTML export/report-builder
-  functions (mostly templating, lower value without snapshot-testing infra)
-  and the UI itself. Testing beyond these suites has been: (a) a real `vite build`
+  now covered, plus the PDF export layer. What's left untested is the UI
+  itself. Testing beyond these suites has been: (a) a real `vite build`
   succeeding with zero errors, (b) extensive interactive testing of the original
   single-file prototype before the split (every feature described
   in this README was built and manually tested at some point) — but the *split*

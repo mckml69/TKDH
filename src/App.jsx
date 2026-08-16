@@ -115,7 +115,7 @@ export default function App() {
     push({ page: "record-form", template, record, prefill, viewOnly: !!viewOnly });
   };
   const openRecordView = (r) => openRecordForm(TEMPLATES[r.category], r, null, true);
-  const openReportFallback = (result) => push({ page: "report-fallback", title: result.title, subtitle: result.subtitle, bodyHTML: result.bodyHTML });
+  const openReportFallback = (result) => push({ page: "report-fallback", title: result.title, pdfBytes: result.pdfBytes });
 
   const handleSaveRecord = (form, logAnother) => {
     const isExisting = records.some((r) => r.id === form.id);
@@ -476,7 +476,7 @@ export default function App() {
   } else if (current.page === "confirm-delete") {
     body = <ConfirmDeletePage message={current.message} onCancel={pop} onConfirm={handleConfirmDelete} />;
   } else if (current.page === "report-fallback") {
-    body = <ReportFallback title={current.title} subtitle={current.subtitle} bodyHTML={current.bodyHTML} onBack={pop} />;
+    body = <ReportFallback title={current.title} pdfBytes={current.pdfBytes} onBack={pop} />;
   } else if (current.page === "search-results") {
     body = <SearchResults query={searchQuery} records={records} assets={assets} rooms={rooms} contractors={contractors} staff={staff} certificates={certificates} visits={visits}
       onView={openRecordView} onEditRecord={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onDeleteRecord={handleDeleteRecord} onResolve={(r) => push({ page: "resolve-form", record: r })}

@@ -13,7 +13,9 @@ import { LibraryDisclaimer } from "../library/Library";
 import { Ledger } from "../records/RecordList";
 import { ReqCategoryTag, SaveStatusBanner, Stamp } from "../shared/UI";
 import { ANSWER_OPTIONS, AUDIT_CATEGORIES, PRIORITY_ORDER, REQUIREMENTS, TEMPLATES, auditCategoryLabel, getAuditPriority, getImmediateAction } from "../../lib/constants";
-import { escapeHtml, exportReport, fmtDate, todayStr } from "../../lib/helpers";
+import { fmtDate, todayStr } from "../../lib/helpers";
+import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
+import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
 export function AuditIntro({ audit, onStart, onResume, onViewReport }) {
   const answered = Object.keys(audit.responses || {}).length;
@@ -86,19 +88,37 @@ export function AuditReport({ audit, records, onEditWizard, onOpenRequirement, o
 
   const [saveStatus, setSaveStatus] = useState(null);
   const handleSave = async () => {
-    const rowsHTML = (list) => list.map(({ req, answer }) => `<tr><td>${escapeHtml(req.category ? TEMPLATES[req.category].short : "General")}</td><td>${escapeHtml(req.title)}</td><td>${escapeHtml(answer === "unanswered" ? "Not answered" : answer === "unsure" ? "Not sure" : "Missing")}</td><td>${escapeHtml(getImmediateAction(req))}</td></tr>`).join("");
-    const tableFor = (list) => list.length === 0 ? '<p class="muted">None.</p>' : `<table><thead><tr><th>Category</th><th>Requirement</th><th>Status</th><th>Next step</th></tr></thead><tbody>${rowsHTML(list)}</tbody></table>`;
-    const body = `
-      <h2>Do these first (${highGaps.length})</h2>${tableFor(highGaps)}
-      <h2>Other gaps (${gaps.length - highGaps.length})</h2>${tableFor(gaps.filter((r) => r.priority !== "high"))}
-      <h2>Needs review — exists but outdated (${partial.length})</h2>${tableFor(partial)}
-      <h2>Confirmed in place (${ok.length})</h2>${tableFor(ok)}
-      <h2>What to build from today onward</h2>
-      <p>Don't try to fabricate history you don't have — an assessor or inspector would rather see an honest, dated start than backfilled records.</p>
-      <p>1. Book the high-priority gaps above first — a Fire Risk Assessment and Legionella Risk Assessment are the two foundation documents almost everything else depends on.</p>
-      <p>2. From today, log every check, service, certificate, and training session as it happens — that's the audit trail an inspector actually wants to see.</p>
-      <p>3. Use the Compliance Library any time you're unsure what's expected, and revisit this audit in a few months to see the gap list shrink.</p>`;
-    const result = await exportReport(`first-day-audit-${todayStr()}.html`, "First Day Compliance Audit — Gap Report", `Saved ${fmtDate(audit.completedAt || todayStr())}`, body, branding);
+    const columns = [
+      { key: "category", label: "Category", width: 0.18 },
+      { key: "requirement", label: "Requirement", width: 0.28 },
+      { key: "status", label: "Status", width: 0.16 },
+      { key: "next", label: "Next step", width: 0.38 },
+    ];
+    const rowsFor = (list) => list.map(({ req, answer }) => ({
+      category: req.category ? TEMPLATES[req.category].short : "General",
+      requirement: req.title,
+      status: answer === "unanswered" ? "Not answered" : answer === "unsure" ? "Not sure" : "Missing",
+      next: getImmediateAction(req),
+    }));
+    const title = "First Day Compliance Audit — Gap Report";
+    const sections = [
+      { type: "heading", text: `Do these first (${highGaps.length})` },
+      { type: "table", columns, rows: rowsFor(highGaps) },
+      { type: "heading", text: `Other gaps (${gaps.length - highGaps.length})` },
+      { type: "table", columns, rows: rowsFor(gaps.filter((r) => r.priority !== "high")) },
+      { type: "heading", text: `Needs review — exists but outdated (${partial.length})` },
+      { type: "table", columns, rows: rowsFor(partial) },
+      { type: "heading", text: `Confirmed in place (${ok.length})` },
+      { type: "table", columns, rows: rowsFor(ok) },
+      { type: "heading", text: "What to build from today onward" },
+      { type: "paragraph", text: "Don't try to fabricate history you don't have — an assessor or inspector would rather see an honest, dated start than backfilled records." },
+      { type: "paragraph", text: "1. Book the high-priority gaps above first — a Fire Risk Assessment and Legionella Risk Assessment are the two foundation documents almost everything else depends on." },
+      { type: "paragraph", text: "2. From today, log every check, service, certificate, and training session as it happens — that's the audit trail an inspector actually wants to see." },
+      { type: "paragraph", text: "3. Use the Compliance Library any time you're unsure what's expected, and revisit this audit in a few months to see the gap list shrink." },
+    ];
+    const subtitle = `Saved ${fmtDate(audit.completedAt || todayStr())}`;
+    const pdfBytes = await buildRegisterPdf({ title, subtitle, branding, sections });
+    const result = await exportPdfReport(`first-day-audit-${todayStr()}.pdf`, title, pdfBytes);
     if (result.status === "fallback") onExportFallback(result);
     else setSaveStatus(result.status);
   };

@@ -21,7 +21,9 @@ import { RecordTable } from "../records/RecordList";
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { CategoryTag, ErrorBanner, FormPage, HistoryList, PatternCallout, SaveStatusBanner, Stamp, Timeline } from "../shared/UI";
 import { ASSET_TYPES, ROOM_TYPES, RoleContext } from "../../lib/constants";
-import { assetComplianceStatus, belongsToRoom, daysUntil, escapeHtml, exportReport, findRecurringIssue, fmtDate, getDueDate, getEventDate, getStatus, isOpenIssue, isScheduleMode, todayStr, uid, validateRoom } from "../../lib/helpers";
+import { assetComplianceStatus, belongsToRoom, daysUntil, findRecurringIssue, fmtDate, getDueDate, getEventDate, getStatus, isOpenIssue, isScheduleMode, todayStr, uid, validateRoom } from "../../lib/helpers";
+import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
+import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
 export function RoomFormPage({ room, prefill, onSave, onClose }) {
   const [form, setForm] = useState(room || { id: uid(), roomNumber: "", floor: prefill?.floor || "", roomType: prefill?.roomType || ROOM_TYPES[0], notes: "", attachments: [], tags: [] });
@@ -141,9 +143,17 @@ export function RoomsList({ rooms, records, onOpen, onAdd, onEdit, onDelete, onR
 
   const [saveStatus, setSaveStatus] = useState(null);
   const handleSave = async () => {
-    const rows = filtered.map((r) => `<tr><td>Room ${escapeHtml(r.roomNumber)}</td><td>${escapeHtml(r.floor || "—")}</td><td>${escapeHtml(r.roomType)}</td><td>${openCount(r.id)}</td></tr>`).join("");
-    const body = filtered.length === 0 ? '<p class="muted">None.</p>' : `<table><thead><tr><th>Room</th><th>Floor</th><th>Type</th><th>Open issues</th></tr></thead><tbody>${rows}</tbody></table>`;
-    const result = await exportReport(`room-register-${todayStr()}.html`, "Room Register", `Saved ${fmtDate(todayStr())} · ${filtered.length} room${filtered.length === 1 ? "" : "s"}`, body, branding);
+    const rows = filtered.map((r) => ({ room: `Room ${r.roomNumber}`, floor: r.floor || "—", type: r.roomType, open: openCount(r.id) }));
+    const title = "Room Register";
+    const columns = [
+      { key: "room", label: "Room", width: 0.25 },
+      { key: "floor", label: "Floor", width: 0.25 },
+      { key: "type", label: "Type", width: 0.25 },
+      { key: "open", label: "Open issues", width: 0.25 },
+    ];
+    const subtitle = `Saved ${fmtDate(todayStr())} · ${filtered.length} room${filtered.length === 1 ? "" : "s"}`;
+    const pdfBytes = await buildRegisterPdf({ title, subtitle, branding, sections: [{ type: "table", columns, rows }] });
+    const result = await exportPdfReport(`room-register-${todayStr()}.pdf`, title, pdfBytes);
     if (result.status === "fallback") onExportFallback(result);
     else setSaveStatus(result.status);
   };

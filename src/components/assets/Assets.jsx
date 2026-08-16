@@ -4,12 +4,14 @@ import {
 } from "lucide-react";
 import { RoleContext, TEMPLATES, ASSET_TYPES, ASSET_STATUSES, DECOMMISSION_REASONS } from "../../lib/constants";
 import {
-  uid, todayStr, fmtDate, escapeHtml, exportReport, generateAssetCode, copyLifecycleFields, validateAsset, getEventDate,
+  uid, todayStr, fmtDate, generateAssetCode, copyLifecycleFields, validateAsset, getEventDate,
   assetComplianceStatus, isIssueMode, isOpenIssue, findRecurringIssue, findRepeatContractor, findRepeatFailure,
-  certificateStatus, statusChipHTML,
+  certificateStatus,
 } from "../../lib/helpers";
 import { CategoryTag, ErrorBanner, FormPage, HistoryList, PatternCallout, SaveStatusBanner, Stamp } from "../shared/UI";
 import { AttachmentsField } from "../shared/AttachmentsField";
+import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
+import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
 export function AssetFormPage({ asset, assets, rooms, checkpoints, prefill, onSave, onClose }) {
   const [form, setForm] = useState(asset || (() => {
@@ -150,12 +152,21 @@ export function AssetsList({ assets, records, onOpen, onAdd, onEdit, onDelete, o
 
   const [saveStatus, setSaveStatus] = useState(null);
   const handleSave = async () => {
-    const rows = filtered.map((a) => {
-      const type = ASSET_TYPES.find((t) => t.key === a.assetType);
-      return `<tr><td>${escapeHtml(a.assetCode)}</td><td>${escapeHtml(type?.label)}</td><td>${escapeHtml(a.name || "")}</td><td>${escapeHtml(a.location || "")}</td><td>${statusChipHTML(assetComplianceStatus(a, records))}</td></tr>`;
-    }).join("");
-    const body = filtered.length === 0 ? '<p class="muted">None.</p>' : `<table><thead><tr><th>Code</th><th>Type</th><th>Name</th><th>Location</th><th>Compliance</th></tr></thead><tbody>${rows}</tbody></table>`;
-    const result = await exportReport(`asset-register-${todayStr()}.html`, "Asset Register", `Saved ${fmtDate(todayStr())} · ${filtered.length} asset${filtered.length === 1 ? "" : "s"}`, body, branding);
+    const rows = filtered.map((a) => ({
+      code: a.assetCode, type: ASSET_TYPES.find((t) => t.key === a.assetType)?.label || "",
+      name: a.name || "", location: a.location || "", compliance: assetComplianceStatus(a, records),
+    }));
+    const title = "Asset Register";
+    const columns = [
+      { key: "code", label: "Code", width: 0.16 },
+      { key: "type", label: "Type", width: 0.22 },
+      { key: "name", label: "Name", width: 0.24 },
+      { key: "location", label: "Location", width: 0.2 },
+      { key: "compliance", label: "Compliance", width: 0.18, chip: true },
+    ];
+    const subtitle = `Saved ${fmtDate(todayStr())} · ${filtered.length} asset${filtered.length === 1 ? "" : "s"}`;
+    const pdfBytes = await buildRegisterPdf({ title, subtitle, branding, sections: [{ type: "table", columns, rows }] });
+    const result = await exportPdfReport(`asset-register-${todayStr()}.pdf`, title, pdfBytes);
     if (result.status === "fallback") onExportFallback(result);
     else setSaveStatus(result.status);
   };

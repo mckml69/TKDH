@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import {
   X,
   ChevronRight,
@@ -137,16 +137,30 @@ export function ConfirmDeletePage({ message, onCancel, onConfirm }) {
   );
 }
 
-export function ReportFallback({ title, subtitle, bodyHTML, onBack }) {
+/** For the rare browser where both the native share sheet and a direct file download are
+    blocked — renders the generated PDF inline so the user can still view/save/print it via
+    the browser's own PDF controls. */
+export function ReportFallback({ title, pdfBytes, onBack }) {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    const blobUrl = URL.createObjectURL(new Blob([pdfBytes], { type: "application/pdf" }));
+    setUrl(blobUrl);
+    return () => URL.revokeObjectURL(blobUrl);
+  }, [pdfBytes]);
+
   return (
     <div className="module-view">
       <button className="btn btn-ghost" style={{ padding: "4px 0", marginBottom: 10 }} onClick={onBack}><ArrowLeft size={15} /> Back</button>
       <div className="module-header"><div className="module-title"><FileSearch size={22} color="#16263D" /><h2>{title}</h2></div></div>
-      <p className="muted" style={{ marginTop: -6 }}>{subtitle}</p>
       <div className="print-hint" style={{ marginBottom: 16 }}>
-        Automatic saving isn't available in this browser. Tap and hold below to select and copy the text, or use your browser's own Share/Print menu on this page.
+        Automatic saving isn't available in this browser. Use your browser's own Print/Save controls below, or the download link.
       </div>
-      <div className="report-fallback-content" dangerouslySetInnerHTML={{ __html: bodyHTML }} />
+      {url && (
+        <>
+          <embed src={url} type="application/pdf" className="report-fallback-embed" style={{ width: "100%", height: "70vh", border: "1px solid var(--line)", borderRadius: 8 }} />
+          <a href={url} download={`${title || "report"}.pdf`} className="btn btn-ghost" style={{ marginTop: 10 }}>Download the PDF</a>
+        </>
+      )}
     </div>
   );
 }

@@ -17,7 +17,9 @@ import {
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { ErrorBanner, FormPage, HistoryList, SaveStatusBanner, Stamp, Timeline } from "../shared/UI";
 import { RoleContext } from "../../lib/constants";
-import { escapeHtml, exportReport, fmtDate, formatBytes, getEventDate, getMode, staffHaystack, staffTrainingStatus, statusChipHTML, todayStr, uid, validateStaff } from "../../lib/helpers";
+import { fmtDate, formatBytes, getEventDate, getMode, staffHaystack, staffTrainingStatus, todayStr, uid, validateStaff } from "../../lib/helpers";
+import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
+import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
 export function StaffFormPage({ member, onSave, onClose }) {
   const [form, setForm] = useState(member || { id: uid(), name: "", role: "", email: "", phone: "", startDate: "", notes: "", attachments: [], tags: [] });
@@ -116,12 +118,21 @@ export function StaffList({ staff, records, onOpen, onAdd, onEdit, onDelete, onR
 
   const [saveStatus, setSaveStatus] = useState(null);
   const handleSave = async () => {
-    const rows = filtered.map((s) => {
-      const trainings = records.filter((r) => r.staffId === s.id).length;
-      return `<tr><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.role || "")}</td><td>${escapeHtml(s.phone || s.email || "")}</td><td>${trainings}</td><td>${statusChipHTML(staffTrainingStatus(s, records))}</td></tr>`;
-    }).join("");
-    const body = filtered.length === 0 ? '<p class="muted">None.</p>' : `<table><thead><tr><th>Name</th><th>Role</th><th>Contact</th><th>Records</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
-    const result = await exportReport(`staff-register-${todayStr()}.html`, "Staff Register", `Saved ${fmtDate(todayStr())} · ${filtered.length} staff member${filtered.length === 1 ? "" : "s"}`, body, branding);
+    const rows = filtered.map((s) => ({
+      name: s.name, role: s.role || "", contact: s.phone || s.email || "",
+      records: records.filter((r) => r.staffId === s.id).length, status: staffTrainingStatus(s, records),
+    }));
+    const title = "Staff Register";
+    const columns = [
+      { key: "name", label: "Name", width: 0.26 },
+      { key: "role", label: "Role", width: 0.2 },
+      { key: "contact", label: "Contact", width: 0.24 },
+      { key: "records", label: "Records", width: 0.12 },
+      { key: "status", label: "Status", width: 0.18, chip: true },
+    ];
+    const subtitle = `Saved ${fmtDate(todayStr())} · ${filtered.length} staff member${filtered.length === 1 ? "" : "s"}`;
+    const pdfBytes = await buildRegisterPdf({ title, subtitle, branding, sections: [{ type: "table", columns, rows }] });
+    const result = await exportPdfReport(`staff-register-${todayStr()}.pdf`, title, pdfBytes);
     if (result.status === "fallback") onExportFallback(result);
     else setSaveStatus(result.status);
   };
