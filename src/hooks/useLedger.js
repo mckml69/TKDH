@@ -3,6 +3,7 @@ import { computeArchive, computeRestore, computeUpsert } from "../lib/auditTrail
 import {
   ASSET_HISTORY_FIELDS, CERTIFICATE_HISTORY_FIELDS, CONTRACTOR_HISTORY_FIELDS, RECORD_HISTORY_FIELDS,
   ROOM_HISTORY_FIELDS, STAFF_HISTORY_FIELDS, VISIT_HISTORY_FIELDS, CHECKPOINT_HISTORY_FIELDS,
+  ASSET_TYPES, ROOM_TYPES, ROOM_ASSET_KIT,
 } from "../lib/constants";
 import { fireLogRepairWeeklyKeys, isFireLogLocked, fireLogEnsureSnapshot, copyLifecycleFields, uid } from "../lib/helpers";
 

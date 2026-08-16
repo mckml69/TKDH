@@ -20,7 +20,7 @@ import {
 import { RecordTable } from "../records/RecordList";
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { CategoryTag, ErrorBanner, FormPage, HistoryList, PatternCallout, SaveStatusBanner, Stamp, Timeline } from "../shared/UI";
-import { ASSET_TYPES, ROOM_TYPES, RoleContext } from "../../lib/constants";
+import { ASSET_TYPES, ROOM_ASSET_KIT, ROOM_TYPES, RoleContext } from "../../lib/constants";
 import { assetComplianceStatus, belongsToRoom, daysUntil, findRecurringIssue, fmtDate, getDueDate, getEventDate, getStatus, isOpenIssue, isScheduleMode, todayStr, uid, validateRoom } from "../../lib/helpers";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
