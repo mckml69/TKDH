@@ -69,12 +69,25 @@ something *else* throws `"X is not defined"` in the browser console, check the
 import line at the top of that file first — it's happened enough times in this
 codebase that it's the first thing worth ruling out.
 
-A blanket CSS rule (`.app, .app * { color:#1C1F24; }` in `src/styles/global.css`)
+A blanket CSS rule (`.app, .app * { color:var(--ink); }` in `src/styles/global.css`)
 overrides color on every single element, including SVG icons that use
-`currentColor`. If something renders in the wrong color on a dark background,
-this is almost certainly why — the fix pattern is giving that specific element
-its own explicit `color` rule with higher specificity (see `.app svg` a few
-lines below it for the precedent).
+`currentColor`. **This turned out to be the real cause of the "sidebar icons
+render as invisible/black" issue** noted in earlier handoffs as an unsolved,
+seemingly machine-specific rendering quirk — it wasn't machine-specific at
+all. `.app *` matches not just the `<svg>` tag but every shape *inside* it
+(`<path>`, `<line>`, etc.), and those inner shapes' own `stroke="currentColor"`
+resolves from *their own* computed `color`, not the parent `<svg>`'s — so a
+fix that only restored color on the `<svg>` element itself (the original
+`.app svg { color: inherit; }`) left every icon's actual drawn shape still
+pinned to dark ink. It was invisible for so long because the old sidebar
+background was itself near-black (`#16263D`) — dark ink on near-black is
+imperceptible. The moment the sidebar got a lighter color as part of the
+visual redesign, the same dark icons became obviously wrong, which is what
+made this findable. Fixed by widening the override to `.app svg, .app svg *
+{ color: inherit; }` — covers the `<svg>` tag and everything drawn inside it.
+If something *else* still renders in the wrong color on a colored background,
+this same pattern (a more specific `color` rule on the actual element, not
+just its container) is the fix.
 
 ## Known open items, roughly in priority order
 
@@ -94,14 +107,6 @@ lines below it for the precedent).
    `server/**` from the root test run since it's a separate package with its
    own dependencies. Essentially all pure business logic in `helpers.js` is
    covered now, plus the PDF export layer; what's left is the UI itself.
-3. **Cosmetic, unsolved**: on one specific machine (this session's user, on a
-   different computer than wherever you're reading this), sidebar icons render
-   as invisible/black despite every diagnostic (computed CSS, DevTools, hardware
-   acceleration, Night Light, zoom level, incognito) confirming the actual color
-   value is correct. Deprioritized as a one-machine rendering quirk rather than
-   a real app bug — see conversation history if you want the full diagnostic
-   trail, but don't spend much time on it unless it starts happening elsewhere.
-
 ## Getting set up on a new machine
 
 ```bash

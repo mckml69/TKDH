@@ -5,11 +5,17 @@
                font-family:'Manrope',sans-serif; color:var(--ink); background:var(--bg); min-height:100vh; display:flex; color-scheme:light; }
         .app, .app * { color:var(--ink); }
         /* Icons use stroke="currentColor" to pick up whatever color their container intends (white nav
-           text, a button's own color, etc.) — but the blanket rule above matches the <svg> itself, not
-           just its container, so without this override every icon would render in the same dark ink
-           regardless of background. `.app svg` (0,1,1) beats `.app *` (0,1,0) on specificity alone, so
-           this doesn't depend on source order. */
-        .app svg { color: inherit; }
+           text, a button's own color, etc.) — but the blanket rule above matches every element under
+           .app, including the <svg> itself AND its inner <path>/<line>/<circle> shapes, so without this
+           override every icon (and every stroke inside it) would render in the same dark ink regardless
+           of background. This has to cover both the <svg> tag and its descendants — an earlier version
+           of this rule only restored color on the <svg> element itself, which left every icon's actual
+           drawn shape still pinned to dark ink by `.app *` (their own `currentColor` resolves from their
+           own element, not inherited through the parent <svg>) — invisible on dark backgrounds like the
+           sidebar used to be, near-black-on-near-black, which is exactly why it went unnoticed for so
+           long. `.app svg, .app svg *` (0,1,1) beats `.app *` (0,1,0) on specificity alone, so this
+           doesn't depend on source order. */
+        .app svg, .app svg * { color: inherit; }
         .app *:where(button, a, [class*="btn"]) { text-decoration:none; }
         .app * { box-sizing:border-box; }
         h1,h2,h3 { font-family:'Manrope',sans-serif; margin:0; }
