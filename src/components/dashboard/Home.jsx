@@ -71,7 +71,7 @@ export function Home({ records, assets, rooms, contractors, certificates, respon
           <span className="stat-num">{forgottenCount}</span>
           <span className="stat-label">Not started</span>
         </div>
-        <div className="stat-card" style={{ borderTopColor: "var(--positive)" }}>
+        <div className="stat-card" style={{ cursor: "pointer", borderTopColor: "var(--positive)" }} onClick={() => goToLedger({ category: "all", status: "compliant", query: "" })}>
           <span className="stat-num" style={{ color: "var(--positive)" }}>{canWaitCount}</span>
           <span className="stat-label">Up to date</span>
         </div>

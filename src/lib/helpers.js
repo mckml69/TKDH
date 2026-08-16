@@ -231,6 +231,21 @@ export function fireLogSuspectedTimezoneAffected(record) {
     system rather than renaming Fire Log's proven functions mid-build — both share the same "last day
     of month" boundary math, just computed independently. */
 export function checkpointCheckPeriodKey(today = todayStr()) { return today.slice(0, 7); }
+/** Every calendar-month period key ("YYYY-MM") overlapping [startDate, endDate] — the export unit
+    for Window Restriction checks, same role fireLogWeeksInRange plays for the Fire Log's weeks. */
+export function checkpointCheckPeriodsInRange(startDate, endDate) {
+  const periods = [];
+  let [y, m] = startDate.slice(0, 7).split("-").map(Number);
+  const [endY, endM] = endDate.slice(0, 7).split("-").map(Number);
+  let guard = 0;
+  while ((y < endY || (y === endY && m <= endM)) && guard < 600) { // ~50 years, sane upper bound
+    periods.push(`${y}-${String(m).padStart(2, "0")}`);
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+    guard++;
+  }
+  return periods;
+}
 export function checkpointCheckPeriodLabel(periodKey) {
   const [y, m] = periodKey.split("-").map(Number);
   return new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });

@@ -27,6 +27,19 @@ This file covers *state* — what's been done, what's live, what's still open.
 - **The Fire Log weekly export** matches the customer's actual paper form
   (`Fire Weekly Compliance Sheet.xls`), Monday-first per the app's own internal
   week logic — not Sunday-first like the original paper form.
+- **Window Restriction Checks can now be exported too** — this was the one
+  major record type with no export at all (confirmed: not broken, genuinely
+  never built — `checkpointCheckExportSource` in `helpers.js` existed, tested,
+  and had zero callers). `WindowChecksExportPage` (`src/components/windowchecks/
+  WindowChecks.jsx`), reachable via "Export for an inspection" on the Window
+  Restriction menu (General Manager only). One row per (checkpoint, month) over
+  a date range, via the existing generic `registerPdf.js` table builder — no
+  new PDF builder needed, since unlike Fire Log there's no per-item checklist
+  grid, just status/note/who per checkpoint per month. A checkpoint with no
+  record for a given month shows as "Not logged" rather than being silently
+  skipped, so gaps stay visible to whoever reviews it. New pure helper
+  `checkpointCheckPeriodsInRange` in `helpers.js` (tested) mirrors
+  `fireLogWeeksInRange`'s role for months instead of weeks.
 - **Every export produces a real PDF now**, not HTML — `src/lib/pdf/` (pdf-lib,
   entirely client-side, no server/storage involved). This replaced a
   deliberate HTML-only workaround from this app's original single-file

@@ -42,7 +42,7 @@ import { ConfirmDeletePage, ReportFallback, TemplatePickerPage } from "./compone
 import { StaffDetail, StaffFormPage, StaffList } from "./components/staff/Staff";
 import { ResetPasswordPage, SignInScreen, UserFormPage, UsersList } from "./components/users/Users";
 import { VisitDetail, VisitFormPage, VisitsList } from "./components/visits/Visits";
-import { WindowCheckDetailPage, WindowRestrictionChecksPage } from "./components/windowchecks/WindowChecks";
+import { WindowCheckDetailPage, WindowChecksExportPage, WindowRestrictionChecksPage } from "./components/windowchecks/WindowChecks";
 import { useAudit } from "./hooks/useAudit";
 import { useCurrentUser } from "./hooks/useCurrentUser";
 import { useLedger } from "./hooks/useLedger";
@@ -423,11 +423,16 @@ export default function App() {
       onOpenNotOk={(cp, periodKey, rec) => push({ page: "window-check-not-ok", checkpoint: cp, periodKey, record: rec, initialStatus: "not_ok" })}
       onOpenDetail={(cp, periodKey, rec) => push({ page: "window-check-not-ok", checkpoint: cp, periodKey, record: rec })}
       onViewPast={(r) => openRecordForm(TEMPLATES[r.category], r, null)}
+      onExport={() => push({ page: "window-checks-export" })}
       onClose={pop} />;
   } else if (current.page === "window-check-not-ok") {
     const liveRecord = current.record ? records.find((r) => r.id === current.record.id) || current.record : null;
     body = <WindowCheckDetailPage checkpoint={current.checkpoint} periodKey={current.periodKey} record={liveRecord} initialStatus={current.initialStatus} canEdit={role === "General Manager"}
       onSave={handleSaveWindowCheck} onClose={pop} />;
+  } else if (current.page === "window-checks-export") {
+    body = role === "General Manager"
+      ? <WindowChecksExportPage checkpoints={checkpoints} assets={assets} records={records} onExportFallback={openReportFallback} onClose={pop} branding={branding} />
+      : <div className="empty-state">Only a General Manager can export Window Restriction checks.</div>;
   } else if (current.page === "fire-log-menu") {
     body = <FireLogMenuPage records={records} onPick={(category) => {
       if (category === "fire_periodic") { push({ page: "fire-log-periodic-menu" }); return; }
@@ -547,7 +552,7 @@ export default function App() {
 
         <div className="nav-divider" />
         {(() => {
-          const checkPages = ["fire-log-menu", "fire-log-entry", "fire-log-type-menu", "fire-log-periodic-menu", "fire-log-periodic-entry", "fire-log-export", "fire-log-suspected", "window-checks", "window-check-not-ok"];
+          const checkPages = ["fire-log-menu", "fire-log-entry", "fire-log-type-menu", "fire-log-periodic-menu", "fire-log-periodic-entry", "fire-log-export", "fire-log-suspected", "window-checks", "window-check-not-ok", "window-checks-export"];
           const isOnCheckPage = checkPages.includes(current.page);
           const expanded = checksOpen || isOnCheckPage;
           return (
@@ -558,7 +563,7 @@ export default function App() {
               {expanded && (
                 <div className="nav-subgroup">
                   <button className={"nav-item" + (checkPages.slice(0, 7).includes(current.page) ? " active" : "")} onClick={() => resetTo({ page: "fire-log-menu" })}><Flame size={16} /> Fire Log Checks</button>
-                  <button className={"nav-item" + (["window-checks", "window-check-not-ok"].includes(current.page) ? " active" : "")} onClick={() => resetTo({ page: "window-checks" })}><Blinds size={16} /> Window Restriction</button>
+                  <button className={"nav-item" + (["window-checks", "window-check-not-ok", "window-checks-export"].includes(current.page) ? " active" : "")} onClick={() => resetTo({ page: "window-checks" })}><Blinds size={16} /> Window Restriction</button>
                 </div>
               )}
             </>

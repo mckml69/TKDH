@@ -4,7 +4,7 @@ import {
   fireLogCurrentPeriodKey, fireLogPeriodLabel, fireLogFindMissingDaily, fireLogWeeksInRange,
   fireLogMergeItemForExport, fireLogExportSource, fireLogLockBoundary, isFireLogLocked,
   fireLogEnsureSnapshot, fireLogRepairWeeklyKeys, fireLogSuspectedTimezoneAffected,
-  checkpointCheckPeriodKey, checkpointCheckPeriodLabel, checkpointCheckLockBoundary,
+  checkpointCheckPeriodKey, checkpointCheckPeriodLabel, checkpointCheckPeriodsInRange, checkpointCheckLockBoundary,
   isCheckpointCheckLocked, checkpointCheckExportSource,
 } from "./helpers";
 
@@ -300,6 +300,20 @@ describe("checkpointCheckPeriodKey / checkpointCheckPeriodLabel", () => {
 
   it("period label is the full month name and year", () => {
     expect(checkpointCheckPeriodLabel("2026-03")).toBe("March 2026");
+  });
+});
+
+describe("checkpointCheckPeriodsInRange", () => {
+  it("lists every calendar-month period overlapping the range", () => {
+    expect(checkpointCheckPeriodsInRange("2026-01-15", "2026-04-02")).toEqual(["2026-01", "2026-02", "2026-03", "2026-04"]);
+  });
+
+  it("a range within a single month is just that one period", () => {
+    expect(checkpointCheckPeriodsInRange("2026-03-01", "2026-03-20")).toEqual(["2026-03"]);
+  });
+
+  it("correctly rolls over a year boundary", () => {
+    expect(checkpointCheckPeriodsInRange("2025-11-10", "2026-02-05")).toEqual(["2025-11", "2025-12", "2026-01", "2026-02"]);
   });
 });
 
