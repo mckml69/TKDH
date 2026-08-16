@@ -1,0 +1,27 @@
+# Render "Blueprint" — lets Render read this file and pre-fill a new Web Service's
+# settings automatically instead of you typing them in by hand. See DEPLOY.md for
+# the full walkthrough (this file alone doesn't explain what to click where).
+#
+# What this describes: ONE service that builds the frontend (Vite) and installs the
+# backend's dependencies, then runs the backend, which serves the built frontend
+# itself (see server/index.js) — so the whole app is one deployable unit, not two.
+services:
+  - type: web
+    name: compliance-ledger
+    runtime: node
+    plan: starter
+    buildCommand: "npm install && npm run build && cd server && npm install"
+    startCommand: "node server/index.js"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: DATABASE_PATH
+        value: /var/data/data.sqlite
+      # CORS_ORIGIN isn't needed here — the frontend and backend share an origin in
+      # this setup, so no cross-origin requests happen. It only matters for local dev.
+    disk:
+      name: compliance-ledger-data
+      mountPath: /var/data
+      sizeGB: 1

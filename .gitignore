@@ -1,0 +1,11 @@
+node_modules/
+dist/
+
+.env
+.env.local
+server/.env
+
+server/data.sqlite
+server/data.sqlite-*
+
+*.log
