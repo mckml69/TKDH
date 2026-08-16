@@ -16,10 +16,11 @@ anything else with this — it matters.**
 
 ## What's real vs. simulated (read this first)
 
-This app was prototyped inside a sandboxed environment that provided a simple
-`window.storage.get/set/delete` API for free, with no server and no real
-authentication. That shaped two things you need to know about before treating this
-as production-ready:
+This app was originally prototyped inside a sandboxed environment that provided
+a simple `window.storage.get/set/delete` API for free, with no server and no
+real authentication. That shaped how storage works, and used to shape
+authentication too — but the auth story below has since moved on from the
+prototype. Worth knowing about either way:
 
 **Storage.** Every hook in `src/hooks/` still calls `window.storage.*` directly.
 Outside the original sandbox, nothing provides that — so `src/lib/storage/`
@@ -32,20 +33,28 @@ polyfills it. Two adapters are included:
   working* reference server is included in `/server` (see below) — but see its own
   caveats before trusting it with real data.
 
-**Authentication.** The General Manager / Employee roles are real in the sense
-that the UI genuinely enforces them (Employees can't reach the Edit button, can't
-see the Certificates register, etc.) and every action is attributed to a real,
-named user. But **there are no passwords anywhere in this system, on purpose** — a
-fake password field would create false confidence without adding real security.
-Signing in is presented honestly as "pick your name from the list," not a login.
-This is accountability and workflow enforcement, not an access-control boundary.
-**Do not deploy this publicly without adding real authentication first** — see
-"Next steps" below.
+**Authentication is real now.** The original prototype had no passwords at all —
+signing in was honestly presented as "pick your name from the list," accountability
+and workflow enforcement, not an access-control boundary. That's since been
+replaced: `server/auth.js` implements real per-person password hashing (`scrypt`)
+and httpOnly-cookie sessions, enforced on every `/api/*` request once the first
+account is bootstrapped. See `server/README.md` and `HANDOFF.md` for how it works
+and how to reset a password if you're locked out. The General Manager / Employee
+role split is layered on top of that and, same as before, is genuinely enforced in
+the UI (Employees can't reach the Edit button, can't see the Certificates
+register, etc.) with every action attributed to a real, named user.
 
-Neither of these is a bug to be quietly patched over. They're documented,
-deliberate scope boundaries from the prototype phase, now clearly labelled so
-whoever continues this knows exactly what to build next and why it wasn't already
-built.
+This only applies in **API mode** (`VITE_STORAGE_MODE=api`, talking to the real
+backend) — **local-storage mode has no backend at all**, so there's nothing for a
+password to authenticate against; its own lightweight name+email bootstrap screen
+is a dev/demo convenience, not a security boundary, exactly like the storage
+itself in that mode.
+
+Neither of these was a bug to be quietly patched over. They were documented,
+deliberate scope boundaries from the prototype phase, clearly labelled so whoever
+continued this knew exactly what to build next and why it wasn't already
+built — auth is that story playing out; the database migration in "Next steps"
+below is the same pattern, still open.
 
 ---
 
@@ -263,7 +272,9 @@ to build this package does not render pages, so treat the mobile layout as
 
 ## Known limitations / honest gaps
 
-- No real authentication (see above).
+- Real authentication exists (see "What's real vs. simulated" above), but only
+  in API mode — local-storage mode still has no access-control boundary, on
+  purpose, since there's no backend in that mode for a password to check against.
 - Attachments are base64-in-database by default; optionally offloaded to
   Cloudflare R2 when the `R2_*` env vars are set — see `server/README.md`
   "Attachments / object storage".
@@ -302,19 +313,19 @@ to build this package does not render pages, so treat the mobile layout as
   elsewhere). The audio recording itself is the reliable part; transcription is
   best-effort on top of it.
 
-## Next steps, roughly in priority order
+## Next steps
 
-1. **Re-run a full interactive pass** on the split project (click through every
-   register, every form, the correction-request workflow, sign-in) to confirm the
-   split didn't silently change behaviour anywhere the build tool couldn't catch.
-2. **Real authentication** on the server: password hashing (argon2/bcrypt) +
-   sessions or JWTs, replacing the trust-everything reference server.
-3. **Migrate the reference server from the `kv_store` table to `schema.sql`'s
-   relational schema.** This is the biggest real piece of work left: rewriting the
-   API routes to read/write normalized rows instead of JSON blobs, one entity type
+This list was accurate at the original handover and has since gone stale in
+places (real authentication and object storage for attachments both shipped;
+a real test suite exists now) — **`HANDOFF.md` is the up-to-date, living
+version of this list**, kept current as work actually lands. What's still
+genuinely open, as of the last update there:
+
+1. **Migrate the reference server from the `kv_store` table to `schema.sql`'s
+   relational schema.** The biggest real piece of work left: rewriting the API
+   routes to read/write normalized rows instead of JSON blobs, one entity type
    at a time. `useLedger.js` and the other hooks would keep working via the same
    `window.storage` contract as long as the API layer keeps translating.
-4. **Object storage for attachments** (S3-compatible) instead of embedding
-   base64 in JSON — `attachments.storage_url` in the schema already anticipates
-   this.
-5. Automated tests — there are none yet.
+2. **More automated test coverage** — a real suite exists (`npm test`, both
+   frontend and backend) but doesn't yet cover the UI itself; see `HANDOFF.md`
+   for exactly what's covered and what isn't.

@@ -1,9 +1,9 @@
 # Deploying Compliance Ledger
 
 This walks through getting the app live on a real domain, end to end. It assumes
-you've already read the "What's real vs. simulated" section in `README.md` and
-have real authentication set up (see that README's "Next steps" — if you're
-still on the name-picker sign-in, do that first).
+you've already read the "What's real vs. simulated" section in `README.md` —
+real authentication ships with the app itself now (`server/auth.js`), nothing
+extra to set up before deploying.
 
 The shape of it: **one Render web service** runs the backend (Express + SQLite)
 and also serves the built frontend itself (see `server/index.js`), so there's
