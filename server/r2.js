@@ -16,6 +16,12 @@ const client = r2Enabled
       region: "auto",
       endpoint: R2_ENDPOINT,
       credentials: { accessKeyId: R2_ACCESS_KEY_ID, secretAccessKey: R2_SECRET_ACCESS_KEY },
+      // R2 doesn't support the AWS SDK's newer default flexible-checksum headers on
+      // requests/responses — leaving these on the SDK's default ("WHEN_SUPPORTED")
+      // makes PutObject/GetObject fail against R2. This is a documented Cloudflare
+      // R2 + aws-sdk-js-v3 compatibility gotcha, not something specific to this app.
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED",
     })
   : null;
 

@@ -195,7 +195,8 @@ app.get("/api/storage/:key", requireAuth, async (req, res) => {
       const { buffer, mime } = await getAttachment(req.params.key);
       const value = `data:${marker.mime || mime};base64,${buffer.toString("base64")}`;
       return res.json({ key: req.params.key, value, shared: true });
-    } catch {
+    } catch (err) {
+      console.error(`R2 getAttachment failed for ${req.params.key}:`, err);
       return res.status(500).json({ error: "failed to load attachment from storage" });
     }
   }
@@ -217,7 +218,8 @@ app.put("/api/storage/:key", requireAuth, async (req, res) => {
            ON CONFLICT(key, shared) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
         ).run(req.params.key, marker);
         return res.json({ key: req.params.key, value, shared: true });
-      } catch {
+      } catch (err) {
+        console.error(`R2 putAttachment failed for ${req.params.key}:`, err);
         return res.status(500).json({ error: "failed to save attachment to storage" });
       }
     }
@@ -235,7 +237,7 @@ app.delete("/api/storage/:key", requireAuth, async (req, res) => {
   const marker = row && parseR2Marker(row.value);
   db.prepare("DELETE FROM kv_store WHERE key = ? AND shared = 1").run(req.params.key);
   if (marker) {
-    try { await deleteAttachment(req.params.key); } catch {}
+    try { await deleteAttachment(req.params.key); } catch (err) { console.error(`R2 deleteAttachment failed for ${req.params.key}:`, err); }
   }
   res.json({ key: req.params.key, deleted: true, shared: true });
 });
