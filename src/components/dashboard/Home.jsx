@@ -63,7 +63,7 @@ export function Home({ records, assets, rooms, contractors, certificates, respon
           <span className="stat-num" style={{ color: today.length > 0 ? "var(--critical)" : "var(--ink)" }}>{today.length}</span>
           <span className="stat-label">Critical</span>
         </div>
-        <div className="stat-card" style={{ borderTopColor: dueSoonCount > 0 ? "var(--warning)" : undefined }}>
+        <div className="stat-card" style={{ cursor: "pointer", borderTopColor: dueSoonCount > 0 ? "var(--warning)" : undefined }} onClick={() => goToLedger({ category: "all", status: "due-soon", query: "" })}>
           <span className="stat-num" style={{ color: dueSoonCount > 0 ? "var(--warning)" : "var(--ink)" }}>{dueSoonCount}</span>
           <span className="stat-label">Due within 30 days</span>
         </div>

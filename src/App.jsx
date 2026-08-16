@@ -539,7 +539,7 @@ export default function App() {
       ) : (
       <>
       <aside className="sidebar">
-        <div className="brand">TKDH</div>
+        <img src="/tkdh-logo.png" alt="TKDH" className="brand-logo" />
         <div className="brand-sub">Compliance Ledger</div>
         <button className="new-record-btn" onClick={() => openTemplatePicker(TEMPLATE_LIST)}><Plus size={16} /> <span>New record</span></button>
         <button className={"nav-item" + (current.page === "home" ? " active" : "")} onClick={() => resetTo({ page: "home" })}><HomeIcon size={16} /> Home</button>
