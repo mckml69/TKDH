@@ -1,13 +1,22 @@
+/** Phones/tablets don't have a clean "save this file to a findable folder" flow the way
+    desktop browsers do — the native share sheet is the standard mobile pattern precisely
+    because it lets someone explicitly choose Files/Drive/etc. On desktop, where a direct
+    download already lands in a normal, known Downloads folder, routing through a share
+    sheet first is an extra, unfamiliar step people don't expect from "export a report" —
+    so it's gated to mobile only. */
+function isMobileDevice() {
+  return window.matchMedia?.("(pointer: coarse)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
 /**
- * Shares/downloads a generated PDF — same three-tier strategy as the old HTML
- * exportReport() (see git history): native Share/Save sheet first (the standard
- * mobile pattern), then a direct file download, then an in-app fallback view
- * (ReportFallback, src/components/shared/UI.jsx) for the rare browser where
- * both of those are blocked.
+ * Shares/downloads a generated PDF: on mobile, tries the native Share/Save sheet first,
+ * then a direct file download; on desktop, goes straight to a direct download. Either way,
+ * falls back to an in-app view (ReportFallback, src/components/shared/UI.jsx) for the rare
+ * browser where that's blocked too.
  */
 export async function exportPdfReport(filename, title, pdfBytes) {
   try {
-    if (navigator.share && navigator.canShare) {
+    if (isMobileDevice() && navigator.share && navigator.canShare) {
       const file = new File([pdfBytes], filename, { type: "application/pdf" });
       if (navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title });
