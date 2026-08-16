@@ -22,6 +22,13 @@ services:
         value: "true"
       - key: DATABASE_PATH
         value: /var/data/data.sqlite
+      # VITE_STORAGE_MODE is a BUILD-time variable — Vite bakes it into the bundle
+      # during "npm run build", it isn't read at runtime. .env (which normally sets
+      # this locally) is gitignored on purpose, so it must be set here or the deployed
+      # build silently falls back to "local" mode (the no-server, no-real-auth,
+      # name-picker sign-in) instead of the real password-based login.
+      - key: VITE_STORAGE_MODE
+        value: api
       # CORS_ORIGIN isn't needed here — the frontend and backend share an origin in
       # this setup, so no cross-origin requests happen. It only matters for local dev.
     disk:
