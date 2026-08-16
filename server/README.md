@@ -56,6 +56,26 @@ cp .env.example .env
 npm start          # http://localhost:4000
 ```
 
+## Attachments / object storage
+
+By default, attachments (photos, voice notes, files) are stored as base64 directly
+in `kv_store`, same as every other value — simple, but not great at scale. Set the
+four `R2_*` variables (see `.env.example`) to point attachments at a Cloudflare R2
+bucket instead: `index.js` special-cases `attach-*` keys to upload/download real
+bytes via `r2.js` (S3-compatible client) and leaves only a small `{ __r2__: true,
+mime }` marker in `kv_store`, so it can tell at read-time whether to fetch from R2
+or return the row directly. This means:
+
+- All four `R2_*` vars must be set together, or none are used (falls back to the
+  original base64-in-DB behavior — this is what local dev with no R2 credentials
+  gets automatically).
+- No migration script needed: attachments written *before* R2 was configured stay
+  exactly as they are (full base64 in `kv_store`, no marker) and keep working
+  unchanged; only new attachments go to R2 going forward.
+- The bucket should stay **private** — this server fetches attachment bytes on the
+  backend and returns them as a data URL, so there's no need for public bucket URLs
+  or signed links.
+
 ## Locked out?
 
 There's no email server in this stack, so "forgot password" doesn't send a reset

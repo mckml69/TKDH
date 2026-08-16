@@ -9,6 +9,7 @@
     "reset-password": "node reset-password.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.600.0",
     "better-sqlite3": "^13.0.3",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",

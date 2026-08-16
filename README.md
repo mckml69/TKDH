@@ -232,9 +232,9 @@ to build this package does not render pages, so treat the mobile layout as
 ## Known limitations / honest gaps
 
 - No real authentication (see above).
-- The reference backend has no auth either, and stores files nowhere in particular
-  (attachments currently stay as base64 inside the same JSON blobs they always
-  were — see `server/README.md` for the real fix).
+- Attachments are base64-in-database by default; optionally offloaded to
+  Cloudflare R2 when the `R2_*` env vars are set — see `server/README.md`
+  "Attachments / object storage".
 - No automated test suite ships with this package. Testing so far has been: (a) a
   real `vite build` succeeding with zero errors, (b) the reference server's full
   CRUD cycle verified with real HTTP requests, (c) extensive interactive testing

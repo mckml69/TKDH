@@ -31,6 +31,18 @@ services:
         value: api
       # CORS_ORIGIN isn't needed here — the frontend and backend share an origin in
       # this setup, so no cross-origin requests happen. It only matters for local dev.
+      # Cloudflare R2 attachment storage — optional (see server/r2.js and
+      # server/.env.example), but "sync: false" means Render won't accept a value from
+      # this file even if one were added here; it must be typed into the dashboard
+      # directly (Environment tab) so the actual secret never lives in the repo.
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false
     disk:
       name: compliance-ledger-data
       mountPath: /var/data

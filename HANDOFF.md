@@ -50,8 +50,13 @@ lines below it for the precedent).
 2. **Database migration** — the backend still uses the simple `kv_store` table,
    not the relational schema in `server/db/schema.sql`. Real, scoped, deliberately
    deferred work — see `server/README.md`.
-3. **Object storage for attachments** — currently base64-encoded into the
-   database; fine at small scale, not long-term.
+3. **Object storage for attachments** — code and docs are in place
+   (`server/r2.js`, `server/README.md` → "Attachments / object storage") to
+   offload attachments to Cloudflare R2, but it only activates once the four
+   `R2_*` env vars are actually set on Render (Settings → Environment — added
+   as `sync: false` placeholders in `render.yaml` so Render prompts for them).
+   Until then, attachments still fall back to base64-in-database, same as
+   before.
 4. **Automated tests** — none exist yet.
 5. **Cosmetic, unsolved**: on one specific machine (this session's user, on a
    different computer than wherever you're reading this), sidebar icons render

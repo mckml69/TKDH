@@ -10,6 +10,7 @@ import {
   COOKIE_NAME, authIsActive, createSession, deleteSession, findUserByEmail, findUserById,
   getCredential, getSessionUser, publicUser, readUsers, setCredential, verifyPassword, writeUsers,
 } from "./auth.js";
+import { r2Enabled, putAttachment, getAttachment, deleteAttachment } from "./r2.js";
 
 /**
  * Reference backend for Compliance Ledger.
@@ -149,7 +150,34 @@ app.post("/api/auth/set-password", requireAuth, (req, res) => {
 
 // ---------------------------------------------------------------------------
 // GENERIC STORAGE (gated by requireAuth once auth is active — see above)
+//
+// Attachments (`attach-*` keys) get special-cased to R2 when it's configured
+// (r2Enabled — see r2.js): the actual bytes go to the bucket instead of the
+// database, and kv_store keeps only a small { __r2__: true, mime } marker so
+// GET/DELETE know to fetch/remove from R2 instead of reading the row directly.
+// Everything else (and attachments written before R2 was ever configured, which
+// still hold a full base64 data URL in kv_store — no marker) behaves exactly as
+// before. This means older attachments keep working with no migration needed,
+// and local dev with no R2 credentials falls back to the original behavior.
 // ---------------------------------------------------------------------------
+
+function isAttachmentKey(key) {
+  return key.startsWith("attach-");
+}
+
+function parseDataUrl(dataUrl) {
+  const match = /^data:([^;]+);base64,([\s\S]*)$/.exec(dataUrl);
+  return match ? { mime: match[1], buffer: Buffer.from(match[2], "base64") } : null;
+}
+
+function parseR2Marker(value) {
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && parsed.__r2__ ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 app.get("/api/storage", requireAuth, (req, res) => {
   const prefix = req.query.prefix || "";
@@ -157,15 +185,44 @@ app.get("/api/storage", requireAuth, (req, res) => {
   res.json({ keys: rows.map((r) => r.key), prefix, shared: true });
 });
 
-app.get("/api/storage/:key", requireAuth, (req, res) => {
+app.get("/api/storage/:key", requireAuth, async (req, res) => {
   const row = db.prepare("SELECT value FROM kv_store WHERE key = ? AND shared = 1").get(req.params.key);
   if (!row) return res.status(404).json({ error: "not found" });
+
+  const marker = parseR2Marker(row.value);
+  if (marker) {
+    try {
+      const { buffer, mime } = await getAttachment(req.params.key);
+      const value = `data:${marker.mime || mime};base64,${buffer.toString("base64")}`;
+      return res.json({ key: req.params.key, value, shared: true });
+    } catch {
+      return res.status(500).json({ error: "failed to load attachment from storage" });
+    }
+  }
   res.json({ key: req.params.key, value: row.value, shared: true });
 });
 
-app.put("/api/storage/:key", requireAuth, (req, res) => {
+app.put("/api/storage/:key", requireAuth, async (req, res) => {
   const { value } = req.body;
   if (typeof value !== "string") return res.status(400).json({ error: "value must be a string" });
+
+  if (r2Enabled && isAttachmentKey(req.params.key)) {
+    const parsed = parseDataUrl(value);
+    if (parsed) {
+      try {
+        await putAttachment(req.params.key, parsed.buffer, parsed.mime);
+        const marker = JSON.stringify({ __r2__: true, mime: parsed.mime });
+        db.prepare(
+          `INSERT INTO kv_store (key, value, shared, updated_at) VALUES (?, ?, 1, datetime('now'))
+           ON CONFLICT(key, shared) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+        ).run(req.params.key, marker);
+        return res.json({ key: req.params.key, value, shared: true });
+      } catch {
+        return res.status(500).json({ error: "failed to save attachment to storage" });
+      }
+    }
+  }
+
   db.prepare(
     `INSERT INTO kv_store (key, value, shared, updated_at) VALUES (?, ?, 1, datetime('now'))
      ON CONFLICT(key, shared) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
@@ -173,8 +230,13 @@ app.put("/api/storage/:key", requireAuth, (req, res) => {
   res.json({ key: req.params.key, value, shared: true });
 });
 
-app.delete("/api/storage/:key", requireAuth, (req, res) => {
+app.delete("/api/storage/:key", requireAuth, async (req, res) => {
+  const row = db.prepare("SELECT value FROM kv_store WHERE key = ? AND shared = 1").get(req.params.key);
+  const marker = row && parseR2Marker(row.value);
   db.prepare("DELETE FROM kv_store WHERE key = ? AND shared = 1").run(req.params.key);
+  if (marker) {
+    try { await deleteAttachment(req.params.key); } catch {}
+  }
   res.json({ key: req.params.key, deleted: true, shared: true });
 });
 
