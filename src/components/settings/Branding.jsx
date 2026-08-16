@@ -66,23 +66,33 @@ export function BrandingFormPage({ branding, onSave, onClose }) {
 
 export function BrandingCard({ branding, onEdit }) {
   const hasAny = branding.companyName || branding.logoDataUrl || branding.registrationNumber;
+  if (!hasAny) {
+    return (
+      <div className="feed-section">
+        <div className="empty-state-card">
+          <FileBadge2 size={18} />
+          <div className="empty-state-card-text">
+            <strong style={{ display: "block", color: "var(--ink)", marginBottom: 3 }}>Report Branding</strong>
+            <p>No logo or business details set yet — add them so exported reports carry your letterhead.</p>
+            <button className="empty-state-card-action" onClick={onEdit}>Set report branding →</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="feed-section">
       <div className="feed-section-head">
-        <h3><FileBadge2 size={16} color="#16263D" /> Report Branding</h3>
-        <button className="btn btn-ghost" style={{ fontSize: 12.5, padding: "4px 8px" }} onClick={onEdit}><Pencil size={13} /> {hasAny ? "Edit" : "Set"}</button>
+        <h3><FileBadge2 size={16} color="#197386" /> Report Branding</h3>
+        <button className="btn btn-ghost" style={{ fontSize: 12.5, padding: "4px 8px" }} onClick={onEdit}><Pencil size={13} /> Edit</button>
       </div>
-      {!hasAny ? (
-        <p className="empty-state" style={{ padding: 14 }}>No logo or business details set yet — add them so exported reports carry your letterhead.</p>
-      ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "2px 0" }}>
-          {branding.logoDataUrl && <img src={branding.logoDataUrl} alt="Logo" style={{ maxHeight: 44, maxWidth: 140 }} />}
-          <div>
-            <p style={{ margin: 0, fontWeight: 600 }}>{branding.companyName || "—"}</p>
-            <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>{branding.registrationNumber || "No registration number set"}</p>
-          </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "2px 0" }}>
+        {branding.logoDataUrl && <img src={branding.logoDataUrl} alt="Logo" style={{ maxHeight: 44, maxWidth: 140 }} />}
+        <div>
+          <p style={{ margin: 0, fontWeight: 600 }}>{branding.companyName || "—"}</p>
+          <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>{branding.registrationNumber || "No registration number set"}</p>
         </div>
-      )}
+      </div>
     </div>
   );
 }

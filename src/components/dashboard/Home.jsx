@@ -7,7 +7,6 @@ import {
   HardHat,
   Award,
   Repeat,
-  Sunrise,
   MessageSquareWarning,
 } from "lucide-react";
 import { RecordTable } from "../records/RecordList";
@@ -15,22 +14,10 @@ import { ResponsiblePersonCard } from "../settings/ResponsiblePerson";
 import { BrandingCard } from "../settings/Branding";
 import { CategoryTag, DashboardSection, Stamp } from "../shared/UI";
 import { REQUIREMENTS, RoleContext } from "../../lib/constants";
-import { assetComplianceStatus, assetUnreliability, belongsToRoom, briefingCanWait, briefingForgotten, briefingLikely, briefingToday, certificateStatus, findRecurringIssue, findRepeatFailure, fmtDate, getMode, getStatus, hasPendingCorrection, insuranceStatus, isScheduleMode, matchRequirement, requirementStatus, roomProblemCounts, timeGreeting, todaysActionItems } from "../../lib/helpers";
-
-export function BriefingPanel({ today, dueSoonCount, patternCount, patternExample, forgottenCount, canWaitCount, onOpenToday, onOpenForgotten }) {
-  return (
-    <div className="briefing-panel">
-      <div className="briefing-head"><Sunrise size={18} /> {timeGreeting()} Here's where things stand.</div>
-      <div className="briefing-item" style={{ cursor: "pointer" }} onClick={onOpenToday}><strong>What needs your attention today?</strong> {briefingToday(today)}</div>
-      <div className="briefing-item"><strong>What's most likely to become a problem?</strong> {briefingLikely({ dueSoonCount, patternCount, patternExample })}</div>
-      <div className="briefing-item" style={{ cursor: "pointer" }} onClick={onOpenForgotten}><strong>What have you forgotten?</strong> {briefingForgotten(forgottenCount)}</div>
-      <div className="briefing-item"><strong>What can wait?</strong> {briefingCanWait(canWaitCount)}</div>
-    </div>
-  );
-}
+import { assetComplianceStatus, assetUnreliability, belongsToRoom, certificateStatus, findRecurringIssue, findRepeatFailure, fmtDate, getMode, getStatus, hasPendingCorrection, insuranceStatus, isScheduleMode, matchRequirement, requirementStatus, roomProblemCounts, timeGreeting, todaysActionItems } from "../../lib/helpers";
 
 export function Home({ records, assets, rooms, contractors, certificates, responsiblePerson, onEditResponsiblePerson, branding, onEditBranding, onEdit, onOpenRoom, onOpenAsset, onOpenContractor, onOpenCertificate, onOpenLibrary, goToLedger }) {
-  const { role } = useContext(RoleContext);
+  const { role, currentUser } = useContext(RoleContext);
   const activeRecords = useMemo(() => records.filter((r) => !r.archived), [records]);
   const pendingCorrections = useMemo(() => activeRecords.filter(hasPendingCorrection), [activeRecords]);
   const activeAssets = useMemo(() => assets.filter((a) => !a.archived), [assets]);
@@ -56,12 +43,6 @@ export function Home({ records, assets, rooms, contractors, certificates, respon
     const contr = contractorsDue.filter((c) => insuranceStatus(c) === "due-soon").length;
     return recs + certs + contr;
   }, [activeRecords, certsExpiringMerged, contractorsDue]);
-  const patternCount = roomProblems.length + unreliableAssets.length;
-  const patternExample = useMemo(() => {
-    if (roomProblems[0]) return `Room ${roomProblems[0].room.roomNumber}`;
-    if (unreliableAssets[0]) return unreliableAssets[0].asset.assetCode;
-    return null;
-  }, [roomProblems, unreliableAssets]);
   const forgottenCount = useMemo(() => REQUIREMENTS.filter((req) => {
     if (req.matchMode === "none") return false;
     const matched = matchRequirement(req, activeRecords, activeCertificates);
@@ -71,9 +52,30 @@ export function Home({ records, assets, rooms, contractors, certificates, respon
 
   return (
     <div className="overview">
-      <BriefingPanel today={today} dueSoonCount={dueSoonCount} patternCount={patternCount} patternExample={patternExample} forgottenCount={forgottenCount} canWaitCount={canWaitCount}
-        onOpenToday={() => goToLedger({ category: "all", status: "all", query: "" })}
-        onOpenForgotten={onOpenLibrary} />
+      <p style={{ fontSize: 15, margin: "0 0 14px" }}>
+        {timeGreeting()} {currentUser?.name ? `${currentUser.name}. ` : ""}
+        {today.length === 0
+          ? "Everything critical is under control."
+          : `${today.length} thing${today.length === 1 ? "" : "s"} need${today.length === 1 ? "s" : ""} your attention.`}
+      </p>
+      <div className="stat-row">
+        <div className="stat-card" style={{ cursor: "pointer", borderTopColor: today.length > 0 ? "var(--critical)" : undefined }} onClick={() => goToLedger({ category: "all", status: "all", query: "" })}>
+          <span className="stat-num" style={{ color: today.length > 0 ? "var(--critical)" : "var(--ink)" }}>{today.length}</span>
+          <span className="stat-label">Critical</span>
+        </div>
+        <div className="stat-card" style={{ borderTopColor: dueSoonCount > 0 ? "var(--warning)" : undefined }}>
+          <span className="stat-num" style={{ color: dueSoonCount > 0 ? "var(--warning)" : "var(--ink)" }}>{dueSoonCount}</span>
+          <span className="stat-label">Due within 30 days</span>
+        </div>
+        <div className="stat-card" style={{ cursor: "pointer" }} onClick={onOpenLibrary}>
+          <span className="stat-num">{forgottenCount}</span>
+          <span className="stat-label">Not started</span>
+        </div>
+        <div className="stat-card" style={{ borderTopColor: "var(--positive)" }}>
+          <span className="stat-num" style={{ color: "var(--positive)" }}>{canWaitCount}</span>
+          <span className="stat-label">Up to date</span>
+        </div>
+      </div>
       <ResponsiblePersonCard person={responsiblePerson} onEdit={onEditResponsiblePerson} />
       <BrandingCard branding={branding} onEdit={onEditBranding} />
 
@@ -83,7 +85,7 @@ export function Home({ records, assets, rooms, contractors, certificates, respon
         </DashboardSection>
       )}
 
-      <DashboardSection title="Needs doing today" icon={Sparkles} color="#16263D" count={today.length} emptyText="Nothing needs attention right now — genuinely clear." onViewAll={() => goToLedger({ category: "all", status: "all", query: "" })}>
+      <DashboardSection title="Needs doing today" icon={Sparkles} color="#197386" count={today.length} emptyText="Nothing needs attention right now — genuinely clear." onViewAll={() => goToLedger({ category: "all", status: "all", query: "" })}>
         <RecordTable records={today.slice(0, 8)} assets={assets} onView={onEdit} onEdit={onEdit} onDelete={() => {}} onResolve={() => {}} emptyText="" />
       </DashboardSection>
 

@@ -70,7 +70,7 @@ export function StaffDetail({ member, records, assets, onBack, onEdit, onViewRec
     <div className="module-view">
       <button className="btn btn-ghost" style={{ padding: "4px 0", marginBottom: 10 }} onClick={onBack}><ArrowLeft size={15} /> Back to staff</button>
       <div className="module-header">
-        <div className="module-title"><Users size={22} color="#16263D" /><h2>{member.name}{member.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
+        <div className="module-title"><Users size={22} color="#197386" /><h2>{member.name}{member.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
         {!member.archived && canEdit && <button className="btn btn-ghost" onClick={() => onEdit(member)}><Pencil size={15} /> Edit staff member</button>}
       </div>
       <div className="asset-info-grid">
@@ -83,7 +83,7 @@ export function StaffDetail({ member, records, assets, onBack, onEdit, onViewRec
       {member.notes && <p className="muted" style={{ marginBottom: 10 }}>{member.notes}</p>}
       {(member.attachments || []).length > 0 && canViewSensitive && (
         <div className="feed-section">
-          <div className="feed-section-head"><h3><Paperclip size={16} color="#16263D" /> Documents <span className="feed-count">{member.attachments.length}</span></h3></div>
+          <div className="feed-section-head"><h3><Paperclip size={16} color="#197386" /> Documents <span className="feed-count">{member.attachments.length}</span></h3></div>
           <div className="attach-list">
             {member.attachments.map((a) => (
               <div className="attach-item" key={a.fileId}><Paperclip size={13} /><span className="attach-name">{a.name}</span><span className="muted">{formatBytes(a.size)}</span></div>
@@ -100,7 +100,7 @@ export function StaffDetail({ member, records, assets, onBack, onEdit, onViewRec
         </div>
       )}
       <div className="feed-section">
-        <div className="feed-section-head"><h3><Clock size={16} color="#16263D" /> Training history <span className="feed-count">{trainings.length}</span></h3></div>
+        <div className="feed-section-head"><h3><Clock size={16} color="#197386" /> Training history <span className="feed-count">{trainings.length}</span></h3></div>
         <p className="muted" style={{ marginTop: -4, marginBottom: 10 }}>Built automatically from every training record linked to this person.</p>
         <Timeline records={trainings} assets={[]} onEdit={onViewRecord} />
       </div>
@@ -140,7 +140,7 @@ export function StaffList({ staff, records, onOpen, onAdd, onEdit, onDelete, onR
   return (
     <div className="module-view">
       <div className="module-header">
-        <div className="module-title"><Users size={22} color="#16263D" /><h2>Staff</h2></div>
+        <div className="module-title"><Users size={22} color="#197386" /><h2>Staff</h2></div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-ghost" onClick={handleSave}><Share2 size={15} /> Save report</button>
           <button className="btn btn-primary" onClick={onAdd}><Plus size={16} /> New staff member</button>

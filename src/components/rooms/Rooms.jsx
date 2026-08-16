@@ -84,7 +84,7 @@ export function RoomDetail({ room, records, assets, onBack, onEditRoom, onLogFor
     <div className="module-view">
       <button className="btn btn-ghost" style={{ padding: "4px 0", marginBottom: 10 }} onClick={onBack}><ArrowLeft size={15} /> Back to room register</button>
       <div className="module-header">
-        <div className="module-title"><BedDouble size={22} color="#16263D" /><h2>Room {room.roomNumber}{room.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
+        <div className="module-title"><BedDouble size={22} color="#197386" /><h2>Room {room.roomNumber}{room.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
         <div style={{ display: "flex", gap: 8 }}>
           {!room.archived && canEdit && <button className="btn btn-ghost" onClick={() => onEditRoom(room)}><Pencil size={15} /> Edit room</button>}
           {!room.archived && <button className="btn btn-primary" onClick={() => onLogForRoom(room)}><Plus size={16} /> Log for this room</button>}
@@ -101,7 +101,7 @@ export function RoomDetail({ room, records, assets, onBack, onEditRoom, onLogFor
       {room.notes && <p className="muted" style={{ marginBottom: 10 }}>{room.notes}</p>}
 
       <div className="feed-section">
-        <div className="feed-section-head"><h3><Clock size={16} color="#16263D" /> Timeline <span className="feed-count">{mine.filter((r) => getEventDate(r)).length}</span></h3></div>
+        <div className="feed-section-head"><h3><Clock size={16} color="#197386" /> Timeline <span className="feed-count">{mine.filter((r) => getEventDate(r)).length}</span></h3></div>
         <Timeline records={mine} assets={assets} onEdit={onViewRecord} />
       </div>
 
@@ -161,7 +161,7 @@ export function RoomsList({ rooms, records, onOpen, onAdd, onEdit, onDelete, onR
   return (
     <div className="module-view">
       <div className="module-header">
-        <div className="module-title"><BedDouble size={22} color="#16263D" /><h2>Room register</h2></div>
+        <div className="module-title"><BedDouble size={22} color="#197386" /><h2>Room register</h2></div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-ghost" onClick={handleSave}><Share2 size={15} /> Save report</button>
           {canDelete && <button className="btn btn-ghost" onClick={onBulkImport}><Package size={15} /> Import room asset kit</button>}

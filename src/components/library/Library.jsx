@@ -32,7 +32,7 @@ export function LibraryList({ records, certificates, onOpen, catFilter, setCatFi
   return (
     <div className="module-view">
       <div className="module-header">
-        <div className="module-title"><BookOpen size={22} color="#16263D" /><h2>Compliance Library</h2></div>
+        <div className="module-title"><BookOpen size={22} color="#197386" /><h2>Compliance Library</h2></div>
       </div>
       <LibraryDisclaimer />
       <div className="stat-row" style={{ marginTop: 18 }}>

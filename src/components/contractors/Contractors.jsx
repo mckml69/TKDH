@@ -68,7 +68,7 @@ export function ContractorDetail({ contractor, records, assets, certificates, on
     <div className="module-view">
       <button className="btn btn-ghost" style={{ padding: "4px 0", marginBottom: 10 }} onClick={onBack}><ArrowLeft size={15} /> Back to contractors &amp; suppliers</button>
       <div className="module-header">
-        <div className="module-title"><HardHat size={22} color="#16263D" /><h2>{contractor.name}{contractor.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
+        <div className="module-title"><HardHat size={22} color="#197386" /><h2>{contractor.name}{contractor.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
         {!contractor.archived && canEdit && <button className="btn btn-ghost" onClick={() => onEdit(contractor)}><Pencil size={15} /> Edit contractor</button>}
       </div>
       <div className="asset-info-grid">
@@ -80,7 +80,7 @@ export function ContractorDetail({ contractor, records, assets, certificates, on
       {contractor.notes && <p className="muted" style={{ marginBottom: 10 }}>{contractor.notes}</p>}
       {(contractor.attachments || []).length > 0 && (
         <div className="feed-section">
-          <div className="feed-section-head"><h3><Paperclip size={16} color="#16263D" /> Certificates & documents <span className="feed-count">{contractor.attachments.length}</span></h3></div>
+          <div className="feed-section-head"><h3><Paperclip size={16} color="#197386" /> Certificates & documents <span className="feed-count">{contractor.attachments.length}</span></h3></div>
           <div className="attach-list">
             {contractor.attachments.map((a) => (
               <div className="attach-item" key={a.fileId}><Paperclip size={13} /><span className="attach-name">{a.name}</span><span className="muted">{formatBytes(a.size)}</span></div>
@@ -122,7 +122,7 @@ export function ContractorDetail({ contractor, records, assets, certificates, on
         </div>
       )}
       <div className="feed-section">
-        <div className="feed-section-head"><h3><Clock size={16} color="#16263D" /> Visit history <span className="feed-count">{visits.length}</span></h3></div>
+        <div className="feed-section-head"><h3><Clock size={16} color="#197386" /> Visit history <span className="feed-count">{visits.length}</span></h3></div>
         <p className="muted" style={{ marginTop: -4, marginBottom: 10 }}>Built automatically from every record linked to this contractor — work completed, dates, and any invoice or certificate attached to that visit.</p>
         <Timeline records={visits} assets={assets} onEdit={onViewRecord} />
       </div>
@@ -163,7 +163,7 @@ export function ContractorsList({ contractors, records, onOpen, onAdd, onEdit, o
   return (
     <div className="module-view">
       <div className="module-header">
-        <div className="module-title"><HardHat size={22} color="#16263D" /><h2>Contractors &amp; Suppliers</h2></div>
+        <div className="module-title"><HardHat size={22} color="#197386" /><h2>Contractors &amp; Suppliers</h2></div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-ghost" onClick={handleSave}><Share2 size={15} /> Save report</button>
           <button className="btn btn-primary" onClick={onAdd}><Plus size={16} /> New contractor / supplier</button>

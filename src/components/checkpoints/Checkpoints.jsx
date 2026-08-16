@@ -52,7 +52,7 @@ export function CheckpointsList({ checkpoints, assets, onOpen, onAdd, onEdit, on
   return (
     <div className="module-view">
       <div className="module-header">
-        <div className="module-title"><MapPin size={22} color="#16263D" /><h2>Checkpoints</h2></div>
+        <div className="module-title"><MapPin size={22} color="#197386" /><h2>Checkpoints</h2></div>
         <button className="btn btn-primary" onClick={onAdd}><Plus size={16} /> New checkpoint</button>
       </div>
       <p className="muted" style={{ marginTop: -8, marginBottom: 16 }}>
@@ -101,7 +101,7 @@ export function CheckpointDetail({ checkpoint, assets, records, onBack, onEdit, 
     <div className="module-view">
       <button className="btn btn-ghost" style={{ padding: "4px 0", marginBottom: 10 }} onClick={onBack}><ArrowLeft size={15} /> Back to checkpoints</button>
       <div className="module-header">
-        <div className="module-title"><MapPin size={22} color="#16263D" /><h2>{checkpoint.name}{checkpoint.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
+        <div className="module-title"><MapPin size={22} color="#197386" /><h2>{checkpoint.name}{checkpoint.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
         {!checkpoint.archived && canEdit && <button className="btn btn-ghost" onClick={() => onEdit(checkpoint)}><Pencil size={15} /> Edit checkpoint</button>}
       </div>
       {checkpoint.notes && <p className="muted" style={{ marginBottom: 10 }}>{checkpoint.notes}</p>}

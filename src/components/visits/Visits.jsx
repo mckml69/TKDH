@@ -67,7 +67,7 @@ export function VisitDetail({ visit, onBack, onEdit }) {
     <div className="module-view">
       <button className="btn btn-ghost" style={{ padding: "4px 0", marginBottom: 10 }} onClick={onBack}><ArrowLeft size={15} /> Back to visits</button>
       <div className="module-header">
-        <div className="module-title"><Landmark size={22} color="#16263D" /><h2>{visit.visitType}{visit.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
+        <div className="module-title"><Landmark size={22} color="#197386" /><h2>{visit.visitType}{visit.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
         {!visit.archived && canEdit && <button className="btn btn-ghost" onClick={() => onEdit(visit)}><Pencil size={15} /> Edit visit</button>}
       </div>
       {isSerious && <div className="form-error-banner" style={{ background: "#FCF6EE", borderColor: "#EEDFC4", color: "#7A5A1D", marginBottom: 16 }}>This visit resulted in a formal outcome: {visit.outcome}.</div>}
@@ -84,7 +84,7 @@ export function VisitDetail({ visit, onBack, onEdit }) {
       {visit.notes && <p className="muted" style={{ marginBottom: 10 }}>{visit.notes}</p>}
       {(visit.attachments || []).length > 0 && (
         <div className="feed-section">
-          <div className="feed-section-head"><h3><Paperclip size={16} color="#16263D" /> Documents <span className="feed-count">{visit.attachments.length}</span></h3></div>
+          <div className="feed-section-head"><h3><Paperclip size={16} color="#197386" /> Documents <span className="feed-count">{visit.attachments.length}</span></h3></div>
           <div className="attach-list">
             {visit.attachments.map((a) => (
               <div className="attach-item" key={a.fileId}><Paperclip size={13} /><span className="attach-name">{a.name}</span><span className="muted">{formatBytes(a.size)}</span></div>
@@ -128,7 +128,7 @@ export function VisitsList({ visits, onOpen, onAdd, onEdit, onDelete, onRestore,
   return (
     <div className="module-view">
       <div className="module-header">
-        <div className="module-title"><Landmark size={22} color="#16263D" /><h2>Regulatory visits</h2></div>
+        <div className="module-title"><Landmark size={22} color="#197386" /><h2>Regulatory visits</h2></div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-ghost" onClick={handleSave}><Share2 size={15} /> Save report</button>
           <button className="btn btn-primary" onClick={onAdd}><Plus size={16} /> Log a visit</button>

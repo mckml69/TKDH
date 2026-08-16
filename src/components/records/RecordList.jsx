@@ -120,7 +120,7 @@ export function Ledger({ records, assets, rooms, contractors, staff, filters, se
   return (
     <div className="module-view">
       <div className="module-header">
-        <div className="module-title"><ListFilter size={22} color="#16263D" /><h2>All records</h2></div>
+        <div className="module-title"><ListFilter size={22} color="#197386" /><h2>All records</h2></div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-ghost" onClick={handleSave}><Share2 size={15} /> Save report</button>
           <button className="btn btn-primary" onClick={onAdd}><Plus size={16} /> New record</button>

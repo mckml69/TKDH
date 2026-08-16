@@ -103,7 +103,7 @@ export function UsersList({ users, currentUser, onAdd, onEdit, onDelete, onResto
   return (
     <div className="module-view">
       <div className="module-header">
-        <div className="module-title"><ShieldCheck size={22} color="#16263D" /><h2>Users &amp; permissions</h2></div>
+        <div className="module-title"><ShieldCheck size={22} color="#197386" /><h2>Users &amp; permissions</h2></div>
         <button className="btn btn-primary" onClick={onAdd}><Plus size={16} /> New user</button>
       </div>
       <p className="muted" style={{ marginTop: -8, marginBottom: 16 }}>General Managers have full access, including editing, deletion, and this page. Employees can create records, complete checks, and attach evidence, but can't edit or delete once saved — they can request a correction instead.</p>
@@ -178,13 +178,13 @@ function ApiSignIn({ onLogin, onBootstrap }) {
     }
   };
 
-  if (needsBootstrap === null) return <div className="signin-screen"><div className="signin-card"><ShieldCheck size={26} color="#16263D" /><h1>Compliance Ledger</h1></div></div>;
+  if (needsBootstrap === null) return <div className="signin-screen"><div className="signin-card"><img src="/tkdh-logo.png" alt="TKDH" className="signin-logo" /><p className="signin-product">Compliance Ledger</p></div></div>;
 
   return (
     <div className="signin-screen">
       <div className="signin-card">
-        <ShieldCheck size={26} color="#16263D" />
-        <h1>Compliance Ledger</h1>
+        <img src="/tkdh-logo.png" alt="TKDH" className="signin-logo" />
+        <p className="signin-product">Compliance Ledger</p>
         {needsBootstrap ? (
           <>
             <p>Nobody's set up yet. Create the first account — it becomes the General Manager account, with full access.</p>
@@ -230,8 +230,8 @@ export function SignInScreen({ users, onSignIn, onCreateUser, onLogin, onBootstr
   return (
     <div className="signin-screen">
       <div className="signin-card">
-        <ShieldCheck size={26} color="#16263D" />
-        <h1>Compliance Ledger</h1>
+        <img src="/tkdh-logo.png" alt="TKDH" className="signin-logo" />
+        <p className="signin-product">Compliance Ledger</p>
         {isFirstUser ? (
           <>
             <p>Nobody's set up yet. Create the first account — it becomes the General Manager account, with full access.</p>

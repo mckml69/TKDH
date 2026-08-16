@@ -25,22 +25,32 @@ export function ResponsiblePersonFormPage({ person, onSave, onClose }) {
 }
 
 export function ResponsiblePersonCard({ person, onEdit }) {
+  if (!person.name) {
+    return (
+      <div className="feed-section">
+        <div className="empty-state-card">
+          <UserCheck size={18} />
+          <div className="empty-state-card-text">
+            <strong style={{ display: "block", color: "var(--ink)", marginBottom: 3 }}>Named Responsible Person</strong>
+            <p>No responsible person set yet — the Fire Safety Order requires one named person accountable for compliance.</p>
+            <button className="empty-state-card-action" onClick={onEdit}>Set responsible person →</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="feed-section">
       <div className="feed-section-head">
-        <h3><UserCheck size={16} color="#16263D" /> Named Responsible Person</h3>
-        <button className="btn btn-ghost" style={{ fontSize: 12.5, padding: "4px 8px" }} onClick={onEdit}><Pencil size={13} /> {person.name ? "Edit" : "Set"}</button>
+        <h3><UserCheck size={16} color="#197386" /> Named Responsible Person</h3>
+        <button className="btn btn-ghost" style={{ fontSize: 12.5, padding: "4px 8px" }} onClick={onEdit}><Pencil size={13} /> Edit</button>
       </div>
-      {!person.name ? (
-        <p className="empty-state" style={{ padding: 14 }}>No responsible person set yet — the Fire Safety Order requires one named person accountable for compliance.</p>
-      ) : (
-        <div className="asset-info-grid" style={{ gridTemplateColumns: "repeat(4,1fr)", marginBottom: 0 }}>
-          <div><span className="field-label">Name</span><p>{person.name}</p></div>
-          <div><span className="field-label">Role</span><p>{person.role || "—"}</p></div>
-          <div><span className="field-label">Phone</span><p>{person.phone || "—"}</p></div>
-          <div><span className="field-label">Email</span><p>{person.email || "—"}</p></div>
-        </div>
-      )}
+      <div className="asset-info-grid" style={{ gridTemplateColumns: "repeat(4,1fr)", marginBottom: 0 }}>
+        <div><span className="field-label">Name</span><p>{person.name}</p></div>
+        <div><span className="field-label">Role</span><p>{person.role || "—"}</p></div>
+        <div><span className="field-label">Phone</span><p>{person.phone || "—"}</p></div>
+        <div><span className="field-label">Email</span><p>{person.email || "—"}</p></div>
+      </div>
     </div>
   );
 }

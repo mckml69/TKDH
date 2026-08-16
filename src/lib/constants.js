@@ -436,17 +436,17 @@ export const VISIT_HISTORY_FIELDS = { visitType: "Visit type", visitDate: "Visit
 export const USER_HISTORY_FIELDS = { name: "Name", email: "Email", role: "Role" };
 
 export const STATUS_META = {
-  overdue: { label: "Overdue", color: "#A8402F" },
-  "due-soon": { label: "Due soon", color: "#B8862B" },
-  compliant: { label: "Compliant", color: "#2F6B4C" },
-  open: { label: "Open", color: "#A8402F" },
-  "in-progress": { label: "In progress", color: "#B8862B" },
-  resolved: { label: "Resolved", color: "#2F6B4C" },
-  "no-checks": { label: "No checks logged", color: "#6E6A61" },
+  overdue: { label: "Overdue", color: "#C65450" },
+  "due-soon": { label: "Due soon", color: "#C89235" },
+  compliant: { label: "Compliant", color: "#3B8268" },
+  open: { label: "Open", color: "#C65450" },
+  "in-progress": { label: "In progress", color: "#C89235" },
+  resolved: { label: "Resolved", color: "#3B8268" },
+  "no-checks": { label: "No checks logged", color: "#65767C" },
   logged: { label: "Logged", color: "#4A5A8A" },
-  missing: { label: "Never logged", color: "#A8402F" },
+  missing: { label: "Never logged", color: "#C65450" },
   "not-tracked": { label: "Not tracked in app", color: "#8A6D1F" },
-  tracked: { label: "Tracked", color: "#2F6B4C" },
+  tracked: { label: "Tracked", color: "#3B8268" },
 };
 
 export const RECORD_HISTORY_FIELDS = {

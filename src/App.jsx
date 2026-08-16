@@ -60,6 +60,7 @@ import {
 import "./styles/global.css";
 
 export default function App() {
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { users, loaded: usersLoaded, upsertUser, archiveUser, restoreUser, reload: reloadUsers } = useUsers();
   const { currentUser, setCurrentUserId, login, bootstrap, logout, changePassword, loaded: sessionLoaded } = useCurrentUser(users);
   const role = currentUser?.role || "Employee";
@@ -538,8 +539,8 @@ export default function App() {
       ) : (
       <>
       <aside className="sidebar">
-        <div className="brand">Compliance Ledger</div>
-        <div className="brand-sub">Hotel operations log</div>
+        <div className="brand">TKDH</div>
+        <div className="brand-sub">Compliance Ledger</div>
         <button className="new-record-btn" onClick={() => openTemplatePicker(TEMPLATE_LIST)}><Plus size={16} /> <span>New record</span></button>
         <button className={"nav-item" + (current.page === "home" ? " active" : "")} onClick={() => resetTo({ page: "home" })}><HomeIcon size={16} /> Home</button>
         <button className={"nav-item" + (current.page === "ledger" && ledgerFilters.category === "all" && ledgerFilters.status === "all" ? " active" : "")} onClick={() => goToLedger({ category: "all", status: "all", query: "" })}><ListFilter size={16} /> All records</button>
@@ -600,12 +601,23 @@ export default function App() {
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="topbar">
-          <div className="role-switcher-top">
-            <span className="muted" style={{ fontSize: 12 }}>Signed in as</span>
-            <span style={{ fontWeight: 600, fontSize: 13 }}>{currentUser.name}</span>
-            <span className="cat-tag" style={{ background: role === "General Manager" ? "#EAF3EC" : "#F1EEE6", color: role === "General Manager" ? "#2F6B4C" : "#6E6A61" }}>{role}</span>
-            {storageMode === "api" && <button className="btn btn-ghost" style={{ padding: "3px 8px", fontSize: 12 }} onClick={() => push({ page: "reset-password", targetUser: currentUser, requireCurrentPassword: true })}>Change password</button>}
-            <button className="btn btn-ghost" style={{ padding: "3px 8px", fontSize: 12 }} onClick={() => (storageMode === "api" ? logout() : setCurrentUserId(null))}>{storageMode === "api" ? "Sign out" : "Switch user"}</button>
+          <div className="user-menu">
+            <button className="user-menu-trigger" onClick={() => setUserMenuOpen((o) => !o)}>
+              <div className="user-menu-trigger-text">
+                <span className="user-menu-name">{currentUser.name}</span>
+                <span className="user-menu-role">{role}</span>
+              </div>
+              <ChevronDown size={14} color="#65767C" />
+            </button>
+            {userMenuOpen && (
+              <>
+                <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setUserMenuOpen(false)} />
+                <div className="user-menu-dropdown">
+                  {storageMode === "api" && <button onClick={() => { setUserMenuOpen(false); push({ page: "reset-password", targetUser: currentUser, requireCurrentPassword: true }); }}>Change password</button>}
+                  <button onClick={() => { setUserMenuOpen(false); storageMode === "api" ? logout() : setCurrentUserId(null); }}>{storageMode === "api" ? "Sign out" : "Switch user"}</button>
+                </div>
+              </>
+            )}
           </div>
           <div className="search-box search-box--wide">
             <Search size={14} color="#6E6A61" />

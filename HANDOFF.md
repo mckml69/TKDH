@@ -48,6 +48,17 @@ This file covers *state* — what's been done, what's live, what's still open.
   flexible-checksum headers aren't compatible with R2 and made every
   upload/download fail with no useful error until checksum calculation/validation
   was explicitly set to `"WHEN_REQUIRED"` in the S3Client config.
+- **Visual redesign (TKDH branding)**: new color palette (`src/styles/global.css`
+  `.app` custom properties — sidebar `#123F4A`, primary/accent `#197386`/`#43A6A1`,
+  status colors remapped in `STATUS_META`), Manrope replacing Fraunces/Inter as
+  the UI font (Fraunces kept only for the "TKDH" sidebar/sign-in brand mark),
+  restyled sidebar/topbar (a proper name+role dropdown replaces the old inline
+  "Signed in as… Change password Sign out" row), empty-state cards redesigned
+  (solid border, action moved inside the card — see `ResponsiblePersonCard`/
+  `BrandingCard`), and the Home dashboard's four-paragraph "briefing" prose
+  replaced with a `.stat-row` of real numbers + one short greeting line (same
+  underlying data, just no longer buried in sentences). Real logo asset at
+  `public/tkdh-logo.png`, used as the favicon and on the sign-in screen.
 
 ## Things fixed along the way, worth knowing about
 

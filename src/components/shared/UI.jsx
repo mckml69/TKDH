@@ -151,7 +151,7 @@ export function ReportFallback({ title, pdfBytes, onBack }) {
   return (
     <div className="module-view">
       <button className="btn btn-ghost" style={{ padding: "4px 0", marginBottom: 10 }} onClick={onBack}><ArrowLeft size={15} /> Back</button>
-      <div className="module-header"><div className="module-title"><FileSearch size={22} color="#16263D" /><h2>{title}</h2></div></div>
+      <div className="module-header"><div className="module-title"><FileSearch size={22} color="#197386" /><h2>{title}</h2></div></div>
       <div className="print-hint" style={{ marginBottom: 16 }}>
         Automatic saving isn't available in this browser. Use your browser's own Print/Save controls below, or the download link.
       </div>

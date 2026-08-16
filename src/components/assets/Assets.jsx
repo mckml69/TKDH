@@ -174,7 +174,7 @@ export function AssetsList({ assets, records, onOpen, onAdd, onEdit, onDelete, o
   return (
     <div className="module-view">
       <div className="module-header">
-        <div className="module-title"><Package size={22} color="#16263D" /><h2>Asset register</h2></div>
+        <div className="module-title"><Package size={22} color="#197386" /><h2>Asset register</h2></div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-ghost" onClick={handleSave}><Share2 size={15} /> Save report</button>
           <button className="btn btn-primary" onClick={onAdd}><Plus size={16} /> New asset</button>

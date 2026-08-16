@@ -22,7 +22,7 @@ export function AuditIntro({ audit, onStart, onResume, onViewReport }) {
   const inProgress = answered > 0 && !audit.completedAt;
   return (
     <div className="module-view">
-      <div className="module-header"><div className="module-title"><ListChecks size={22} color="#16263D" /><h2>First Day Audit</h2></div></div>
+      <div className="module-header"><div className="module-title"><ListChecks size={22} color="#197386" /><h2>First Day Audit</h2></div></div>
       <LibraryDisclaimer />
       <div className="audit-intro-card">
         <h3>Built for taking over with missing paperwork</h3>
@@ -51,7 +51,7 @@ export function AuditWizardStep({ stepIndex, responses, onAnswer, onNext, onBack
   return (
     <div className="module-view">
       <div className="module-header">
-        <div className="module-title"><ListChecks size={22} color="#16263D" /><h2>{auditCategoryLabel(category)}</h2></div>
+        <div className="module-title"><ListChecks size={22} color="#197386" /><h2>{auditCategoryLabel(category)}</h2></div>
         <span className="muted">Step {stepIndex + 1} of {AUDIT_CATEGORIES.length} · {totalAnswered}/{REQUIREMENTS.length} answered overall</span>
       </div>
       <div className="audit-question-list">
@@ -126,7 +126,7 @@ export function AuditReport({ audit, records, onEditWizard, onOpenRequirement, o
   return (
     <div className="module-view">
       <div className="module-header">
-        <div className="module-title"><FileSearch size={22} color="#16263D" /><h2>Gap report</h2></div>
+        <div className="module-title"><FileSearch size={22} color="#197386" /><h2>Gap report</h2></div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-ghost" onClick={handleSave}><Share2 size={15} /> Save report</button>
           <button className="btn btn-ghost" onClick={onEditWizard}><Pencil size={15} /> Edit answers</button>

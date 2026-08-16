@@ -336,7 +336,7 @@ export function RoomLinkReview({ room, candidates, onLink, onSkip }) {
       <div className="ledger-table">
         {candidates.map((c) => (
           <div key={c.id} className="ledger-row ledger-row--flat" style={{ cursor: "pointer" }} onClick={() => toggle(c.id)}>
-            <span><CheckSquare size={16} color={checked[c.id] ? "#16263D" : "#C9C6BC"} /></span>
+            <span><CheckSquare size={16} color={checked[c.id] ? "#197386" : "#C9C6BC"} /></span>
             <span className="mono-strong">{c.title}</span>
             <span className="muted">{c.location}</span>
             <span className="mono">{fmtDate(c.updatedAt || c.createdAt)}</span>

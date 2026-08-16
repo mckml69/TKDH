@@ -19,7 +19,7 @@ export function SearchSection({ title, icon: Icon, count, children }) {
   if (count === 0) return null;
   return (
     <div className="feed-section">
-      <div className="feed-section-head"><h3><Icon size={16} color="#16263D" /> {title} <span className="feed-count">{count}</span></h3></div>
+      <div className="feed-section-head"><h3><Icon size={16} color="#197386" /> {title} <span className="feed-count">{count}</span></h3></div>
       {children}
     </div>
   );
@@ -32,7 +32,7 @@ export function SearchResults({ query, records, assets, rooms, contractors, staf
   if (!query.trim()) {
     return (
       <div className="module-view">
-        <div className="module-header"><div className="module-title"><Search size={22} color="#16263D" /><h2>Search everything</h2></div></div>
+        <div className="module-header"><div className="module-title"><Search size={22} color="#197386" /><h2>Search everything</h2></div></div>
         <div className="empty-state">Search by room, asset code, contractor or supplier name, staff member, certificate, maintenance issue, pest report, inspection, notes, attachment filename, a date, or a tag — it searches records, assets, rooms, contractors, staff, certificates, regulatory visits, and the Compliance Library all at once.</div>
       </div>
     );
@@ -41,7 +41,7 @@ export function SearchResults({ query, records, assets, rooms, contractors, staf
   return (
     <div className="module-view">
       <div className="module-header">
-        <div className="module-title"><Search size={22} color="#16263D" /><h2>Results for "{query}"</h2></div>
+        <div className="module-title"><Search size={22} color="#197386" /><h2>Results for "{query}"</h2></div>
         <span className="muted">{total} result{total === 1 ? "" : "s"}</span>
       </div>
 

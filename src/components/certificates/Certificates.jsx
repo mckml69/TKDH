@@ -80,7 +80,7 @@ export function CertificateDetail({ cert, assets, contractors, onBack, onEdit, o
     <div className="module-view">
       <button className="btn btn-ghost" style={{ padding: "4px 0", marginBottom: 10 }} onClick={onBack}><ArrowLeft size={15} /> Back to certificates</button>
       <div className="module-header">
-        <div className="module-title"><Award size={22} color="#16263D" /><h2>{cert.title}{cert.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
+        <div className="module-title"><Award size={22} color="#197386" /><h2>{cert.title}{cert.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
         {!cert.archived && canEdit && <button className="btn btn-ghost" onClick={() => onEdit(cert)}><Pencil size={15} /> Edit certificate</button>}
       </div>
       <div className="asset-info-grid">
@@ -94,7 +94,7 @@ export function CertificateDetail({ cert, assets, contractors, onBack, onEdit, o
       {cert.notes && <p className="muted" style={{ marginBottom: 10 }}>{cert.notes}</p>}
       {(cert.attachments || []).length > 0 && (
         <div className="feed-section">
-          <div className="feed-section-head"><h3><Paperclip size={16} color="#16263D" /> Documents <span className="feed-count">{cert.attachments.length}</span></h3></div>
+          <div className="feed-section-head"><h3><Paperclip size={16} color="#197386" /> Documents <span className="feed-count">{cert.attachments.length}</span></h3></div>
           <div className="attach-list">
             {cert.attachments.map((a) => (
               <div className="attach-item" key={a.fileId}><Paperclip size={13} /><span className="attach-name">{a.name}</span><span className="muted">{formatBytes(a.size)}</span></div>
@@ -139,7 +139,7 @@ export function CertificatesList({ certificates, assets, contractors, onOpen, on
   return (
     <div className="module-view">
       <div className="module-header">
-        <div className="module-title"><Award size={22} color="#16263D" /><h2>Certificates</h2></div>
+        <div className="module-title"><Award size={22} color="#197386" /><h2>Certificates</h2></div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-ghost" onClick={handleSave}><Share2 size={15} /> Save report</button>
           <button className="btn btn-primary" onClick={onAdd}><Plus size={16} /> New certificate</button>
