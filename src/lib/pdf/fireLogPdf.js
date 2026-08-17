@@ -87,8 +87,9 @@ function weeklyTableRows(page) {
   return FIRE_LOG_ITEMS.fire_weekly.map((item) => {
     const v = page.weekly?.checks?.[item.key];
     if (!v) return { item: item.label, tick: "", comments: "Not logged this week", by: "" };
-    const label = item.hasCallPoint && v.callPoint ? `${item.label} (${v.callPoint})` : item.label;
-    return { item: label, tick: v.done ? "✓" : "—", comments: v.comments || "", by: page.weekly.by ? initialsOf(page.weekly.by) : "" };
+    const callPointNote = item.hasCallPoint && v.callPoint ? `Call point tested: ${v.callPoint}` : "";
+    const comments = [callPointNote, v.comments].filter(Boolean).join(" — ");
+    return { item: item.label, tick: v.done ? "✓" : "—", comments, by: page.weekly.by ? initialsOf(page.weekly.by) : "" };
   });
 }
 
