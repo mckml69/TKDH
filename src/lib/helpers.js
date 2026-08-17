@@ -588,7 +588,18 @@ export function getStatus(record) {
     if (d <= DUE_SOON_WINDOW) return "due-soon";
     return "compliant";
   }
-  if (mode === "log") return "logged";
+  if (mode === "log" || mode === "firelog") return "logged";
+  if (mode === "checkpoint_check") {
+    if (record.category === "legionella_check") {
+      const items = Object.values(record.checks || {});
+      if (items.some((i) => i?.status === "not_ok")) return "open";
+      if (items.length > 0 && items.every((i) => i?.status === "ok")) return "compliant";
+      return "in-progress";
+    }
+    if (record.status === "not_ok") return "open";
+    if (record.status === "ok") return "compliant";
+    return "in-progress";
+  }
   if (record.status === "Resolved") return "resolved";
   if (record.status === "In Progress" || record.status === "Awaiting") return "in-progress";
   return "open";

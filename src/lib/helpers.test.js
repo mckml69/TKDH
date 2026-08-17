@@ -118,6 +118,27 @@ describe("record mode/status logic", () => {
     expect(getStatus({ category: "pest" })).toBe("open");
   });
 
+  it("getStatus for firelog mode is always 'logged' (never the maintenance-style 'open' fallback)", () => {
+    expect(getStatus({ category: "fire_daily" })).toBe("logged");
+    expect(getStatus({ category: "fire_weekly" })).toBe("logged");
+    expect(getStatus({ category: "fire_monthly" })).toBe("logged");
+    expect(getStatus({ category: "fire_periodic" })).toBe("logged");
+  });
+
+  it("getStatus for single-status checkpoint checks (Window Restriction, Legionella Temp) maps ok/not_ok directly", () => {
+    expect(getStatus({ category: "window_restriction_check", status: "ok" })).toBe("compliant");
+    expect(getStatus({ category: "window_restriction_check", status: "not_ok" })).toBe("open");
+    expect(getStatus({ category: "legionella_temp_check", status: "ok" })).toBe("compliant");
+    expect(getStatus({ category: "legionella_temp_check", status: "not_ok" })).toBe("open");
+  });
+
+  it("getStatus for Legionella Descaling aggregates its per-item checks: any not_ok wins, else compliant once everything recorded so far is ok", () => {
+    expect(getStatus({ category: "legionella_check", checks: { kettle: { status: "ok" }, tap: { status: "not_ok" } } })).toBe("open");
+    expect(getStatus({ category: "legionella_check", checks: { kettle: { status: "ok" }, tap: { status: "ok" } } })).toBe("compliant");
+    expect(getStatus({ category: "legionella_check", checks: { kettle: { status: "ok" } } })).toBe("compliant"); // nothing recorded so far contradicts ok — whether every eligible item has been logged is a separate question the golden-rule export answers with full checkpoint context, not this quick status badge
+    expect(getStatus({ category: "legionella_check", checks: {} })).toBe("in-progress"); // nothing recorded yet at all
+  });
+
   it("isOverdue / isDueSoon / isDueToday / isOpenIssue derive from getStatus", () => {
     expect(isOverdue({ category: "training", expiryDate: "2025-12-01" })).toBe(true);
     expect(isDueSoon({ category: "training", expiryDate: "2026-01-25" })).toBe(true);
