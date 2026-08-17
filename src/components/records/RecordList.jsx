@@ -10,7 +10,7 @@ import {
   MessageSquareWarning,
 } from "lucide-react";
 import { AttachChip, CategoryTag, SaveStatusBanner, Stamp } from "../shared/UI";
-import { RoleContext, STATUS_META, TEMPLATES, TEMPLATE_LIST } from "../../lib/constants";
+import { RoleContext, STATUS_META, TEMPLATES, TEMPLATE_LIST, categoryFilterMatches } from "../../lib/constants";
 import { daysUntil, fmtDate, getDueDate, getEventDate, getMode, getStatus, hasPendingCorrection, isOpenIssue, isScheduleMode, lastEditor, matchesQuery, todayStr } from "../../lib/helpers";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
