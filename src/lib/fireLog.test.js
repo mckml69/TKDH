@@ -9,6 +9,7 @@ import {
   legionellaCheckPeriodKey, legionellaCheckPeriodLabel, legionellaCheckPeriodsInRange, legionellaCheckEligibleItems,
   legionellaCheckFindMissing, legionellaCheckExportSource, legionellaCheckLockBoundary, isLegionellaCheckLocked,
   legionellaTempCheckEligibleCheckpoints, legionellaTempCheckFindMissing, legionellaTempCheckExportSource,
+  resolveOriginRecord,
 } from "./helpers";
 
 describe("lastEditor", () => {
@@ -656,5 +657,54 @@ describe("legionellaTempCheckExportSource", () => {
       lockedSnapshot: { status: "ok", note: "", hotTempC: 52, coldTempC: 16, by: "Alice" },
     };
     expect(legionellaTempCheckExportSource(record)).toEqual({ status: "ok", note: "", hotTempC: 52, coldTempC: 16, by: "Alice" });
+  });
+});
+
+describe("resolveOriginRecord", () => {
+  it("returns null for a category it doesn't know how to resolve into", () => {
+    expect(resolveOriginRecord({ category: "maintenance" }, null, "m1", {})).toBe(null);
+  });
+
+  it("window_restriction_check: marks ok and appends the resolution note", () => {
+    const origin = { category: "window_restriction_check", periodKey: "2026-01", status: "not_ok", note: "loose hinge" };
+    const result = resolveOriginRecord(origin, null, "m1", { date: "2026-01-10", notes: "fixed", resolver: "Bob" });
+    expect(result.status).toBe("ok");
+    expect(result.note).toBe("loose hinge\nResolved 10 Jan 2026 by Bob: fixed");
+    expect(result.resolvedVia).toBe("m1");
+  });
+
+  it("window_restriction_check: no prior note just becomes the resolution note", () => {
+    const origin = { category: "window_restriction_check", periodKey: "2026-01", status: "not_ok", note: "" };
+    const result = resolveOriginRecord(origin, null, "m1", { date: "2026-01-10", notes: "fixed", resolver: null });
+    expect(result.note).toBe("Resolved 10 Jan 2026: fixed");
+  });
+
+  it("legionella_temp_check: marks ok and appends the resolution note", () => {
+    const origin = { category: "legionella_temp_check", periodKey: "2026-01", status: "not_ok", note: "hot outlet only 41°C" };
+    const result = resolveOriginRecord(origin, null, "m1", { date: "2026-01-10", notes: "reset thermostat", resolver: "Bob" });
+    expect(result.status).toBe("ok");
+    expect(result.note).toBe("hot outlet only 41°C\nResolved 10 Jan 2026 by Bob: reset thermostat");
+    expect(result.resolvedVia).toBe("m1");
+  });
+
+  it("legionella_check: resolves only the named item, keyed resolvedVia, other items untouched", () => {
+    const origin = {
+      category: "legionella_check", periodKey: "2026-Q1",
+      checks: { kettle: { status: "not_ok", note: "descale needed" }, shower_head: { status: "not_ok", note: "still blocked" } },
+    };
+    const result = resolveOriginRecord(origin, "kettle", "m1", { date: "2026-01-10", notes: "descaled", resolver: "Bob" });
+    expect(result.checks.kettle).toEqual({ status: "ok", note: "descale needed\nResolved 10 Jan 2026 by Bob: descaled" });
+    expect(result.checks.shower_head).toEqual({ status: "not_ok", note: "still blocked" });
+    expect(result.resolvedVia).toEqual({ kettle: "m1" });
+  });
+
+  it("legionella_check: resolving a second item preserves the first item's resolvedVia entry", () => {
+    const origin = {
+      category: "legionella_check", periodKey: "2026-Q1",
+      checks: { kettle: { status: "ok", note: "Resolved earlier" }, shower_head: { status: "not_ok", note: "still blocked" } },
+      resolvedVia: { kettle: "m0" },
+    };
+    const result = resolveOriginRecord(origin, "shower_head", "m1", { date: "2026-01-10", notes: "fixed", resolver: null });
+    expect(result.resolvedVia).toEqual({ kettle: "m0", shower_head: "m1" });
   });
 });

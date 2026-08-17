@@ -156,26 +156,41 @@ just its container) is the fix.
    validation logic, the Fire Log/Window Restriction period-lock/export-merge
    machinery, and the search/haystack + Compliance Library matching logic),
    and `src/lib/pdf/pdf.test.js` (structural tests for the PDF builders — run
-   at the repo root, 140 tests total) and `server/index.test.js` (real
+   at the repo root, 146 tests total) and `server/index.test.js` (real
    integration tests against the Express app + a throwaway SQLite file via
    `supertest` — auth lifecycle, storage routes, R2 fallback path — run
    inside `server/`, 12 tests). `vite.config.js` explicitly excludes
    `server/**` from the root test run since it's a separate package with its
    own dependencies. Essentially all pure business logic in `helpers.js` is
    covered now, plus the PDF export layer; what's left is the UI itself.
-3. **OK-override silently loses a Not-OK note / orphans its maintenance issue**
-   — on Window Restriction, Legionella Descaling, and Legionella Water
-   Temperature checks alike: tapping "OK" directly on an item that's
-   currently "Not OK" (bypassing the Resolve flow) overwrites its status/note
-   with no check for an already-open linked maintenance issue. The note is
-   gone, the maintenance issue is left open with nothing pointing back at it,
-   and the golden-rule PDF export shows a clean "OK" for that period with no
-   trace anything was ever wrong (the export only reads live status/note,
-   never `record.history`). Needs a deliberate design decision — block the
-   direct override when an open linked maintenance issue exists and force
-   Resolve instead? Auto-resolve the linked issue? — not a quick patch.
-   `handleSaveWindowCheckOk`, `handleSaveLegionellaCheckOk`, and
-   `handleSaveLegionellaTempCheck` in `App.jsx` all share this gap.
+3. ~~OK-override silently loses a Not-OK note / orphans its maintenance issue~~
+   — **fixed.** Two related bugs, both in the checkpoint-check ↔ maintenance
+   linkage:
+   - Tapping "OK" directly on a "Not OK" item (bypassing the formal Resolve
+     flow) used to just overwrite status/note with no regard for an open
+     linked maintenance issue — the note vanished, the issue stayed open
+     forever with nothing pointing back at it, and export showed a clean OK
+     with no trace. Fixed by having every OK path (fast tap and detail-page
+     save, across Window Restriction and both Legionella checks) check for
+     an open linked issue first and auto-resolve it (`autoResolveLinkedIssue`
+     in `App.jsx`) instead of silently overwriting.
+   - Separately, and more serious: `handleResolve`'s origin lookup did
+     `next.find(r => r.id === record.linkedRecordId)` — for Legionella
+     Descaling, `linkedRecordId` is a composite `"<recordId>:<itemKey>"`
+     string, which never equals any real record's plain `.id`. Formally
+     resolving a Legionella Descaling maintenance issue was a **complete
+     no-op on the checklist item** — the maintenance ticket closed, but the
+     item stayed frozen at "Not OK" forever, even after a real fix. Fixed
+     by splitting the id before the lookup.
+   - Both paths now go through one shared pure helper, `resolveOriginRecord`
+     in `helpers.js` (tested), so the formal Resolve flow and the
+     auto-resolve-on-OK-tap can't drift out of sync again.
+   - **Known narrower edge case, not fixed**: if the same fixture/checkpoint
+     fails, gets resolved, and fails *again* within the same period (quarter
+     for Descaling, month for the others), tapping Not OK a second time
+     doesn't raise a fresh maintenance issue — the new-issue check dedupes
+     on `linkedRecordId` existing at all, not on there being an *open* one.
+     Low priority; a real re-failure within the same period should be rare.
 ## Getting set up on a new machine
 
 ```bash

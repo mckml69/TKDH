@@ -101,10 +101,10 @@ export function LegionellaCheckDetailPage({ checkpoint, assets, periodKey, recor
     const initial = {};
     for (const item of items) {
       const existing = record?.checks?.[item.key];
-      initial[item.key] = existing
-        ? { status: existing.status, note: existing.note || "" }
-        : item.key === initialItemKey
-          ? { status: initialStatus || "not_ok", note: "" }
+      initial[item.key] = item.key === initialItemKey
+        ? { status: initialStatus || existing?.status || "not_ok", note: existing?.note || "" }
+        : existing
+          ? { status: existing.status, note: existing.note || "" }
           : { status: null, note: "" };
     }
     return initial;

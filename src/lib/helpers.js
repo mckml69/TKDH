@@ -443,6 +443,36 @@ export function legionellaTempCheckEnsureSnapshot(record) {
   return { ...record, lockedSnapshot: { status: record.status, note: record.note, hotTempC: record.hotTempC, coldTempC: record.coldTempC, by: checkpointCheckLastEditor(record), at: new Date().toISOString() } };
 }
 
+/** What a maintenance resolution writes back into whichever checkpoint-check record raised it —
+    the single source of truth for this, used both by the formal Resolve flow and by "mark OK
+    directly from the checklist" auto-resolving an already-open linked issue, so the two paths can
+    never drift out of sync. `itemKey` only matters for legionella_check (multi-item per record);
+    pass null for the single-item categories. Returns null for an origin category this doesn't know
+    how to resolve into (the generic flagged-record case is handled separately by the caller). */
+export function resolveOriginRecord(origin, itemKey, maintenanceRecordId, { date, notes, resolver } = {}) {
+  const resolutionNote = `Resolved${date ? ` ${fmtDate(date)}` : ""}${resolver ? ` by ${resolver}` : ""}: ${notes || "no details given"}`;
+  const historyNote = `Marked OK via maintenance resolution${resolver ? ` (${resolver})` : ""}: ${notes || "no details given"}`;
+  if (origin.category === "window_restriction_check") {
+    const base = isCheckpointCheckLocked(origin) ? checkpointCheckEnsureSnapshot(origin) : origin;
+    return { ...base, status: "ok", note: origin.note ? `${origin.note}\n${resolutionNote}` : resolutionNote, resolvedVia: maintenanceRecordId, _historyNote: historyNote };
+  }
+  if (origin.category === "legionella_temp_check") {
+    const base = isCheckpointCheckLocked(origin) ? legionellaTempCheckEnsureSnapshot(origin) : origin;
+    return { ...base, status: "ok", note: origin.note ? `${origin.note}\n${resolutionNote}` : resolutionNote, resolvedVia: maintenanceRecordId, _historyNote: historyNote };
+  }
+  if (origin.category === "legionella_check") {
+    const base = isLegionellaCheckLocked(origin) ? legionellaCheckEnsureSnapshot(origin) : origin;
+    const existingNote = base.checks?.[itemKey]?.note || "";
+    return {
+      ...base,
+      checks: { ...(base.checks || {}), [itemKey]: { status: "ok", note: existingNote ? `${existingNote}\n${resolutionNote}` : resolutionNote } },
+      resolvedVia: { ...(base.resolvedVia || {}), [itemKey]: maintenanceRecordId },
+      _historyNote: historyNote,
+    };
+  }
+  return null;
+}
+
 export const daysUntil = (dateStr) => {
   const dt = new Date(dateStr + "T00:00:00");
   const now = new Date(todayStr() + "T00:00:00");

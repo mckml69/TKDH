@@ -62,7 +62,7 @@ import {
   hasPendingCorrection, insuranceStatus, isCheckpointCheckLocked, isOverdue, staffTrainingStatus, todayStr, uid, visitStatus,
   fireLogCurrentPeriodKey, fireLogEnsureSnapshot, fireLogPeriodLabel, isFireLogLocked,
   legionellaCheckEnsureSnapshot, legionellaCheckPeriodKey, isLegionellaCheckLocked,
-  legionellaTempCheckEnsureSnapshot,
+  legionellaTempCheckEnsureSnapshot, resolveOriginRecord,
 } from "./lib/helpers";
 import "./styles/global.css";
 
@@ -154,8 +154,27 @@ export default function App() {
   const handleSubmitCorrection = (id, note) => { requestRecordCorrection(id, note); pop(); };
   const handleDismissCorrection = (id) => { if (role !== "General Manager") return; dismissRecordCorrection(id, null); pop(); };
   const handleDeleteRecord = (id) => { if (role !== "General Manager") return; push({ page: "confirm-delete", type: "record", id, message: "Archive this record? It's hidden from lists and search but kept for your audit trail — you can restore it anytime from \"Show archived.\"" }); };
+  /** Finds an open (not archived, not already Resolved) maintenance issue linked to `linkedId` and
+      marks it Resolved with a generic auto-resolution note. Used when someone marks a check OK
+      directly (fast tap or detail-page save) rather than going through the maintenance record's own
+      Resolve form — without this, that fast path silently discarded the Not-OK note and left the
+      maintenance issue open forever with nothing pointing back at it. Returns the possibly-updated
+      records array plus resolution details for resolveOriginRecord to use, or null if there was
+      nothing open to resolve (first-time OK, or already resolved earlier). */
+  const autoResolveLinkedIssue = (linkedId, recordsArr) => {
+    const issue = recordsArr.find((r) => r.category === "maintenance" && r.linkedRecordId === linkedId && !r.archived && r.status !== "Resolved");
+    if (!issue) return { next: recordsArr, resolvedInfo: null };
+    const date = todayStr();
+    const notes = "Marked OK directly from the checklist.";
+    const next = upsertRecord({ ...issue, status: "Resolved", resolvedNotes: notes, resolvedDate: date, resolvedContractorId: null, resolvedStaffId: null }, recordsArr);
+    return { next, resolvedInfo: { maintenanceRecordId: issue.id, date, notes, resolver: null } };
+  };
   const handleSaveWindowCheckOk = (checkpointId, periodKey, existingRecord) => {
     if (existingRecord && isCheckpointCheckLocked(existingRecord) && role !== "General Manager") return;
+    if (existingRecord?.status === "not_ok") {
+      const { next, resolvedInfo } = autoResolveLinkedIssue(existingRecord.id, records);
+      if (resolvedInfo) { upsertRecord(resolveOriginRecord(existingRecord, null, resolvedInfo.maintenanceRecordId, resolvedInfo), next); return; }
+    }
     let base = existingRecord || { id: uid(), category: "window_restriction_check", checkpointId, periodKey, title: "Window Restriction Check", location: "", people: "", notes: "", attachments: [], tags: [] };
     if (existingRecord && isCheckpointCheckLocked(existingRecord)) base = checkpointCheckEnsureSnapshot(base);
     upsertRecord({ ...base, status: "ok", note: "" }, records);
@@ -185,6 +204,11 @@ export default function App() {
   };
   const handleSaveLegionellaCheckOk = (checkpointId, periodKey, existingRecord, itemKey) => {
     if (existingRecord && isLegionellaCheckLocked(existingRecord) && role !== "General Manager") return;
+    if (existingRecord?.checks?.[itemKey]?.status === "not_ok") {
+      const compositeId = `${existingRecord.id}:${itemKey}`;
+      const { next, resolvedInfo } = autoResolveLinkedIssue(compositeId, records);
+      if (resolvedInfo) { upsertRecord(resolveOriginRecord(existingRecord, itemKey, resolvedInfo.maintenanceRecordId, resolvedInfo), next); return; }
+    }
     let base = existingRecord || { id: uid(), category: "legionella_check", checkpointId, periodKey, title: "Legionella Check", location: "", people: "", notes: "", attachments: [], tags: [] };
     if (existingRecord && isLegionellaCheckLocked(existingRecord)) base = legionellaCheckEnsureSnapshot(base);
     upsertRecord({ ...base, checks: { ...(base.checks || {}), [itemKey]: { status: "ok", note: "" } } }, records);
@@ -193,7 +217,7 @@ export default function App() {
     if (existingRecord && isLegionellaCheckLocked(existingRecord) && role !== "General Manager") return;
     let base = existingRecord || { id: uid(), category: "legionella_check", checkpointId, periodKey, title: "Legionella Check", location: "", people: "", notes: "", attachments: [], tags: [] };
     if (existingRecord && isLegionellaCheckLocked(existingRecord)) base = legionellaCheckEnsureSnapshot(base);
-    const updated = { ...base, checks: { ...(base.checks || {}), ...checks } };
+    let updated = { ...base, checks: { ...(base.checks || {}), ...checks } };
     let next = upsertRecord(updated, records);
     const checkpoint = checkpoints.find((cp) => cp.id === checkpointId);
     for (const [itemKey, itemVal] of Object.entries(checks)) {
@@ -208,12 +232,29 @@ export default function App() {
           };
           next = upsertRecord(linked, next);
         }
+      } else if (itemVal.status === "ok" && existingRecord?.checks?.[itemKey]?.status === "not_ok") {
+        const compositeId = `${updated.id}:${itemKey}`;
+        const result = autoResolveLinkedIssue(compositeId, next);
+        next = result.next;
+        if (result.resolvedInfo) {
+          updated = resolveOriginRecord(updated, itemKey, result.resolvedInfo.maintenanceRecordId, result.resolvedInfo);
+          next = upsertRecord(updated, next);
+        }
       }
     }
     pop();
   };
   const handleSaveLegionellaTempCheck = (checkpointId, periodKey, existingRecord, hotTempC, coldTempC, status, note) => {
     if (existingRecord && isCheckpointCheckLocked(existingRecord) && role !== "General Manager") return;
+    if (status === "ok" && existingRecord?.status === "not_ok") {
+      const { next, resolvedInfo } = autoResolveLinkedIssue(existingRecord.id, records);
+      if (resolvedInfo) {
+        const updatedOrigin = { ...resolveOriginRecord(existingRecord, null, resolvedInfo.maintenanceRecordId, resolvedInfo), hotTempC, coldTempC };
+        upsertRecord(updatedOrigin, next);
+        pop();
+        return;
+      }
+    }
     let base = existingRecord || { id: uid(), category: "legionella_temp_check", checkpointId, periodKey, title: "Legionella Water Temperature Check", location: "", people: "", notes: "", attachments: [], tags: [] };
     if (existingRecord && isCheckpointCheckLocked(existingRecord)) base = legionellaTempCheckEnsureSnapshot(base);
     const updated = { ...base, hotTempC, coldTempC, status, note: status === "not_ok" ? note : "" };
@@ -231,6 +272,10 @@ export default function App() {
   };
   const handleSaveWindowCheck = (checkpointId, periodKey, existingRecord, status, note) => {
     if (existingRecord && isCheckpointCheckLocked(existingRecord) && role !== "General Manager") return;
+    if (status === "ok" && existingRecord?.status === "not_ok") {
+      const { next, resolvedInfo } = autoResolveLinkedIssue(existingRecord.id, records);
+      if (resolvedInfo) { upsertRecord(resolveOriginRecord(existingRecord, null, resolvedInfo.maintenanceRecordId, resolvedInfo), next); pop(); return; }
+    }
     let base = existingRecord || { id: uid(), category: "window_restriction_check", checkpointId, periodKey, title: "Window Restriction Check", location: "", people: "", notes: "", attachments: [], tags: [] };
     if (existingRecord && isCheckpointCheckLocked(existingRecord)) base = checkpointCheckEnsureSnapshot(base);
     const updated = { ...base, status, note: status === "not_ok" ? note : "" };
@@ -252,44 +297,11 @@ export default function App() {
     const resolved = { ...record, status: "Resolved", resolvedNotes: notes, resolvedDate: date, resolvedContractorId: resolvedContractorId || null, resolvedStaffId: resolvedStaffId || null };
     let next = upsertRecord(resolved, records);
     if (record.linkedRecordId) {
-      const origin = next.find((r) => r.id === record.linkedRecordId);
-      if (origin && origin.category === "window_restriction_check") {
-        let updatedOrigin = isCheckpointCheckLocked(origin) ? checkpointCheckEnsureSnapshot(origin) : origin;
-        const resolutionNote = `Resolved${date ? ` ${fmtDate(date)}` : ""}${resolver ? ` by ${resolver}` : ""}: ${notes || "no details given"}`;
-        updatedOrigin = {
-          ...updatedOrigin,
-          status: "ok",
-          note: origin.note ? `${origin.note}\n${resolutionNote}` : resolutionNote,
-          resolvedVia: record.id,
-          _historyNote: `Marked OK via maintenance resolution${resolver ? ` (${resolver})` : ""}: ${notes || "no details given"}`,
-        };
-        upsertRecord(updatedOrigin, next);
-      } else if (origin && origin.category === "legionella_temp_check") {
-        let updatedOrigin = isCheckpointCheckLocked(origin) ? legionellaTempCheckEnsureSnapshot(origin) : origin;
-        const resolutionNote = `Resolved${date ? ` ${fmtDate(date)}` : ""}${resolver ? ` by ${resolver}` : ""}: ${notes || "no details given"}`;
-        updatedOrigin = {
-          ...updatedOrigin,
-          status: "ok",
-          note: origin.note ? `${origin.note}\n${resolutionNote}` : resolutionNote,
-          resolvedVia: record.id,
-          _historyNote: `Marked OK via maintenance resolution${resolver ? ` (${resolver})` : ""}: ${notes || "no details given"}`,
-        };
-        upsertRecord(updatedOrigin, next);
-      } else if (origin && origin.category === "legionella_check") {
-        const itemKey = record.linkedRecordId.split(":")[1];
-        let updatedOrigin = isLegionellaCheckLocked(origin) ? legionellaCheckEnsureSnapshot(origin) : origin;
-        const existingNote = updatedOrigin.checks?.[itemKey]?.note || "";
-        const resolutionNote = `Resolved${date ? ` ${fmtDate(date)}` : ""}${resolver ? ` by ${resolver}` : ""}: ${notes || "no details given"}`;
-        updatedOrigin = {
-          ...updatedOrigin,
-          checks: { ...(updatedOrigin.checks || {}), [itemKey]: { status: "ok", note: existingNote ? `${existingNote}\n${resolutionNote}` : resolutionNote } },
-          resolvedVia: { ...(updatedOrigin.resolvedVia || {}), [itemKey]: record.id },
-          _historyNote: `Marked OK via maintenance resolution${resolver ? ` (${resolver})` : ""}: ${notes || "no details given"}`,
-        };
-        upsertRecord(updatedOrigin, next);
-      } else if (origin) {
-        upsertRecord({ ...origin, flagResolved: true, flagResolvedNotes: notes, flagResolvedDate: date }, next);
-      }
+      const [originId, itemKey] = record.linkedRecordId.split(":");
+      const origin = next.find((r) => r.id === originId);
+      const updatedOrigin = origin ? resolveOriginRecord(origin, itemKey, record.id, { date, notes, resolver }) : null;
+      if (updatedOrigin) upsertRecord(updatedOrigin, next);
+      else if (origin) upsertRecord({ ...origin, flagResolved: true, flagResolvedNotes: notes, flagResolvedDate: date }, next);
     }
     pop();
   };
