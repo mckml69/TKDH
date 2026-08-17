@@ -12,7 +12,7 @@ export const TEMPLATES = {
   fire: { key: "fire", label: "Fire Safety", short: "Fire", icon: Flame, mode: "recurring", accent: "#A8402F", assetEligible: true, roomEligible: true, contractorEligible: true,
     presets: ["Fire alarm test", "Fire extinguisher check", "Emergency lighting test", "Fire drill", "Fire door inspection", "Fire risk assessment review"] },
   legionella: { key: "legionella", label: "Legionella & Water Hygiene", short: "Water", icon: Droplet, mode: "recurring", accent: "#2A6F97", assetEligible: true, roomEligible: true, contractorEligible: true,
-    presets: ["Outlet temperature check", "Water tank inspection", "Shower head descale", "Kettle descaling", "Water sample / analysis", "Calorifier temperature check", "TMV servicing"] },
+    presets: ["Outlet temperature check", "Water tank inspection", "Water sample / analysis", "Calorifier temperature check", "TMV servicing"] },
   equipment: { key: "equipment", label: "Equipment Checks", short: "Equipment", icon: Wrench, mode: "recurring", accent: "#8A6D1F", assetEligible: true, roomEligible: true, contractorEligible: true,
     presets: ["Lift service", "Lift LOLER thorough examination", "PAT testing", "EICR (electrical installation)", "Kitchen equipment service", "Fire alarm system service", "Gas safety check", "AC filter clean", "AC service", "Ladder / access equipment check"] },
   window_restriction: { key: "window_restriction", label: "Window Restriction Checks", short: "Window", icon: Blinds, mode: "recurring", accent: "#3A6B5C", assetEligible: true, roomEligible: false, contractorEligible: true,
@@ -33,6 +33,8 @@ export const TEMPLATES = {
   fire_monthly: { key: "fire_monthly", label: "Fire Log — Monthly", short: "Fire Monthly", icon: Flame, mode: "firelog", accent: "#A8402F", assetEligible: false, roomEligible: false, contractorEligible: false, hidden: true },
   fire_periodic: { key: "fire_periodic", label: "Fire Log — Periodic", short: "Fire Periodic", icon: Flame, mode: "firelog", accent: "#A8402F", assetEligible: false, roomEligible: false, contractorEligible: false, hidden: true },
   window_restriction_check: { key: "window_restriction_check", label: "Window Restriction Check", short: "Window Check", icon: Blinds, mode: "checkpoint_check", accent: "#3A6B5C", assetEligible: false, roomEligible: false, contractorEligible: false, hidden: true },
+  legionella_check: { key: "legionella_check", label: "Legionella Descaling Check", short: "Legionella Descale", icon: Droplet, mode: "checkpoint_check", accent: "#2A6F97", assetEligible: false, roomEligible: false, contractorEligible: false, hidden: true },
+  legionella_temp_check: { key: "legionella_temp_check", label: "Legionella Water Temperature Check", short: "Legionella Temp", icon: Droplet, mode: "checkpoint_check", accent: "#2A6F97", assetEligible: false, roomEligible: false, contractorEligible: false, hidden: true },
 };
 /** The fixed checklist for each Fire Log period type — not a free preset dropdown like other templates,
     since these come straight from the hotel's actual fire logbook and shouldn't drift from it. */
@@ -61,6 +63,14 @@ export const FIRE_LOG_ITEMS = {
   ],
 };
 export const FIRE_LOG_PERIOD_LABEL = { fire_daily: "Daily", fire_weekly: "Weekly", fire_monthly: "Monthly", fire_periodic: "Periodic" };
+/** The fixed checklist for a Legionella checkpoint check — one entry per fixture type, each
+    independently tickable. assetType links each item to the ASSET_TYPES key that makes it eligible
+    at a given checkpoint (a checkpoint only shows the items it actually has that asset linked to). */
+export const LEGIONELLA_CHECK_ITEMS = [
+  { key: "kettle", label: "Kettle descaling", assetType: "kettle" },
+  { key: "shower_head", label: "Shower head descale", assetType: "shower_head" },
+  { key: "tap", label: "Tap descaling", assetType: "tap" },
+];
 export const TEMPLATE_LIST = Object.values(TEMPLATES).filter((t) => !t.hidden);
 /** Hidden categories exist to keep dedicated-entry record types (Fire Log, Window Restriction checks)
     out of the general "New record" picker — they're always created through their own fast-entry
@@ -70,6 +80,7 @@ export const TEMPLATE_LIST = Object.values(TEMPLATES).filter((t) => !t.hidden);
 export const CATEGORY_FILTER_GROUPS = {
   fire: ["fire", "fire_daily", "fire_weekly", "fire_monthly", "fire_periodic"],
   window_restriction: ["window_restriction", "window_restriction_check"],
+  legionella: ["legionella", "legionella_check", "legionella_temp_check"],
 };
 export const categoryFilterMatches = (record, filterCategory) => (CATEGORY_FILTER_GROUPS[filterCategory] || [filterCategory]).includes(record.category);
 export const FREQUENCY_PRESETS = [
@@ -80,7 +91,7 @@ export const FREQUENCY_PRESETS = [
 /** Sensible default interval per recurring task, so the frequency field is almost always already right. */
 export const PRESET_DEFAULT_FREQUENCY = {
   "Fire alarm test": 7, "Fire extinguisher check": 30, "Emergency lighting test": 30, "Fire drill": 182, "Fire door inspection": 91, "Fire risk assessment review": 365,
-  "Outlet temperature check": 30, "Water tank inspection": 365, "Shower head descale": 91, "Kettle descaling": 30, "Water sample / analysis": 365, "Calorifier temperature check": 30, "TMV servicing": 365,
+  "Outlet temperature check": 30, "Water tank inspection": 365, "Water sample / analysis": 365, "Calorifier temperature check": 30, "TMV servicing": 365,
   "Lift service": 30, "Lift LOLER thorough examination": 182, "PAT testing": 365, "EICR (electrical installation)": 1825, "Kitchen equipment service": 365, "Fire alarm system service": 182, "Gas safety check": 365, "AC filter clean": 91, "AC service": 365, "Ladder / access equipment check": 30,
   "Window restrictor check": 30,
   "General H&S risk assessment": 365, "COSHH assessment": 365, "Manual handling assessment": 365, "Slips, trips & falls assessment": 365, "Lone working assessment": 365, "Fire risk assessment": 365, "Legionella risk assessment": 730,
@@ -101,6 +112,8 @@ export const ASSET_TYPES = [
   { key: "air_conditioning", label: "Air Conditioning Unit", category: "equipment", prefix: "AC", eligibleFor: ["equipment"] },
   { key: "ac_filter", label: "AC Filter", category: "equipment", prefix: "ACF", eligibleFor: ["equipment"] },
   { key: "kettle", label: "Kettle", category: "legionella", prefix: "KTL", eligibleFor: ["legionella", "equipment"] },
+  { key: "shower_head", label: "Shower Head", category: "legionella", prefix: "SHW", eligibleFor: ["legionella"] },
+  { key: "tap", label: "Tap", category: "legionella", prefix: "TAP", eligibleFor: ["legionella"] },
   { key: "tv", label: "Television", category: "equipment", prefix: "TV", eligibleFor: ["equipment"] },
   { key: "phone", label: "Room Phone", category: "equipment", prefix: "PHN", eligibleFor: ["equipment"] },
   { key: "fridge", label: "Fridge", category: "equipment", prefix: "FRG", eligibleFor: ["equipment"] },
@@ -222,13 +235,6 @@ export const REQUIREMENTS = [
     evidence: "Service record with confirmed output temperature.",
     retention: "At least 5 years.",
     legislation: "HSE ACOP L8; HSE guidance on thermostatic mixing valves." },
-  { id: "descale", category: "legionella", matchMode: "preset", matchValues: ["Shower head descale", "Kettle descaling"], title: "Showerhead / Kettle Descaling",
-    whatToKeep: "A descaling log by room or appliance.",
-    why: "Limescale harbours biofilm, which protects Legionella bacteria from temperature and disinfectant controls.",
-    frequency: "Per your written scheme — commonly quarterly for low-use guest rooms.",
-    evidence: "Descale log noting location/asset and date.",
-    retention: "At least 5 years.",
-    legislation: "HSE ACOP L8 & HSG274 (written scheme of control)." },
   { id: "water-sample", category: "legionella", matchMode: "preset", matchValues: ["Water sample / analysis"], title: "Water Sample / Analysis",
     whatToKeep: "Laboratory microbiological analysis results.",
     why: "Sampling verifies that your temperature and other controls are actually keeping Legionella counts down, not just assumed to be.",
@@ -399,7 +405,7 @@ export const REQUIREMENTS = [
 export const AUDIT_PRIORITY = {
   fra: "high", "legionella-ra": "high", "water-temp": "high", "gas-safety": "high", "loler-lift": "high",
   eicr: "high", "fire-alarm-weekly": "high", "fire-alarm-service": "high", "el-insurance": "high", riddor: "high",
-  descale: "low", "lift-service": "low", "manual-handling-training": "low",
+  "lift-service": "low", "manual-handling-training": "low",
 };
 export const getAuditPriority = (req) => AUDIT_PRIORITY[req.id] || "medium";
 export const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
@@ -455,7 +461,8 @@ export const RECORD_HISTORY_FIELDS = {
   dateReported: "Date reported", dateRaised: "Date raised", dateLogged: "Date", actionTaken: "Action taken",
   priority: "Priority", status: "Status", flagged: "Flagged as failed", flagDescription: "Flag description",
   flagResolved: "Flag resolved", flagResolvedNotes: "Flag resolution notes", resolvedNotes: "Resolution notes", resolvedDate: "Resolved date",
-  temperatureC: "Temperature reading", readingType: "Reading type", checks: "Fire Log checklist", note: "Check note",
+  temperatureC: "Temperature reading", readingType: "Reading type", checks: "Checklist", note: "Check note",
+  hotTempC: "Hot reading (°C)", coldTempC: "Cold reading (°C)",
   awaitingContactName: "Awaiting", resolvedContactName: "Resolved by",
 };
 export const ASSET_HISTORY_FIELDS = { assetType: "Asset type", category: "Category", eligibleFor: "Eligible for", assetCode: "Asset code", name: "Name", location: "Location", manufacturer: "Manufacturer", model: "Model", serialNumber: "Serial number", installDate: "Installed on", status: "Status", notes: "Notes" };

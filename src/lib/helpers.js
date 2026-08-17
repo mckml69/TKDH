@@ -1,4 +1,4 @@
-import { TEMPLATES, DUE_SOON_WINDOW, RECENT_WINDOW, ASSET_TYPES, REQUIREMENTS } from "./constants";
+import { TEMPLATES, DUE_SOON_WINDOW, RECENT_WINDOW, ASSET_TYPES, REQUIREMENTS, LEGIONELLA_CHECK_ITEMS } from "./constants";
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 export const fmtDate = (d) => {
@@ -292,6 +292,155 @@ export function checkpointCheckExportSource(record) {
     return { status: snap.status, note: (noteWasBlank && record.note) ? record.note : snap.note, by: snap.by };
   }
   return { status: record.status, note: record.note, by: checkpointCheckLastEditor(record) };
+}
+
+/** Legionella checkpoint checks — quarterly cadence, up to three independently tickable fixture
+    items (kettle/shower head/tap) per checkpoint per quarter, one shared record per (checkpoint,
+    quarter) holding a `checks: { [itemKey]: {status, note} }` map. Kept as its own parallel system
+    rather than generalizing checkpointCheck* (monthly, single status) mid-build — same convention as
+    fireLog* and checkpointCheck* already living side by side. */
+export function legionellaCheckPeriodKey(today = todayStr()) {
+  const [y, m] = today.slice(0, 7).split("-").map(Number);
+  return `${y}-Q${Math.ceil(m / 3)}`;
+}
+/** Every quarter key ("YYYY-Qn") overlapping [startDate, endDate] — the export unit for Legionella
+    checks, same role checkpointCheckPeriodsInRange plays for Window Restriction's months. */
+export function legionellaCheckPeriodsInRange(startDate, endDate) {
+  const toQ = (dateStr) => {
+    const [y, m] = dateStr.slice(0, 7).split("-").map(Number);
+    return { y, q: Math.ceil(m / 3) };
+  };
+  const periods = [];
+  let { y, q } = toQ(startDate);
+  const end = toQ(endDate);
+  let guard = 0;
+  while ((y < end.y || (y === end.y && q <= end.q)) && guard < 200) { // 50 years of quarters, sane upper bound
+    periods.push(`${y}-Q${q}`);
+    q += 1;
+    if (q > 4) { q = 1; y += 1; }
+    guard++;
+  }
+  return periods;
+}
+const LEGIONELLA_QUARTER_MONTHS = { 1: [1, 3], 2: [4, 6], 3: [7, 9], 4: [10, 12] };
+export function legionellaCheckPeriodLabel(periodKey) {
+  const [yStr, qStr] = periodKey.split("-Q");
+  const y = Number(yStr), q = Number(qStr);
+  const [startM, endM] = LEGIONELLA_QUARTER_MONTHS[q];
+  const startLabel = new Date(y, startM - 1, 1).toLocaleDateString("en-GB", { month: "short" });
+  const endLabel = new Date(y, endM - 1, 1).toLocaleDateString("en-GB", { month: "short" });
+  return `Q${q} ${y} (${startLabel}–${endLabel})`;
+}
+export function legionellaCheckLockBoundary(record) {
+  const [yStr, qStr] = record.periodKey.split("-Q");
+  const y = Number(yStr), q = Number(qStr);
+  const [, endM] = LEGIONELLA_QUARTER_MONTHS[q];
+  return new Date(y, endM, 0, 23, 59, 59, 999); // last day of the quarter's last month
+}
+export function isLegionellaCheckLocked(record) { return new Date() > legionellaCheckLockBoundary(record); }
+export const legionellaCheckLastEditor = lastEditor;
+/** Which of the fixed checklist items actually apply to this checkpoint — only the ones with a
+    non-archived asset of that type linked to it (a checkpoint with no taps just doesn't get a tap
+    tick-box). */
+export function legionellaCheckEligibleItems(checkpoint, assets) {
+  return LEGIONELLA_CHECK_ITEMS.filter((item) =>
+    assets.some((a) => a.checkpointId === checkpoint.id && a.assetType === item.assetType && !a.archived));
+}
+export function legionellaCheckEligibleCheckpoints(checkpoints, assets) {
+  return checkpoints.filter((cp) => !cp.archived && legionellaCheckEligibleItems(cp, assets).length > 0);
+}
+/** Same golden rule as checkpointCheckFindMissing/fireLogFindMissingDaily, at item granularity: every
+    (eligible checkpoint, quarter, eligible item) combination in range with no logged status is a hard
+    block on exporting — an inspector should never see a gap nobody caught. */
+export function legionellaCheckFindMissing(checkpoints, assets, records, startDate, endDate) {
+  const eligible = legionellaCheckEligibleCheckpoints(checkpoints, assets);
+  const periods = legionellaCheckPeriodsInRange(startDate, endDate);
+  const missing = [];
+  for (const periodKey of periods) {
+    for (const cp of eligible) {
+      const rec = records.find((r) => r.category === "legionella_check" && r.checkpointId === cp.id && r.periodKey === periodKey && !r.archived);
+      for (const item of legionellaCheckEligibleItems(cp, assets)) {
+        if (!rec || !rec.checks?.[item.key]?.status) missing.push({ checkpointId: cp.id, checkpointName: cp.name, periodKey, itemKey: item.key, itemLabel: item.label });
+      }
+    }
+  }
+  return missing;
+}
+/** Same late-filed-vs-corrected rule as checkpointCheckExportSource's note merge, applied per item: a
+    note genuinely blank at lock time and filled in since was filed late, not corrected, so the live
+    value shows; one that already had a value at lock time and has since changed stays frozen. */
+export function legionellaCheckMergeItemForExport(snapItem, liveItem) {
+  if (!snapItem) return liveItem || null;
+  if (!liveItem) return snapItem;
+  const noteWasBlank = !(snapItem.note || "").trim();
+  return { status: snapItem.status, note: (noteWasBlank && liveItem.note) ? liveItem.note : snapItem.note };
+}
+/** Same shape as fireLogExportSource's checks-merging, but with the maintenance-resolution exception
+    tracked per item via resolvedVia[itemKey] rather than one record-wide flag — a single record can
+    have its kettle item resolved via maintenance while its shower head item stays frozen. */
+export function legionellaCheckExportSource(record) {
+  if (!record) return null;
+  if (isLegionellaCheckLocked(record) && record.lockedSnapshot) {
+    const snapChecks = record.lockedSnapshot.checks || {};
+    const liveChecks = record.checks || {};
+    const mergedChecks = {};
+    for (const key of new Set([...Object.keys(snapChecks), ...Object.keys(liveChecks)])) {
+      mergedChecks[key] = record.resolvedVia?.[key]
+        ? (liveChecks[key] || snapChecks[key] || null)
+        : legionellaCheckMergeItemForExport(snapChecks[key], liveChecks[key]);
+    }
+    return { checks: mergedChecks, by: record.lockedSnapshot.by };
+  }
+  return { checks: record.checks, by: legionellaCheckLastEditor(record) };
+}
+export function legionellaCheckEnsureSnapshot(record) {
+  if (!isLegionellaCheckLocked(record) || record.lockedSnapshot) return record;
+  return { ...record, lockedSnapshot: { checks: record.checks, by: legionellaCheckLastEditor(record), at: new Date().toISOString() } };
+}
+
+/** Legionella water temperature checks — monthly, one hot + one cold reading per checkpoint per
+    month (the "as it was" reading-type/temperatureC pair, just checkpoint-based now instead of
+    free-standing). Reuses checkpointCheck*'s month/lock math verbatim (it's generic, not actually
+    tied to Window Restriction) rather than forking it a second time. */
+export function legionellaTempCheckEligibleCheckpoints(checkpoints, assets) {
+  return checkpoints.filter((cp) => !cp.archived &&
+    assets.some((a) => a.checkpointId === cp.id && !a.archived && (a.assetType === "tap" || a.assetType === "shower_head")));
+}
+/** Same golden rule as checkpointCheckFindMissing: every (eligible checkpoint, month) combination in
+    range with no record at all is a hard block on exporting. */
+export function legionellaTempCheckFindMissing(checkpoints, assets, records, startDate, endDate) {
+  const eligible = legionellaTempCheckEligibleCheckpoints(checkpoints, assets);
+  const periods = checkpointCheckPeriodsInRange(startDate, endDate);
+  const missing = [];
+  for (const periodKey of periods) {
+    for (const cp of eligible) {
+      const exists = records.some((r) => r.category === "legionella_temp_check" && r.checkpointId === cp.id && r.periodKey === periodKey && !r.archived);
+      if (!exists) missing.push({ checkpointId: cp.id, checkpointName: cp.name, periodKey });
+    }
+  }
+  return missing;
+}
+/** Same late-filed-vs-corrected merge as checkpointCheckExportSource's note handling, extended to
+    the two numeric readings: a reading genuinely blank at lock time and filled in since was filed
+    late, not corrected, so the live value shows; one that already had a value at lock stays frozen. */
+export function legionellaTempCheckExportSource(record) {
+  if (!record) return null;
+  if (isCheckpointCheckLocked(record) && record.lockedSnapshot && !record.resolvedVia) {
+    const snap = record.lockedSnapshot;
+    const noteWasBlank = !(snap.note || "").trim();
+    return {
+      status: snap.status,
+      note: (noteWasBlank && record.note) ? record.note : snap.note,
+      hotTempC: (snap.hotTempC == null && record.hotTempC != null) ? record.hotTempC : snap.hotTempC,
+      coldTempC: (snap.coldTempC == null && record.coldTempC != null) ? record.coldTempC : snap.coldTempC,
+      by: snap.by,
+    };
+  }
+  return { status: record.status, note: record.note, hotTempC: record.hotTempC, coldTempC: record.coldTempC, by: checkpointCheckLastEditor(record) };
+}
+export function legionellaTempCheckEnsureSnapshot(record) {
+  if (!isCheckpointCheckLocked(record) || record.lockedSnapshot) return record;
+  return { ...record, lockedSnapshot: { status: record.status, note: record.note, hotTempC: record.hotTempC, coldTempC: record.coldTempC, by: checkpointCheckLastEditor(record), at: new Date().toISOString() } };
 }
 
 export const daysUntil = (dateStr) => {

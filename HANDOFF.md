@@ -40,6 +40,49 @@ This file covers *state* — what's been done, what's live, what's still open.
   skipped, so gaps stay visible to whoever reviews it. New pure helper
   `checkpointCheckPeriodsInRange` in `helpers.js` (tested) mirrors
   `fireLogWeeksInRange`'s role for months instead of weeks.
+- **Legionella Checks** (new, checkpoint-based, same golden-rule export gating
+  as Window Restriction) — replaces the old "Kettle descaling"/"Shower head
+  descale" free-text presets on the per-asset Legionella category. Everything
+  else in that category (water tank inspection, calorifier check, TMV
+  servicing, water sample/analysis) is untouched — those stay one-off/
+  asset-level checks, not periodic. Reached via a new "Legionella Checks" nav
+  item under Checks, which opens a small menu (`LegionellaChecksMenuPage` in
+  `src/components/legionella/LegionellaChecks.jsx`) with two independent
+  sub-flows:
+  - **Descaling** — quarterly, one record per (checkpoint, quarter) holding a
+    `checks: { kettle, shower_head, tap }` map, each fixture independently
+    tickable, only showing the fixture types actually linked to that
+    checkpoint (`legionellaCheckEligibleItems` in `helpers.js`). New
+    `legionellaCheck*` helpers (period math, lock/snapshot, per-item export
+    merge) are a deliberate parallel to `checkpointCheck*`/`fireLog*` rather
+    than generalizing either — quarterly periods needed new period math,
+    multi-item-per-record needed Fire Log's per-item merge shape, and the two
+    just don't share a common ancestor worth factoring out.
+  - **Water Temperature** — monthly, one hot + one cold °C reading per
+    checkpoint per month, eligible once a checkpoint has a tap or shower head
+    linked (kettles don't count). Reuses `checkpointCheck*`'s month/lock math
+    directly (it was already generic, not actually Window-Restriction-specific)
+    plus new `legionellaTempCheck*` functions for the two extra numeric fields.
+  - Two new asset types, `shower_head` and `tap` (`ASSET_TYPES` in
+    `constants.js`) — alongside the existing `kettle`, all three can now be
+    linked to **both** a Room (general maintenance, unchanged) **and** a
+    Checkpoint (Legionella-check eligibility) at once — `AssetFormPage` in
+    `Assets.jsx` renders both selects together for these three asset types,
+    rather than the Room-or-Checkpoint either/or that Window Restriction uses.
+  - Not-OK on either check raises a maintenance issue exactly like Window
+    Restriction; for Descaling specifically, since one record can have up to
+    three independently-resolved items, the linked maintenance record's
+    `linkedRecordId` is a composite `"<recordId>:<itemKey>"` and `resolvedVia`
+    is keyed per item (`{ kettle: "...", shower_head: "..." }`) rather than a
+    single flag, so resolving one fixture's issue doesn't affect another's.
+  - **Known gap, not fixed here** (see below): tapping "OK" directly on an
+    item that's currently "Not OK" silently overwrites its note and leaves any
+    linked-but-open maintenance issue orphaned, with no trace on export. This
+    is a pre-existing Window Restriction bug (`handleSaveWindowCheckOk` in
+    `App.jsx`) that Legionella's `handleSaveLegionellaCheckOk`/
+    `handleSaveLegionellaTempCheck` inherit by design, for consistency between
+    the two systems — flagged by the user, deliberately deferred rather than
+    fixed piecemeal mid-build.
 - **Every export produces a real PDF now**, not HTML — `src/lib/pdf/` (pdf-lib,
   entirely client-side, no server/storage involved). This replaced a
   deliberate HTML-only workaround from this app's original single-file
@@ -113,13 +156,26 @@ just its container) is the fix.
    validation logic, the Fire Log/Window Restriction period-lock/export-merge
    machinery, and the search/haystack + Compliance Library matching logic),
    and `src/lib/pdf/pdf.test.js` (structural tests for the PDF builders — run
-   at the repo root, 110 tests total) and `server/index.test.js` (real
+   at the repo root, 140 tests total) and `server/index.test.js` (real
    integration tests against the Express app + a throwaway SQLite file via
    `supertest` — auth lifecycle, storage routes, R2 fallback path — run
    inside `server/`, 12 tests). `vite.config.js` explicitly excludes
    `server/**` from the root test run since it's a separate package with its
    own dependencies. Essentially all pure business logic in `helpers.js` is
    covered now, plus the PDF export layer; what's left is the UI itself.
+3. **OK-override silently loses a Not-OK note / orphans its maintenance issue**
+   — on Window Restriction, Legionella Descaling, and Legionella Water
+   Temperature checks alike: tapping "OK" directly on an item that's
+   currently "Not OK" (bypassing the Resolve flow) overwrites its status/note
+   with no check for an already-open linked maintenance issue. The note is
+   gone, the maintenance issue is left open with nothing pointing back at it,
+   and the golden-rule PDF export shows a clean "OK" for that period with no
+   trace anything was ever wrong (the export only reads live status/note,
+   never `record.history`). Needs a deliberate design decision — block the
+   direct override when an open linked maintenance issue exists and force
+   Resolve instead? Auto-resolve the linked issue? — not a quick patch.
+   `handleSaveWindowCheckOk`, `handleSaveLegionellaCheckOk`, and
+   `handleSaveLegionellaTempCheck` in `App.jsx` all share this gap.
 ## Getting set up on a new machine
 
 ```bash

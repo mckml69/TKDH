@@ -24,6 +24,7 @@ export function AssetFormPage({ asset, assets, rooms, checkpoints, prefill, onSa
   const isNew = !asset;
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const usesCheckpoint = form.category === "window_restriction";
+  const showsLegionellaCheckpoint = ["kettle", "shower_head", "tap"].includes(form.assetType);
   const handleTypeChange = (key) => {
     const t = ASSET_TYPES.find((a) => a.key === key);
     setForm((f) => ({ ...f, assetType: key, category: t.category, eligibleFor: t.eligibleFor, assetCode: isNew ? generateAssetCode(key, assets) : f.assetCode }));
@@ -67,6 +68,14 @@ export function AssetFormPage({ asset, assets, rooms, checkpoints, prefill, onSa
           )}
           <label>Location<input list="loc-presets" value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Corridor 3F" /></label>
         </div>
+        {showsLegionellaCheckpoint && (
+          <label>Legionella checkpoint <span className="muted">(pairs this fixture with a quarterly Legionella check, independent of the room above)</span>
+            <select value={form.checkpointId || ""} onChange={(e) => set("checkpointId", e.target.value || null)}>
+              <option value="">Not assigned yet</option>
+              {checkpoints.map((cp) => <option key={cp.id} value={cp.id}>{cp.name}</option>)}
+            </select>
+          </label>
+        )}
         <div className="row-2">
           <label>Manufacturer<input value={form.manufacturer} onChange={(e) => set("manufacturer", e.target.value)} /></label>
           <label>Model<input value={form.model} onChange={(e) => set("model", e.target.value)} /></label>

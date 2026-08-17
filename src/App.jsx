@@ -20,6 +20,7 @@ import {
   Flame,
   Blinds,
   MapPin,
+  Droplet,
 } from "lucide-react";
 import { AssetDetail, AssetFormPage, AssetsList } from "./components/assets/Assets";
 import { AuditIntro, AuditReport, AuditWizardStep } from "./components/audit/Audit";
@@ -43,6 +44,10 @@ import { StaffDetail, StaffFormPage, StaffList } from "./components/staff/Staff"
 import { ResetPasswordPage, SignInScreen, UserFormPage, UsersList } from "./components/users/Users";
 import { VisitDetail, VisitFormPage, VisitsList } from "./components/visits/Visits";
 import { WindowCheckDetailPage, WindowChecksExportPage, WindowRestrictionChecksPage } from "./components/windowchecks/WindowChecks";
+import {
+  LegionellaCheckDetailPage, LegionellaChecksExportPage, LegionellaChecksMenuPage, LegionellaChecksPage,
+  LegionellaTempCheckDetailPage, LegionellaTempCheckPage, LegionellaTempChecksExportPage,
+} from "./components/legionella/LegionellaChecks";
 import { useAudit } from "./hooks/useAudit";
 import { useCurrentUser } from "./hooks/useCurrentUser";
 import { useLedger } from "./hooks/useLedger";
@@ -51,11 +56,13 @@ import { useBranding } from "./hooks/useBranding";
 import { useUsers } from "./hooks/useUsers";
 import { storageMode } from "./lib/storage";
 import { apiAdapter } from "./lib/storage/apiAdapter";
-import { AUDIT_CATEGORIES, LOCATION_PRESETS, REQUIREMENTS, RoleContext, TEMPLATES, TEMPLATE_LIST, FIRE_LOG_ITEMS } from "./lib/constants";
+import { AUDIT_CATEGORIES, LOCATION_PRESETS, REQUIREMENTS, RoleContext, TEMPLATES, TEMPLATE_LIST, FIRE_LOG_ITEMS, LEGIONELLA_CHECK_ITEMS } from "./lib/constants";
 import {
   certificateStatus, checkpointCheckEnsureSnapshot, checkpointCheckPeriodKey, findRoomMentions, fmtDate,
   hasPendingCorrection, insuranceStatus, isCheckpointCheckLocked, isOverdue, staffTrainingStatus, todayStr, uid, visitStatus,
   fireLogCurrentPeriodKey, fireLogEnsureSnapshot, fireLogPeriodLabel, isFireLogLocked,
+  legionellaCheckEnsureSnapshot, legionellaCheckPeriodKey, isLegionellaCheckLocked,
+  legionellaTempCheckEnsureSnapshot,
 } from "./lib/helpers";
 import "./styles/global.css";
 
@@ -113,6 +120,16 @@ export default function App() {
       push({ page: "window-check-not-ok", checkpoint: cp, periodKey: record.periodKey, record });
       return;
     }
+    if (record && record.category === "legionella_check") {
+      const cp = checkpoints.find((c) => c.id === record.checkpointId);
+      push({ page: "legionella-check-detail", checkpoint: cp, periodKey: record.periodKey, record });
+      return;
+    }
+    if (record && record.category === "legionella_temp_check") {
+      const cp = checkpoints.find((c) => c.id === record.checkpointId);
+      push({ page: "legionella-temp-check-detail", checkpoint: cp, periodKey: record.periodKey, record });
+      return;
+    }
     push({ page: "record-form", template, record, prefill, viewOnly: !!viewOnly });
   };
   const openRecordView = (r) => openRecordForm(TEMPLATES[r.category], r, null, true);
@@ -166,6 +183,52 @@ export default function App() {
     upsertRecord({ ...base, dateLogged, checks: { ...(base.checks || {}), [itemKey]: checkValue } }, records);
     pop();
   };
+  const handleSaveLegionellaCheckOk = (checkpointId, periodKey, existingRecord, itemKey) => {
+    if (existingRecord && isLegionellaCheckLocked(existingRecord) && role !== "General Manager") return;
+    let base = existingRecord || { id: uid(), category: "legionella_check", checkpointId, periodKey, title: "Legionella Check", location: "", people: "", notes: "", attachments: [], tags: [] };
+    if (existingRecord && isLegionellaCheckLocked(existingRecord)) base = legionellaCheckEnsureSnapshot(base);
+    upsertRecord({ ...base, checks: { ...(base.checks || {}), [itemKey]: { status: "ok", note: "" } } }, records);
+  };
+  const handleSaveLegionellaCheck = (checkpointId, periodKey, existingRecord, checks) => {
+    if (existingRecord && isLegionellaCheckLocked(existingRecord) && role !== "General Manager") return;
+    let base = existingRecord || { id: uid(), category: "legionella_check", checkpointId, periodKey, title: "Legionella Check", location: "", people: "", notes: "", attachments: [], tags: [] };
+    if (existingRecord && isLegionellaCheckLocked(existingRecord)) base = legionellaCheckEnsureSnapshot(base);
+    const updated = { ...base, checks: { ...(base.checks || {}), ...checks } };
+    let next = upsertRecord(updated, records);
+    const checkpoint = checkpoints.find((cp) => cp.id === checkpointId);
+    for (const [itemKey, itemVal] of Object.entries(checks)) {
+      if (itemVal.status === "not_ok") {
+        const compositeId = `${updated.id}:${itemKey}`;
+        if (!next.some((r) => r.linkedRecordId === compositeId)) {
+          const itemLabel = LEGIONELLA_CHECK_ITEMS.find((i) => i.key === itemKey)?.label || itemKey;
+          const linked = {
+            id: uid(), category: "maintenance", title: `Legionella issue — ${itemLabel} — ${checkpoint?.name || "checkpoint"}`,
+            location: checkpoint?.name || "", people: currentUser?.name || "", notes: itemVal.note, dateRaised: todayStr(), priority: "Medium", status: "Open",
+            linkedRecordId: compositeId, attachments: [],
+          };
+          next = upsertRecord(linked, next);
+        }
+      }
+    }
+    pop();
+  };
+  const handleSaveLegionellaTempCheck = (checkpointId, periodKey, existingRecord, hotTempC, coldTempC, status, note) => {
+    if (existingRecord && isCheckpointCheckLocked(existingRecord) && role !== "General Manager") return;
+    let base = existingRecord || { id: uid(), category: "legionella_temp_check", checkpointId, periodKey, title: "Legionella Water Temperature Check", location: "", people: "", notes: "", attachments: [], tags: [] };
+    if (existingRecord && isCheckpointCheckLocked(existingRecord)) base = legionellaTempCheckEnsureSnapshot(base);
+    const updated = { ...base, hotTempC, coldTempC, status, note: status === "not_ok" ? note : "" };
+    let next = upsertRecord(updated, records);
+    if (status === "not_ok" && !next.some((r) => r.linkedRecordId === updated.id)) {
+      const checkpoint = checkpoints.find((cp) => cp.id === checkpointId);
+      const linked = {
+        id: uid(), category: "maintenance", title: `Legionella water temperature issue — ${checkpoint?.name || "checkpoint"}`,
+        location: checkpoint?.name || "", people: currentUser?.name || "", notes: note, dateRaised: todayStr(), priority: "Medium", status: "Open",
+        linkedRecordId: updated.id, attachments: [],
+      };
+      upsertRecord(linked, next);
+    }
+    pop();
+  };
   const handleSaveWindowCheck = (checkpointId, periodKey, existingRecord, status, note) => {
     if (existingRecord && isCheckpointCheckLocked(existingRecord) && role !== "General Manager") return;
     let base = existingRecord || { id: uid(), category: "window_restriction_check", checkpointId, periodKey, title: "Window Restriction Check", location: "", people: "", notes: "", attachments: [], tags: [] };
@@ -198,6 +261,29 @@ export default function App() {
           status: "ok",
           note: origin.note ? `${origin.note}\n${resolutionNote}` : resolutionNote,
           resolvedVia: record.id,
+          _historyNote: `Marked OK via maintenance resolution${resolver ? ` (${resolver})` : ""}: ${notes || "no details given"}`,
+        };
+        upsertRecord(updatedOrigin, next);
+      } else if (origin && origin.category === "legionella_temp_check") {
+        let updatedOrigin = isCheckpointCheckLocked(origin) ? legionellaTempCheckEnsureSnapshot(origin) : origin;
+        const resolutionNote = `Resolved${date ? ` ${fmtDate(date)}` : ""}${resolver ? ` by ${resolver}` : ""}: ${notes || "no details given"}`;
+        updatedOrigin = {
+          ...updatedOrigin,
+          status: "ok",
+          note: origin.note ? `${origin.note}\n${resolutionNote}` : resolutionNote,
+          resolvedVia: record.id,
+          _historyNote: `Marked OK via maintenance resolution${resolver ? ` (${resolver})` : ""}: ${notes || "no details given"}`,
+        };
+        upsertRecord(updatedOrigin, next);
+      } else if (origin && origin.category === "legionella_check") {
+        const itemKey = record.linkedRecordId.split(":")[1];
+        let updatedOrigin = isLegionellaCheckLocked(origin) ? legionellaCheckEnsureSnapshot(origin) : origin;
+        const existingNote = updatedOrigin.checks?.[itemKey]?.note || "";
+        const resolutionNote = `Resolved${date ? ` ${fmtDate(date)}` : ""}${resolver ? ` by ${resolver}` : ""}: ${notes || "no details given"}`;
+        updatedOrigin = {
+          ...updatedOrigin,
+          checks: { ...(updatedOrigin.checks || {}), [itemKey]: { status: "ok", note: existingNote ? `${existingNote}\n${resolutionNote}` : resolutionNote } },
+          resolvedVia: { ...(updatedOrigin.resolvedVia || {}), [itemKey]: record.id },
           _historyNote: `Marked OK via maintenance resolution${resolver ? ` (${resolver})` : ""}: ${notes || "no details given"}`,
         };
         upsertRecord(updatedOrigin, next);
@@ -410,7 +496,10 @@ export default function App() {
     body = <CheckpointsList checkpoints={checkpoints} assets={assets} onOpen={(id) => push({ page: "checkpoint-detail", checkpointId: id })} onAdd={() => push({ page: "checkpoint-form", checkpoint: null })} onEdit={(cp) => push({ page: "checkpoint-form", checkpoint: cp })} onDelete={(id) => { if (role !== "General Manager") return; push({ page: "confirm-delete", type: "checkpoint", id, message: "Archive this checkpoint? Its history is kept, and you can restore it anytime." }); }} onRestore={restoreCheckpoint} />;
   } else if (current.page === "checkpoint-detail") {
     const cp = checkpoints.find((c) => c.id === current.checkpointId);
-    body = cp ? <CheckpointDetail checkpoint={cp} assets={assets} records={records} onBack={pop} onEdit={(c) => push({ page: "checkpoint-form", checkpoint: c })} onOpenAsset={(id) => push({ page: "asset-detail", assetId: id })} onOpenCheck={(checkpoint, periodKey, rec) => push({ page: "window-check-not-ok", checkpoint, periodKey, record: rec })} /> : null;
+    body = cp ? <CheckpointDetail checkpoint={cp} assets={assets} records={records} onBack={pop} onEdit={(c) => push({ page: "checkpoint-form", checkpoint: c })} onOpenAsset={(id) => push({ page: "asset-detail", assetId: id })}
+      onOpenCheck={(checkpoint, periodKey, rec) => push({ page: "window-check-not-ok", checkpoint, periodKey, record: rec })}
+      onOpenLegionellaCheck={(checkpoint, periodKey, rec) => push({ page: "legionella-check-detail", checkpoint, periodKey, record: rec })}
+      onOpenLegionellaTempCheck={(checkpoint, periodKey, rec) => push({ page: "legionella-temp-check-detail", checkpoint, periodKey, record: rec })} /> : null;
   } else if (current.page === "checkpoint-form") {
     body = <CheckpointFormPage key={current.checkpoint?.id ?? current.formKey ?? "checkpoint-form"} checkpoint={current.checkpoint} onSave={(form, logAnother) => {
       upsertCheckpoint(form, checkpoints);
@@ -435,6 +524,43 @@ export default function App() {
           onOpenMissing={(checkpoint, periodKey) => push({ page: "window-check-not-ok", checkpoint, periodKey, record: null })}
           onExportFallback={openReportFallback} onClose={pop} branding={branding} />
       : <div className="empty-state">Only a General Manager can export Window Restriction checks.</div>;
+  } else if (current.page === "legionella-menu") {
+    body = <LegionellaChecksMenuPage onPickDescaling={() => push({ page: "legionella-checks" })} onPickTemp={() => push({ page: "legionella-temp-checks" })} onClose={pop} />;
+  } else if (current.page === "legionella-checks") {
+    body = <LegionellaChecksPage checkpoints={checkpoints} assets={assets} records={records} canEdit={role === "General Manager"}
+      onSaveOk={handleSaveLegionellaCheckOk}
+      onOpenNotOk={(cp, periodKey, rec, itemKey) => push({ page: "legionella-check-detail", checkpoint: cp, periodKey, record: rec, initialItemKey: itemKey, initialStatus: "not_ok" })}
+      onOpenDetail={(cp, periodKey, rec) => push({ page: "legionella-check-detail", checkpoint: cp, periodKey, record: rec })}
+      onViewPast={(r) => openRecordForm(TEMPLATES[r.category], r, null)}
+      onExport={() => push({ page: "legionella-checks-export" })}
+      onClose={pop} />;
+  } else if (current.page === "legionella-check-detail") {
+    const liveRecord = current.record ? records.find((r) => r.id === current.record.id) || current.record : null;
+    body = <LegionellaCheckDetailPage checkpoint={current.checkpoint} assets={assets} periodKey={current.periodKey} record={liveRecord}
+      initialItemKey={current.initialItemKey} initialStatus={current.initialStatus} canEdit={role === "General Manager"}
+      onSave={handleSaveLegionellaCheck} onClose={pop} />;
+  } else if (current.page === "legionella-checks-export") {
+    body = role === "General Manager"
+      ? <LegionellaChecksExportPage checkpoints={checkpoints} assets={assets} records={records}
+          onOpenMissing={(checkpoint, periodKey, itemKey) => push({ page: "legionella-check-detail", checkpoint, periodKey, record: null, initialItemKey: itemKey })}
+          onExportFallback={openReportFallback} onClose={pop} branding={branding} />
+      : <div className="empty-state">Only a General Manager can export Legionella checks.</div>;
+  } else if (current.page === "legionella-temp-checks") {
+    body = <LegionellaTempCheckPage checkpoints={checkpoints} assets={assets} records={records} canEdit={role === "General Manager"}
+      onOpenDetail={(cp, periodKey, rec) => push({ page: "legionella-temp-check-detail", checkpoint: cp, periodKey, record: rec })}
+      onViewPast={(r) => openRecordForm(TEMPLATES[r.category], r, null)}
+      onExport={() => push({ page: "legionella-temp-checks-export" })}
+      onClose={pop} />;
+  } else if (current.page === "legionella-temp-check-detail") {
+    const liveRecord = current.record ? records.find((r) => r.id === current.record.id) || current.record : null;
+    body = <LegionellaTempCheckDetailPage checkpoint={current.checkpoint} periodKey={current.periodKey} record={liveRecord} canEdit={role === "General Manager"}
+      onSave={handleSaveLegionellaTempCheck} onClose={pop} />;
+  } else if (current.page === "legionella-temp-checks-export") {
+    body = role === "General Manager"
+      ? <LegionellaTempChecksExportPage checkpoints={checkpoints} assets={assets} records={records}
+          onOpenMissing={(checkpoint, periodKey) => push({ page: "legionella-temp-check-detail", checkpoint, periodKey, record: null })}
+          onExportFallback={openReportFallback} onClose={pop} branding={branding} />
+      : <div className="empty-state">Only a General Manager can export Legionella water temperature checks.</div>;
   } else if (current.page === "fire-log-menu") {
     body = <FireLogMenuPage records={records} onPick={(category) => {
       if (category === "fire_periodic") { push({ page: "fire-log-periodic-menu" }); return; }
@@ -554,7 +680,8 @@ export default function App() {
 
         <div className="nav-divider" />
         {(() => {
-          const checkPages = ["fire-log-menu", "fire-log-entry", "fire-log-type-menu", "fire-log-periodic-menu", "fire-log-periodic-entry", "fire-log-export", "fire-log-suspected", "window-checks", "window-check-not-ok", "window-checks-export"];
+          const checkPages = ["fire-log-menu", "fire-log-entry", "fire-log-type-menu", "fire-log-periodic-menu", "fire-log-periodic-entry", "fire-log-export", "fire-log-suspected", "window-checks", "window-check-not-ok", "window-checks-export", "legionella-menu", "legionella-checks", "legionella-check-detail", "legionella-checks-export", "legionella-temp-checks", "legionella-temp-check-detail", "legionella-temp-checks-export"];
+          const legionellaPages = ["legionella-menu", "legionella-checks", "legionella-check-detail", "legionella-checks-export", "legionella-temp-checks", "legionella-temp-check-detail", "legionella-temp-checks-export"];
           const isOnCheckPage = checkPages.includes(current.page);
           const expanded = checksOpen || isOnCheckPage;
           return (
@@ -566,6 +693,7 @@ export default function App() {
                 <div className="nav-subgroup">
                   <button className={"nav-item" + (checkPages.slice(0, 7).includes(current.page) ? " active" : "")} onClick={() => resetTo({ page: "fire-log-menu" })}><Flame size={16} /> Fire Log Checks</button>
                   <button className={"nav-item" + (["window-checks", "window-check-not-ok", "window-checks-export"].includes(current.page) ? " active" : "")} onClick={() => resetTo({ page: "window-checks" })}><Blinds size={16} /> Window Restriction</button>
+                  <button className={"nav-item" + (legionellaPages.includes(current.page) ? " active" : "")} onClick={() => resetTo({ page: "legionella-menu" })}><Droplet size={16} /> Legionella Checks</button>
                 </div>
               )}
             </>

@@ -1,7 +1,10 @@
 import React, { useState, useMemo, useContext } from "react";
-import { Plus, X, Pencil, Archive, ArchiveRestore, MapPin, Package, ArrowLeft, CheckCircle2, AlertCircle, Blinds } from "lucide-react";
+import { Plus, X, Pencil, Archive, ArchiveRestore, MapPin, Package, ArrowLeft, CheckCircle2, AlertCircle, Blinds, Droplet, Thermometer } from "lucide-react";
 import { RoleContext } from "../../lib/constants";
-import { uid, tagBlob, attachmentBlob, dateSearchBlob, checkpointCheckPeriodLabel, isCheckpointCheckLocked } from "../../lib/helpers";
+import {
+  uid, tagBlob, attachmentBlob, dateSearchBlob, checkpointCheckPeriodLabel, isCheckpointCheckLocked,
+  legionellaCheckPeriodLabel, isLegionellaCheckLocked, legionellaCheckEligibleItems,
+} from "../../lib/helpers";
 import { ErrorBanner, FormPage, HistoryList, CategoryTag } from "../shared/UI";
 import { AttachmentsField } from "../shared/AttachmentsField";
 
@@ -56,18 +59,18 @@ export function CheckpointsList({ checkpoints, assets, onOpen, onAdd, onEdit, on
         <button className="btn btn-primary" onClick={onAdd}><Plus size={16} /> New checkpoint</button>
       </div>
       <p className="muted" style={{ marginTop: -8, marginBottom: 16 }}>
-        Physical locations used by checks like Window Restriction — deliberately separate from the Room register,
-        since not every checkpoint is a guest room (corridors, reception, the bar, communal areas).
+        Physical locations used by checks like Window Restriction and Legionella — deliberately separate from the Room
+        register, since not every checkpoint is a guest room (corridors, reception, the bar, communal areas).
       </p>
       <div className="filter-rail"><div className="chip-row">
         <input className="search-inline" placeholder="Search checkpoints…" value={query} onChange={(e) => setQuery(e.target.value)} />
         {(archivedCount > 0 || showArchived) && <button className={"chip" + (showArchived ? " chip--active" : "")} onClick={() => setShowArchived((s) => !s)}><Archive size={12} style={{ verticalAlign: -2, marginRight: 3 }} />{showArchived ? "Hide" : "Show"} archived ({archivedCount})</button>}
       </div></div>
       {filtered.length === 0 ? (
-        <div className="empty-state">{showArchived ? "No archived checkpoints." : "No checkpoints yet — add one for every location that needs a Window Restriction check: rooms, corridors, reception, the bar, communal bathrooms."}</div>
+        <div className="empty-state">{showArchived ? "No archived checkpoints." : "No checkpoints yet — add one for every location that needs a Window Restriction or Legionella check: rooms, corridors, reception, the bar, communal bathrooms."}</div>
       ) : (
         <div className="ledger-table">
-          <div className="ledger-row ledger-row--asset ledger-row--head"><span>Name</span><span>Window assets</span><span></span><span></span><span></span><span></span></div>
+          <div className="ledger-row ledger-row--asset ledger-row--head"><span>Name</span><span>Linked assets</span><span></span><span></span><span></span><span></span></div>
           {filtered.map((cp) => {
             const count = assets.filter((a) => a.checkpointId === cp.id && !a.archived).length;
             return (
@@ -90,11 +93,19 @@ export function CheckpointsList({ checkpoints, assets, onOpen, onAdd, onEdit, on
     </div>
   );
 }
-export function CheckpointDetail({ checkpoint, assets, records, onBack, onEdit, onOpenAsset, onOpenCheck }) {
+export function CheckpointDetail({ checkpoint, assets, records, onBack, onEdit, onOpenAsset, onOpenCheck, onOpenLegionellaCheck, onOpenLegionellaTempCheck }) {
   const { canEdit } = useContext(RoleContext);
   const linkedAssets = assets.filter((a) => a.checkpointId === checkpoint.id);
   const checks = useMemo(
     () => records.filter((r) => r.category === "window_restriction_check" && r.checkpointId === checkpoint.id && !r.archived).sort((a, b) => (b.periodKey || "").localeCompare(a.periodKey || "")),
+    [records, checkpoint.id]
+  );
+  const legionellaChecks = useMemo(
+    () => records.filter((r) => r.category === "legionella_check" && r.checkpointId === checkpoint.id && !r.archived).sort((a, b) => (b.periodKey || "").localeCompare(a.periodKey || "")),
+    [records, checkpoint.id]
+  );
+  const legionellaTempChecks = useMemo(
+    () => records.filter((r) => r.category === "legionella_temp_check" && r.checkpointId === checkpoint.id && !r.archived).sort((a, b) => (b.periodKey || "").localeCompare(a.periodKey || "")),
     [records, checkpoint.id]
   );
   return (
@@ -106,8 +117,8 @@ export function CheckpointDetail({ checkpoint, assets, records, onBack, onEdit, 
       </div>
       {checkpoint.notes && <p className="muted" style={{ marginBottom: 10 }}>{checkpoint.notes}</p>}
       <div className="feed-section">
-        <div className="feed-section-head"><h3><Package size={16} color="#8A6D1F" /> Window assets here <span className="feed-count">{linkedAssets.length}</span></h3></div>
-        {linkedAssets.length === 0 ? <p className="empty-state">No window assets linked to this checkpoint yet.</p> : (
+        <div className="feed-section-head"><h3><Package size={16} color="#8A6D1F" /> Assets here <span className="feed-count">{linkedAssets.length}</span></h3></div>
+        {linkedAssets.length === 0 ? <p className="empty-state">No assets linked to this checkpoint yet.</p> : (
           <div className="ledger-table">
             {linkedAssets.map((a) => (
               <div key={a.id} className="ledger-row ledger-row--flat" style={{ cursor: "pointer" }} onClick={() => onOpenAsset(a.id)}>
@@ -135,6 +146,55 @@ export function CheckpointDetail({ checkpoint, assets, records, onBack, onEdit, 
                     {checkpointCheckPeriodLabel(r.periodKey)}
                   </span>
                   <span className="muted">{r.status === "ok" ? "OK" : "Not OK"}</span>
+                  <span className="muted">{locked ? "Locked" : "Open"}</span>
+                  <span className="muted">{r.note ? r.note.slice(0, 50) : "—"}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <div className="feed-section">
+        <div className="feed-section-head"><h3><Droplet size={16} color="#2A6F97" /> Legionella check history <span className="feed-count">{legionellaChecks.length}</span></h3></div>
+        <p className="muted" style={{ marginTop: -4, marginBottom: 10 }}>One check per quarter covers every kettle, shower head, and tap at this checkpoint together — that's why history lives here, not on an individual fixture asset.</p>
+        {legionellaChecks.length === 0 ? <p className="empty-state">No checks logged for this checkpoint yet.</p> : (
+          <div className="ledger-table">
+            {legionellaChecks.map((r) => {
+              const locked = isLegionellaCheckLocked(r);
+              const items = legionellaCheckEligibleItems(checkpoint, assets);
+              const okCount = items.filter((item) => r.checks?.[item.key]?.status === "ok").length;
+              const notOkCount = items.filter((item) => r.checks?.[item.key]?.status === "not_ok").length;
+              return (
+                <div key={r.id} className="ledger-row ledger-row--flat" style={{ cursor: "pointer" }} onClick={() => onOpenLegionellaCheck(checkpoint, r.periodKey, r)}>
+                  <span className="mono-strong">
+                    {notOkCount > 0 && <AlertCircle size={14} color="#A8402F" style={{ verticalAlign: -2, marginRight: 5 }} />}
+                    {notOkCount === 0 && okCount > 0 && <CheckCircle2 size={14} color="#2F6B4C" style={{ verticalAlign: -2, marginRight: 5 }} />}
+                    {legionellaCheckPeriodLabel(r.periodKey)}
+                  </span>
+                  <span className="muted">{okCount} OK{notOkCount > 0 ? `, ${notOkCount} Not OK` : ""}</span>
+                  <span className="muted">{locked ? "Locked" : "Open"}</span>
+                  <span></span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <div className="feed-section">
+        <div className="feed-section-head"><h3><Thermometer size={16} color="#2A6F97" /> Legionella water temperature history <span className="feed-count">{legionellaTempChecks.length}</span></h3></div>
+        <p className="muted" style={{ marginTop: -4, marginBottom: 10 }}>One check per month covers the hot and cold reading at this checkpoint — that's why history lives here, not on an individual fixture asset.</p>
+        {legionellaTempChecks.length === 0 ? <p className="empty-state">No checks logged for this checkpoint yet.</p> : (
+          <div className="ledger-table">
+            {legionellaTempChecks.map((r) => {
+              const locked = isCheckpointCheckLocked(r);
+              return (
+                <div key={r.id} className="ledger-row ledger-row--flat" style={{ cursor: "pointer" }} onClick={() => onOpenLegionellaTempCheck(checkpoint, r.periodKey, r)}>
+                  <span className="mono-strong">
+                    {r.status === "ok" && <CheckCircle2 size={14} color="#2F6B4C" style={{ verticalAlign: -2, marginRight: 5 }} />}
+                    {r.status === "not_ok" && <AlertCircle size={14} color="#A8402F" style={{ verticalAlign: -2, marginRight: 5 }} />}
+                    {checkpointCheckPeriodLabel(r.periodKey)}
+                  </span>
+                  <span className="muted">Hot {r.hotTempC ?? "—"}°C · Cold {r.coldTempC ?? "—"}°C</span>
                   <span className="muted">{locked ? "Locked" : "Open"}</span>
                   <span className="muted">{r.note ? r.note.slice(0, 50) : "—"}</span>
                 </div>

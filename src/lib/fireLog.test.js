@@ -6,6 +6,9 @@ import {
   fireLogEnsureSnapshot, fireLogRepairWeeklyKeys, fireLogSuspectedTimezoneAffected,
   checkpointCheckPeriodKey, checkpointCheckPeriodLabel, checkpointCheckPeriodsInRange, checkpointCheckFindMissing, checkpointCheckLockBoundary,
   isCheckpointCheckLocked, checkpointCheckExportSource,
+  legionellaCheckPeriodKey, legionellaCheckPeriodLabel, legionellaCheckPeriodsInRange, legionellaCheckEligibleItems,
+  legionellaCheckFindMissing, legionellaCheckExportSource, legionellaCheckLockBoundary, isLegionellaCheckLocked,
+  legionellaTempCheckEligibleCheckpoints, legionellaTempCheckFindMissing, legionellaTempCheckExportSource,
 } from "./helpers";
 
 describe("lastEditor", () => {
@@ -423,5 +426,235 @@ describe("checkpointCheckExportSource", () => {
       history: [{ by: "Dan" }],
     };
     expect(checkpointCheckExportSource(record)).toEqual({ status: "OK", note: "resolved", by: "Dan" });
+  });
+});
+
+describe("legionellaCheckPeriodKey / legionellaCheckPeriodLabel", () => {
+  it("period key is the year-quarter", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 7, 17, 10, 0, 0)); // August -> Q3
+    expect(legionellaCheckPeriodKey()).toBe("2026-Q3");
+    vi.useRealTimers();
+  });
+
+  it("every month maps to the right quarter", () => {
+    expect(legionellaCheckPeriodKey("2026-01-05")).toBe("2026-Q1");
+    expect(legionellaCheckPeriodKey("2026-03-31")).toBe("2026-Q1");
+    expect(legionellaCheckPeriodKey("2026-04-01")).toBe("2026-Q2");
+    expect(legionellaCheckPeriodKey("2026-09-30")).toBe("2026-Q3");
+    expect(legionellaCheckPeriodKey("2026-10-01")).toBe("2026-Q4");
+    expect(legionellaCheckPeriodKey("2026-12-31")).toBe("2026-Q4");
+  });
+
+  it("period label spells out the quarter's month range", () => {
+    expect(legionellaCheckPeriodLabel("2026-Q1")).toBe("Q1 2026 (Jan–Mar)");
+    expect(legionellaCheckPeriodLabel("2026-Q4")).toBe("Q4 2026 (Oct–Dec)");
+  });
+});
+
+describe("legionellaCheckPeriodsInRange", () => {
+  it("a range within a single quarter is just that one period", () => {
+    expect(legionellaCheckPeriodsInRange("2026-02-01", "2026-03-20")).toEqual(["2026-Q1"]);
+  });
+
+  it("lists every quarter overlapping the range", () => {
+    expect(legionellaCheckPeriodsInRange("2026-01-15", "2026-08-02")).toEqual(["2026-Q1", "2026-Q2", "2026-Q3"]);
+  });
+
+  it("correctly rolls over a year boundary", () => {
+    expect(legionellaCheckPeriodsInRange("2025-10-10", "2026-02-05")).toEqual(["2025-Q4", "2026-Q1"]);
+  });
+});
+
+describe("legionellaCheckEligibleItems", () => {
+  const checkpoint = { id: "cp1" };
+  it("only includes items whose asset type is actually linked here", () => {
+    const assets = [
+      { id: "a1", checkpointId: "cp1", assetType: "kettle", archived: false },
+      { id: "a2", checkpointId: "cp1", assetType: "shower_head", archived: false },
+    ];
+    const items = legionellaCheckEligibleItems(checkpoint, assets);
+    expect(items.map((i) => i.key)).toEqual(["kettle", "shower_head"]);
+  });
+
+  it("an archived asset doesn't count", () => {
+    const assets = [{ id: "a1", checkpointId: "cp1", assetType: "tap", archived: true }];
+    expect(legionellaCheckEligibleItems(checkpoint, assets)).toEqual([]);
+  });
+
+  it("no matching assets means no eligible items", () => {
+    expect(legionellaCheckEligibleItems(checkpoint, [])).toEqual([]);
+  });
+});
+
+describe("legionellaCheckFindMissing", () => {
+  const checkpoints = [
+    { id: "cp1", name: "Room 12 bathroom", archived: false },
+    { id: "cp2", name: "Reception", archived: false },
+  ];
+  const assets = [
+    { id: "a1", checkpointId: "cp1", assetType: "kettle", archived: false },
+    { id: "a2", checkpointId: "cp1", assetType: "shower_head", archived: false },
+    { id: "a3", checkpointId: "cp2", assetType: "tap", archived: false },
+  ];
+
+  it("flags every eligible-checkpoint × quarter × item combination with no logged status", () => {
+    const records = [
+      { category: "legionella_check", checkpointId: "cp1", periodKey: "2026-Q1", checks: { kettle: { status: "ok" } }, archived: false },
+    ];
+    const missing = legionellaCheckFindMissing(checkpoints, assets, records, "2026-01-01", "2026-03-31");
+    expect(missing).toEqual([
+      { checkpointId: "cp1", checkpointName: "Room 12 bathroom", periodKey: "2026-Q1", itemKey: "shower_head", itemLabel: "Shower head descale" },
+      { checkpointId: "cp2", checkpointName: "Reception", periodKey: "2026-Q1", itemKey: "tap", itemLabel: "Tap descaling" },
+    ]);
+  });
+
+  it("an archived record doesn't count as covering its items", () => {
+    const records = [{ category: "legionella_check", checkpointId: "cp2", periodKey: "2026-Q1", checks: { tap: { status: "ok" } }, archived: true }];
+    const missing = legionellaCheckFindMissing(checkpoints, assets, records, "2026-01-01", "2026-03-31");
+    expect(missing.some((m) => m.checkpointId === "cp2")).toBe(true);
+  });
+
+  it("returns nothing once every eligible item has a logged status for every quarter", () => {
+    const records = [
+      { category: "legionella_check", checkpointId: "cp1", periodKey: "2026-Q1", checks: { kettle: { status: "ok" }, shower_head: { status: "not_ok" } }, archived: false },
+      { category: "legionella_check", checkpointId: "cp2", periodKey: "2026-Q1", checks: { tap: { status: "ok" } }, archived: false },
+    ];
+    expect(legionellaCheckFindMissing(checkpoints, assets, records, "2026-01-01", "2026-03-31")).toEqual([]);
+  });
+});
+
+describe("legionellaCheckLockBoundary / isLegionellaCheckLocked", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 3, 15, 10, 0, 0)); // mid Q2 2026
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("locks at the end of the quarter's last month", () => {
+    expect(isLegionellaCheckLocked({ periodKey: "2026-Q1" })).toBe(true);
+    expect(isLegionellaCheckLocked({ periodKey: "2026-Q2" })).toBe(false);
+  });
+});
+
+describe("legionellaCheckExportSource", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 3, 15, 10, 0, 0)); // mid Q2 2026
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("returns null for no record", () => {
+    expect(legionellaCheckExportSource(null)).toBe(null);
+  });
+
+  it("an unlocked record shows its live checks", () => {
+    const record = { periodKey: "2026-Q2", checks: { kettle: { status: "ok", note: "" } }, history: [{ by: "Dan" }] };
+    expect(legionellaCheckExportSource(record)).toEqual({ checks: { kettle: { status: "ok", note: "" } }, by: "Dan" });
+  });
+
+  it("a locked record with a blank-at-lock note shows a later-added note (late filing), per item", () => {
+    const record = {
+      periodKey: "2026-Q1",
+      checks: { kettle: { status: "not_ok", note: "added after lock" } },
+      lockedSnapshot: { checks: { kettle: { status: "not_ok", note: "" } }, by: "Alice" },
+    };
+    expect(legionellaCheckExportSource(record)).toEqual({ checks: { kettle: { status: "not_ok", note: "added after lock" } }, by: "Alice" });
+  });
+
+  it("a locked record with a real note at lock time keeps it frozen even if it later changed", () => {
+    const record = {
+      periodKey: "2026-Q1",
+      checks: { kettle: { status: "ok", note: "changed after lock" } },
+      lockedSnapshot: { checks: { kettle: { status: "not_ok", note: "original note at lock" } }, by: "Alice" },
+    };
+    expect(legionellaCheckExportSource(record)).toEqual({ checks: { kettle: { status: "not_ok", note: "original note at lock" } }, by: "Alice" });
+  });
+
+  it("a per-item maintenance resolution shows through live even across a lock, without affecting other items", () => {
+    const record = {
+      periodKey: "2026-Q1",
+      checks: {
+        kettle: { status: "ok", note: "resolved" },
+        shower_head: { status: "ok", note: "changed after lock" },
+      },
+      resolvedVia: { kettle: "maintenance-record-123" },
+      lockedSnapshot: {
+        checks: {
+          kettle: { status: "not_ok", note: "original fault" },
+          shower_head: { status: "not_ok", note: "original shower fault" },
+        },
+        by: "Alice",
+      },
+      history: [{ by: "Dan" }],
+    };
+    expect(legionellaCheckExportSource(record)).toEqual({
+      checks: {
+        kettle: { status: "ok", note: "resolved" },
+        shower_head: { status: "not_ok", note: "original shower fault" },
+      },
+      by: "Alice",
+    });
+  });
+});
+
+describe("legionellaTempCheckEligibleCheckpoints", () => {
+  it("only counts checkpoints with a tap or shower head, not kettle alone", () => {
+    const checkpoints = [
+      { id: "cp1", name: "Has tap", archived: false },
+      { id: "cp2", name: "Kettle only", archived: false },
+    ];
+    const assets = [
+      { id: "a1", checkpointId: "cp1", assetType: "tap", archived: false },
+      { id: "a2", checkpointId: "cp2", assetType: "kettle", archived: false },
+    ];
+    expect(legionellaTempCheckEligibleCheckpoints(checkpoints, assets).map((c) => c.id)).toEqual(["cp1"]);
+  });
+});
+
+describe("legionellaTempCheckFindMissing", () => {
+  const checkpoints = [{ id: "cp1", name: "Reception", archived: false }];
+  const assets = [{ id: "a1", checkpointId: "cp1", assetType: "tap", archived: false }];
+
+  it("flags a missing monthly record", () => {
+    const missing = legionellaTempCheckFindMissing(checkpoints, assets, [], "2026-01-01", "2026-01-31");
+    expect(missing).toEqual([{ checkpointId: "cp1", checkpointName: "Reception", periodKey: "2026-01" }]);
+  });
+
+  it("returns nothing once a record exists for the period", () => {
+    const records = [{ category: "legionella_temp_check", checkpointId: "cp1", periodKey: "2026-01", archived: false }];
+    expect(legionellaTempCheckFindMissing(checkpoints, assets, records, "2026-01-01", "2026-01-31")).toEqual([]);
+  });
+});
+
+describe("legionellaTempCheckExportSource", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 1, 15, 10, 0, 0));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("a locked record with readings blank at lock shows later-added readings (late filing)", () => {
+    const record = {
+      periodKey: "2026-01",
+      status: "ok",
+      note: "",
+      hotTempC: 55,
+      coldTempC: 14,
+      lockedSnapshot: { status: "ok", note: "", hotTempC: null, coldTempC: null, by: "Alice" },
+    };
+    expect(legionellaTempCheckExportSource(record)).toEqual({ status: "ok", note: "", hotTempC: 55, coldTempC: 14, by: "Alice" });
+  });
+
+  it("a locked record with real readings at lock time keeps them frozen even if later changed", () => {
+    const record = {
+      periodKey: "2026-01",
+      status: "ok",
+      note: "",
+      hotTempC: 60,
+      coldTempC: 20,
+      lockedSnapshot: { status: "ok", note: "", hotTempC: 52, coldTempC: 16, by: "Alice" },
+    };
+    expect(legionellaTempCheckExportSource(record)).toEqual({ status: "ok", note: "", hotTempC: 52, coldTempC: 16, by: "Alice" });
   });
 });
