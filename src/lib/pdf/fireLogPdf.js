@@ -154,6 +154,7 @@ function drawWeekPage(kit, page, branding) {
     fireLogExportBodyHTML's "one HTML page-break per week" unit exactly. */
 export async function buildFireLogPdf({ records, startDate, endDate, managerName, branding }) {
   const kit = await PdfKit.create();
+  await kit.letterhead(branding);
   const weeks = fireLogWeeksInRange(startDate, endDate);
   const pages = weeks.map((w) => ({ ...fireLogAssembleWeekPage(records, w), managerName }));
 
@@ -162,5 +163,6 @@ export async function buildFireLogPdf({ records, startDate, endDate, managerName
     drawWeekPage(kit, page, branding);
   });
 
+  kit.footer(branding?.footerText);
   return kit.bytes();
 }
