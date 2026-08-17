@@ -539,7 +539,33 @@ export function copyLifecycleFields(oldAsset) {
   };
 }
 
-export function getMode(record) { return TEMPLATES[record.category]?.mode; }
+/** Most records get their mode from their category's TEMPLATES entry, but a handful of presets need
+    a different mode than their category's default — most of Risk Assessments needs "review" while
+    Fire Safety stays "recurring" apart from its one Fire Risk Assessment preset, which also needs
+    "review". Rather than restructuring categories (which would mean rewriting `record.category` on
+    existing data), this lookup overrides mode per (category, title) pair, sourced directly from
+    REQUIREMENTS' own `timingModel` field — computed once at module load, not on every call. Scoped by
+    category (not title alone) so a Maintenance issue someone free-typed as "COSHH assessment" stays a
+    maintenance issue rather than being swept into review mode by a coincidental title match. */
+const MODE_OVERRIDE_LOOKUP = (() => {
+  const map = new Map();
+  for (const req of REQUIREMENTS) {
+    if (!req.timingModel) continue;
+    const categories = req.matchCategories || [req.category];
+    for (const category of categories) {
+      for (const title of req.matchValues) map.set(`${category}::${title}`, req.timingModel);
+    }
+  }
+  return map;
+})();
+export function getMode(record) {
+  const baseMode = TEMPLATES[record.category]?.mode;
+  // Same field-selection rule as getMatchKey (title, except expiry-mode records use detail — training
+  // records put the staff name in title and the actual preset in detail) — computed directly off the
+  // category's base mode, not through getMatchKey itself, since that calls getMode and would recurse.
+  const key = baseMode === "expiry" ? record.detail : record.title;
+  return MODE_OVERRIDE_LOOKUP.get(`${record.category}::${key}`) || baseMode;
+}
 /** The one true "what's this record about, in one line" computation — used both by RecordRow's
     in-app secondary text and the Ledger's PDF export, so the two can't silently drift apart. (They
     used to: the export was an independent, incomplete copy missing the linked-room fallback, so a
@@ -576,6 +602,7 @@ export function getDueDate(record) {
   const mode = getMode(record);
   if (mode === "expiry") return record.expiryDate;
   if (mode === "recurring") return addDays(record.lastCompleted, record.frequencyDays || 0);
+  if (mode === "review") return record.nextReviewTarget || null;
   return null;
 }
 export function getStatus(record) {
@@ -587,6 +614,14 @@ export function getStatus(record) {
     if (d < 0) return "overdue";
     if (d <= DUE_SOON_WINDOW) return "due-soon";
     return "compliant";
+  }
+  if (mode === "review") {
+    if (!record.lastReviewed) return "review-due";
+    if (!record.nextReviewTarget) return "reviewed"; // no fixed interval was set — no target means no automatic overdue
+    const d = daysUntil(record.nextReviewTarget);
+    if (d < 0) return "review-overdue";
+    if (d <= DUE_SOON_WINDOW) return "review-due";
+    return "reviewed";
   }
   if (mode === "log" || mode === "firelog") return "logged";
   if (mode === "checkpoint_check") {
@@ -607,6 +642,7 @@ export function getStatus(record) {
 export const isIssueMode = (record) => ["incident", "maintenance"].includes(getMode(record));
 export const isScheduleMode = (record) => ["recurring", "expiry"].includes(getMode(record));
 export const isLogMode = (record) => getMode(record) === "log";
+export const isReviewMode = (record) => getMode(record) === "review";
 export const isOverdue = (record) => isScheduleMode(record) && getStatus(record) === "overdue";
 export const isDueSoon = (record, window = DUE_SOON_WINDOW) => isScheduleMode(record) && getStatus(record) === "due-soon" && daysUntil(getDueDate(record)) <= window;
 export const isDueToday = (record) => isScheduleMode(record) && daysUntil(getDueDate(record)) === 0;
@@ -678,6 +714,7 @@ export function getEventDate(record) {
   const mode = getMode(record);
   if (mode === "recurring") return record.lastCompleted;
   if (mode === "expiry") return record.completedDate;
+  if (mode === "review") return record.lastReviewed || record.completedDate;
   if (mode === "incident") return record.dateReported;
   if (mode === "maintenance") return record.dateRaised;
   if (mode === "log") return record.dateLogged;
@@ -742,11 +779,19 @@ export function visitHaystack(visit) {
 export function getMatchKey(record) {
   return getMode(record) === "expiry" ? record.detail : record.title;
 }
+/** categoryMatches: most requirements track one category, but a few real-world documents get logged
+    under more than one (the Fire Risk Assessment, historically split across a "fire" preset and a
+    "risk" preset that were never actually recognised as the same thing — see REQUIREMENTS.fra).
+    matchCategories, when present, ORs across every category it lists instead of requiring one exact
+    match. */
+function categoryMatches(req, record) {
+  return req.matchCategories ? req.matchCategories.includes(record.category) : record.category === req.category;
+}
 export function matchRequirement(req, records, certificates) {
   if (req.matchMode === "none") return { records: [], certificates: [] };
   const matchedRecords = req.matchMode === "category"
-    ? records.filter((r) => !r.archived && r.category === req.category)
-    : records.filter((r) => !r.archived && r.category === req.category && req.matchValues.includes(getMatchKey(r)));
+    ? records.filter((r) => !r.archived && categoryMatches(req, r))
+    : records.filter((r) => !r.archived && categoryMatches(req, r) && req.matchValues.includes(getMatchKey(r)));
   const matchedCerts = (req.certTypes && certificates) ? certificates.filter((c) => !c.archived && req.certTypes.includes(c.certType)) : [];
   return { records: matchedRecords, certificates: matchedCerts };
 }
@@ -755,7 +800,7 @@ export function requirementStatus(req, matched) {
   const total = matched.records.length + matched.certificates.length;
   if (total === 0) return "missing";
   if (req.matchMode === "category") return "tracked";
-  const rank = { overdue: 0, "due-soon": 1, compliant: 2 };
+  const rank = { "review-overdue": 0, overdue: 0, "review-due": 1, "due-soon": 1, reviewed: 2, compliant: 2 };
   const statuses = [...matched.records.map(getStatus), ...matched.certificates.map(certificateStatus)];
   return statuses.sort((a, b) => (rank[a] ?? 3) - (rank[b] ?? 3))[0];
 }
@@ -781,6 +826,8 @@ export function validateRecord(mode, form) {
   if (mode === "maintenance" && !form.title.trim()) errors.push("Issue title is required.");
   if (mode === "log" && !form.title.trim()) errors.push("A title is required.");
   if (mode === "recurring" && form.flagged && !form.flagDescription.trim()) errors.push("Please describe what the check found.");
+  if (mode === "review" && !form.title.trim()) errors.push("Title is required.");
+  if (mode === "review" && !form.lastReviewed) errors.push("Enter the date this was actually last reviewed — not today's date unless that's genuinely when it happened.");
   return errors;
 }
 export function validateAsset(form) {

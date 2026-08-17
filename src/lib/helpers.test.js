@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   localDateStr, addDays, weekStartDate, daysUntil, daysSince, fmtDate, formatBytes,
-  initialsOf, getMode, getDueDate, getStatus, isOverdue, isDueSoon, isDueToday, isOpenIssue,
+  initialsOf, getMode, getDueDate, getStatus, getEventDate, isOverdue, isDueSoon, isDueToday, isOpenIssue,
   insuranceStatus, certificateStatus, visitStatus, validateRecord, validateAsset, validateRoom,
   validateContractor, validateStaff, validateCertificate, validateVisit, validateUser, generateAssetCode,
   recordDetailText, recordWhoText,
@@ -145,6 +145,47 @@ describe("record mode/status logic", () => {
     expect(isDueToday({ category: "training", expiryDate: "2026-01-15" })).toBe(true);
     expect(isOpenIssue({ category: "pest", status: "Awaiting" })).toBe(true);
     expect(isOpenIssue({ category: "pest", status: "Resolved" })).toBe(false);
+  });
+
+  it("getMode: the Risk Assessments category is review-based now, not recurring", () => {
+    expect(getMode({ category: "risk", title: "COSHH assessment" })).toBe("review");
+  });
+
+  it("getMode: the Fire Risk Assessment overrides to review-based even though its category (fire) stays recurring for everything else", () => {
+    expect(getMode({ category: "fire", title: "Fire risk assessment review" })).toBe("review");
+    expect(getMode({ category: "fire", title: "Fire alarm test" })).toBe("recurring");
+  });
+
+  it("getMode: the review override is scoped by category, not title alone — a maintenance issue coincidentally titled the same as a review-based preset stays maintenance", () => {
+    expect(getMode({ category: "maintenance", title: "COSHH assessment" })).toBe("maintenance");
+  });
+
+  it("getMode: Health & Safety Induction overrides to log mode — a one-time event, not something that expires. Training records key off 'detail' (the preset), not 'title' (the staff member's name), same field getMatchKey uses for expiry mode", () => {
+    expect(getMode({ category: "training", detail: "Health & Safety Induction", title: "Some Staff Member" })).toBe("log");
+    expect(getMode({ category: "training", detail: "First Aid at Work", title: "Some Staff Member" })).toBe("expiry");
+  });
+
+  it("getDueDate for review mode reads nextReviewTarget, which is optional", () => {
+    expect(getDueDate({ category: "risk", title: "COSHH assessment", nextReviewTarget: "2026-06-01" })).toBe("2026-06-01");
+    expect(getDueDate({ category: "risk", title: "COSHH assessment" })).toBe(null);
+  });
+
+  it("getStatus for review mode: never logged is 'review-due'; no target set is 'reviewed' (no fixed interval means no automatic overdue); a set target behaves like due-soon/overdue but with review-specific labels", () => {
+    expect(getStatus({ category: "risk", title: "COSHH assessment" })).toBe("review-due");
+    expect(getStatus({ category: "risk", title: "COSHH assessment", lastReviewed: "2025-01-01" })).toBe("reviewed");
+    expect(getStatus({ category: "risk", title: "COSHH assessment", lastReviewed: "2025-01-01", nextReviewTarget: "2025-12-01" })).toBe("review-overdue");
+    expect(getStatus({ category: "risk", title: "COSHH assessment", lastReviewed: "2025-01-01", nextReviewTarget: "2026-01-25" })).toBe("review-due"); // 10 days away
+    expect(getStatus({ category: "risk", title: "COSHH assessment", lastReviewed: "2025-01-01", nextReviewTarget: "2026-06-01" })).toBe("reviewed");
+  });
+
+  it("getEventDate for review mode reads lastReviewed, falling back to completedDate for pre-existing records", () => {
+    expect(getEventDate({ category: "risk", title: "COSHH assessment", lastReviewed: "2026-01-10" })).toBe("2026-01-10");
+    expect(getEventDate({ category: "risk", title: "COSHH assessment", completedDate: "2025-06-01" })).toBe("2025-06-01");
+  });
+
+  it("validateRecord requires a deliberately-entered lastReviewed for review mode — no silent default", () => {
+    expect(validateRecord("review", { title: "COSHH assessment", lastReviewed: null })).toContain("Enter the date this was actually last reviewed — not today's date unless that's genuinely when it happened.");
+    expect(validateRecord("review", { title: "COSHH assessment", lastReviewed: "2026-01-10" })).toEqual([]);
   });
 });
 

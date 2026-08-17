@@ -171,6 +171,22 @@ describe("matchRequirement", () => {
     ];
     expect(matchRequirement(req, records, []).records).toEqual([records[0]]);
   });
+
+  it("matchCategories ORs across every listed category instead of requiring one exact match — the real fix for the two duplicate Fire Risk Assessment presets, which previously matched neither", () => {
+    const req = { matchMode: "preset", category: "risk", matchCategories: ["fire", "risk"], matchValues: ["Fire risk assessment review", "Fire risk assessment"] };
+    const records = [
+      { category: "fire", title: "Fire risk assessment review", archived: false },
+      { category: "risk", title: "Fire risk assessment", archived: false },
+      { category: "legionella", title: "Fire risk assessment review", archived: false }, // right title, category not in matchCategories
+    ];
+    expect(matchRequirement(req, records, []).records).toEqual([records[0], records[1]]);
+  });
+
+  it("without matchCategories, behaviour is unchanged (plain single-category equality)", () => {
+    const req = { matchMode: "preset", category: "fire", matchValues: ["Fire alarm test"] };
+    const records = [{ category: "fire", title: "Fire alarm test", archived: false }, { category: "risk", title: "Fire alarm test", archived: false }];
+    expect(matchRequirement(req, records, []).records).toEqual([records[0]]);
+  });
 });
 
 describe("requirementStatus", () => {
@@ -199,6 +215,14 @@ describe("requirementStatus", () => {
       certificates: [{ expiryDate: "2025-12-01" }], // overdue
     };
     expect(requirementStatus({ matchMode: "preset" }, matched)).toBe("overdue");
+  });
+
+  it("a review-overdue record isn't masked by an unrelated compliant certificate matched to the same requirement", () => {
+    const matched = {
+      records: [{ category: "risk", title: "Legionella risk assessment", lastReviewed: "2020-01-01", nextReviewTarget: "2025-01-01" }], // review-overdue
+      certificates: [{ expiryDate: "2027-01-01" }], // compliant
+    };
+    expect(requirementStatus({ matchMode: "preset" }, matched)).toBe("review-overdue");
   });
 });
 

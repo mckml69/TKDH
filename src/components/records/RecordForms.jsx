@@ -8,23 +8,47 @@ import {
 } from "lucide-react";
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { CategoryTag, ErrorBanner, FormPage, HistoryList } from "../shared/UI";
-import { ASSET_TYPES, FREQUENCY_PRESETS, PRESET_DEFAULT_FREQUENCY, RoleContext } from "../../lib/constants";
-import { addDays, fmtDate, hasPendingCorrection, todayStr, uid, validateRecord } from "../../lib/helpers";
+import { ASSET_TYPES, FREQUENCY_PRESETS, PRESET_DEFAULT_FREQUENCY, TRAINING_DEFAULT_VALIDITY_DAYS, REQUIREMENTS, RoleContext, BASIS_LABELS } from "../../lib/constants";
+import { addDays, fmtDate, getMode, hasPendingCorrection, todayStr, uid, validateRecord } from "../../lib/helpers";
+
+const REVIEW_REASONS = ["Routine review", "Significant change (refit, new furniture, change of use)", "New equipment affecting risk", "Occupancy change", "Incident or near miss", "Failure or deterioration of a precaution", "Other"];
+
+/** Looks up the Compliance Library entry behind a selected preset, if any — used to show the form a
+    small honest note about what actually backs this preset's timing (law/guidance/manufacturer/
+    risk-based/policy), the same information the Library page already has, right where it's useful. */
+function findRequirementFor(categoryKey, presetValue) {
+  return REQUIREMENTS.find((req) => (req.matchCategories || [req.category]).includes(categoryKey) && req.matchValues.includes(presetValue));
+}
+function BasisNote({ categoryKey, presetValue }) {
+  const req = findRequirementFor(categoryKey, presetValue);
+  if (!req) return null;
+  const labels = req.basis.map((b) => BASIS_LABELS[b]).join(" + ");
+  return (
+    <p className="muted" style={{ margin: "-4px 0 0", fontSize: 12.5 }}>
+      {labels}{req.sourceConfidence === "unverified" ? " — not independently verified against a primary source" : ""}. See the Compliance Library for details.
+    </p>
+  );
+}
 
 export function RecordFormPage({ template, record, assets, rooms, contractors, staff, prefill, initialViewOnly, onSave, onClose, onRequestCorrection, onDismissCorrection }) {
   const { canEdit } = useContext(RoleContext);
-  const mode = template.mode;
   const [viewOnly, setViewOnly] = useState(!!initialViewOnly);
   const [form, setForm] = useState(record || (() => {
     const base = { id: uid(), category: template.key, notes: "", attachments: [], location: "", people: "", assetId: null, roomId: null, contractorId: null, staffId: null, tags: [] };
+    const initialMode = template.mode; // a template's own default preset never happens to be an overridden one, so this always matches getMode() at mount
     let byMode;
-    if (mode === "expiry") byMode = { ...base, title: "", detail: template.presets[0], completedDate: todayStr(), expiryDate: addDays(todayStr(), 365) };
-    else if (mode === "incident") byMode = { ...base, title: template.presets[0], dateReported: todayStr(), actionTaken: "", status: "Open" };
-    else if (mode === "maintenance") byMode = { ...base, title: "", dateRaised: todayStr(), priority: "Medium", status: "Open" };
-    else if (mode === "log") byMode = { ...base, title: template.key === "room_photo" ? "Room photo" : "Room inspection", dateLogged: todayStr() };
+    if (initialMode === "expiry") byMode = { ...base, title: "", detail: template.presets[0], completedDate: todayStr(), expiryDate: addDays(todayStr(), TRAINING_DEFAULT_VALIDITY_DAYS[template.presets[0]] ?? 365) };
+    else if (initialMode === "incident") byMode = { ...base, title: template.presets[0], dateReported: todayStr(), actionTaken: "", status: "Open" };
+    else if (initialMode === "maintenance") byMode = { ...base, title: "", dateRaised: todayStr(), priority: "Medium", status: "Open" };
+    else if (initialMode === "log") byMode = { ...base, title: template.key === "room_photo" ? "Room photo" : "Room inspection", dateLogged: todayStr() };
+    else if (initialMode === "review") byMode = { ...base, title: template.presets[0], lastReviewed: null, nextReviewTarget: null, reviewReason: null };
     else byMode = { ...base, title: template.presets[0], lastCompleted: todayStr(), frequencyDays: PRESET_DEFAULT_FREQUENCY[template.presets[0]] ?? 30, flagged: false, flagDescription: "", flagResolved: false };
     return { ...byMode, ...(prefill || {}) };
   }));
+  // Reactive, not fixed to template.mode: most presets share their category's mode, but a few (the
+  // Fire Risk Assessment, Health & Safety Induction) need a different one than their category's
+  // default — see getMode's MODE_OVERRIDE_LOOKUP. Recomputed every render off the current selection.
+  const mode = getMode({ category: template.key, title: form.title, detail: form.detail });
   const [freqPreset, setFreqPreset] = useState(() => {
     if (mode !== "recurring") return null;
     const match = FREQUENCY_PRESETS.find((f) => f.days === form.frequencyDays);
@@ -108,7 +132,7 @@ export function RecordFormPage({ template, record, assets, rooms, contractors, s
           </label>
         )}
 
-        {mode === "expiry" && (<>
+        {template.mode === "expiry" && (<>
           {template.staffEligible && staff.length > 0 && (
             <label>Link to staff register <span className="muted">(optional — fills the name in below)</span>
               <select value={form.staffId || ""} onChange={(e) => {
@@ -123,21 +147,44 @@ export function RecordFormPage({ template, record, assets, rooms, contractors, s
           )}
           <label>Staff member<input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="Full name" /></label>
           <label>Training type
-            <select value={form.detail} onChange={(e) => set("detail", e.target.value)}>{template.presets.map((p) => <option key={p}>{p}</option>)}<option>Other</option></select>
+            <select value={form.detail} onChange={(e) => {
+              const val = e.target.value;
+              const newMode = getMode({ category: template.key, detail: val });
+              if (!record && newMode !== mode) {
+                // crossing into/out of Health & Safety Induction's log-shaped fields
+                if (newMode === "log") setForm((f) => ({ ...f, detail: val, dateLogged: f.completedDate || todayStr() }));
+                else setForm((f) => ({ ...f, detail: val, completedDate: f.dateLogged || todayStr(), expiryDate: addDays(todayStr(), TRAINING_DEFAULT_VALIDITY_DAYS[val] ?? 365) }));
+                return;
+              }
+              set("detail", val);
+              if (!record && newMode === "expiry") set("expiryDate", addDays(form.completedDate || todayStr(), TRAINING_DEFAULT_VALIDITY_DAYS[val] ?? 365));
+            }}>{template.presets.map((p) => <option key={p}>{p}</option>)}<option>Other</option></select>
           </label>
-          <div className="row-2">
-            <label>Completed on<input type="date" value={form.completedDate} onChange={(e) => set("completedDate", e.target.value)} /></label>
-            <label>Expires on<input type="date" value={form.expiryDate} onChange={(e) => set("expiryDate", e.target.value)} /></label>
-          </div>
+          <BasisNote categoryKey={template.key} presetValue={form.detail} />
+          {mode === "log" ? (
+            <label>Date<input type="date" value={form.dateLogged} onChange={(e) => set("dateLogged", e.target.value)} /></label>
+          ) : (
+            <div className="row-2">
+              <label>Completed on<input type="date" value={form.completedDate} onChange={(e) => set("completedDate", e.target.value)} /></label>
+              <label>Expires on<input type="date" value={form.expiryDate} onChange={(e) => set("expiryDate", e.target.value)} /></label>
+            </div>
+          )}
           <label>Venue / location <span className="muted">(optional)</span><input list="loc-presets" value={form.location} onChange={(e) => set("location", e.target.value)} /></label>
         </>)}
 
-        {mode === "recurring" && (<>
+        {(template.mode === "recurring" || template.mode === "review") && (<>
           <label>Task
             <select value={form.title} onChange={(e) => {
               const val = e.target.value;
+              const newMode = getMode({ category: template.key, title: val });
+              if (!record && newMode !== mode) {
+                // crossing into/out of a review-based preset (e.g. Fire Risk Assessment, within the otherwise-recurring Fire Safety category)
+                if (newMode === "review") setForm((f) => ({ ...f, title: val, lastReviewed: null, nextReviewTarget: null, reviewReason: null }));
+                else setForm((f) => ({ ...f, title: val, lastCompleted: todayStr(), frequencyDays: PRESET_DEFAULT_FREQUENCY[val] ?? 30, flagged: false, flagDescription: "", flagResolved: false }));
+                return;
+              }
               set("title", val);
-              if (!record && PRESET_DEFAULT_FREQUENCY[val] != null) {
+              if (!record && newMode === "recurring" && PRESET_DEFAULT_FREQUENCY[val] != null) {
                 const days = PRESET_DEFAULT_FREQUENCY[val];
                 set("frequencyDays", days);
                 const match = FREQUENCY_PRESETS.find((f) => f.days === days);
@@ -145,6 +192,24 @@ export function RecordFormPage({ template, record, assets, rooms, contractors, s
               }
             }}>{template.presets.map((p) => <option key={p}>{p}</option>)}<option>Other</option></select>
           </label>
+          <BasisNote categoryKey={template.key} presetValue={form.title} />
+        </>)}
+
+        {mode === "review" && (<>
+          <div className="row-2">
+            <label>Last reviewed<input type="date" value={form.lastReviewed || ""} onChange={(e) => set("lastReviewed", e.target.value || null)} /></label>
+            <label>Next review target <span className="muted">(optional)</span><input type="date" value={form.nextReviewTarget || ""} onChange={(e) => set("nextReviewTarget", e.target.value || null)} /></label>
+          </div>
+          <p className="muted" style={{ margin: "-4px 0 0", fontSize: 12.5 }}>Internal target only — not a statutory expiry date.</p>
+          <label>Reason for review
+            <select value={form.reviewReason || "Routine review"} onChange={(e) => set("reviewReason", e.target.value)}>
+              {REVIEW_REASONS.map((r) => <option key={r}>{r}</option>)}
+            </select>
+          </label>
+          <label>Responsible person / role<input value={form.people} onChange={(e) => set("people", e.target.value)} placeholder="e.g. Duty Manager" /></label>
+        </>)}
+
+        {mode === "recurring" && (<>
           <label>Location <span className="muted">(room or area)</span><input list="loc-presets" value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Room 214, or Plant Room" /></label>
           <div className="row-2">
             <label>Last completed<input type="date" value={form.lastCompleted} onChange={(e) => set("lastCompleted", e.target.value)} /></label>
@@ -231,7 +296,7 @@ export function RecordFormPage({ template, record, assets, rooms, contractors, s
           )}
         </>)}
 
-        {mode === "log" && (<>
+        {template.mode === "log" && (<>
           <label>Title<input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder={template.key === "room_photo" ? "e.g. Bathroom ceiling, water stain" : "e.g. Routine housekeeping inspection"} /></label>
           <div className="row-2">
             <label>Date<input type="date" value={form.dateLogged} onChange={(e) => set("dateLogged", e.target.value)} /></label>

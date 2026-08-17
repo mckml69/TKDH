@@ -7,8 +7,19 @@ import {
 } from "lucide-react";
 import { RecordTable } from "../records/RecordList";
 import { ReqCategoryTag, Stamp } from "../shared/UI";
-import { REQUIREMENTS, TEMPLATES } from "../../lib/constants";
+import { REQUIREMENTS, TEMPLATES, BASIS_LABELS, BASIS_COLORS } from "../../lib/constants";
 import { certificateStatus, fmtDate, matchRequirement, requirementStatus } from "../../lib/helpers";
+
+function BasisPills({ req }) {
+  return (
+    <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+      {req.basis.map((b) => (
+        <span key={b} className="tag-pill" style={{ color: BASIS_COLORS[b], borderColor: BASIS_COLORS[b] }}>{BASIS_LABELS[b]}</span>
+      ))}
+      {req.sourceConfidence === "unverified" && <span className="tag-pill" style={{ color: "#8A6D1F", borderColor: "#8A6D1F" }} title="Not independently verified against a primary legal/regulatory source">Unverified</span>}
+    </span>
+  );
+}
 
 export function LibraryDisclaimer() {
   return (
@@ -50,12 +61,12 @@ export function LibraryList({ records, certificates, onOpen, catFilter, setCatFi
         </div>
       </div>
       <div className="ledger-table">
-        <div className="ledger-row ledger-row--flat ledger-row--head"><span>Category</span><span>Requirement</span><span>Frequency</span><span>Records</span><span>Status</span></div>
+        <div className="ledger-row ledger-row--flat ledger-row--head"><span>Category</span><span>Requirement</span><span>Basis</span><span>Records</span><span>Status</span></div>
         {filtered.map(({ req, matched, status }) => (
           <div key={req.id} className="ledger-row ledger-row--flat" style={{ cursor: "pointer" }} onClick={() => onOpen(req.id)}>
             <span><ReqCategoryTag category={req.category} /></span>
             <span className="mono-strong">{req.title}</span>
-            <span className="muted">{req.frequency}</span>
+            <span><BasisPills req={req} /></span>
             <span className="muted">{matched.records.length + matched.certificates.length}</span>
             <span><Stamp status={status} dense /></span>
           </div>
@@ -80,6 +91,7 @@ export function RequirementDetail({ req, records, certificates, onBack, onLogNow
         </div>
       </div>
       <div className="req-detail-grid">
+        <div><span className="field-label">Basis</span><p><BasisPills req={req} /></p></div>
         <div><span className="field-label">What to keep</span><p>{req.whatToKeep}</p></div>
         <div><span className="field-label">Why it's required</span><p>{req.why}</p></div>
         <div><span className="field-label">Recommended frequency</span><p>{req.frequency}</p></div>

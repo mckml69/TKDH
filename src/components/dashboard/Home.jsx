@@ -14,7 +14,7 @@ import { ResponsiblePersonCard } from "../settings/ResponsiblePerson";
 import { BrandingCard } from "../settings/Branding";
 import { CategoryTag, DashboardSection, Stamp } from "../shared/UI";
 import { REQUIREMENTS, RoleContext } from "../../lib/constants";
-import { assetComplianceStatus, assetUnreliability, belongsToRoom, certificateStatus, findRecurringIssue, findRepeatFailure, fmtDate, getMode, getStatus, hasPendingCorrection, insuranceStatus, isScheduleMode, matchRequirement, requirementStatus, roomProblemCounts, timeGreeting, todaysActionItems } from "../../lib/helpers";
+import { assetComplianceStatus, assetUnreliability, belongsToRoom, certificateStatus, findRecurringIssue, findRepeatFailure, fmtDate, getMode, getStatus, hasPendingCorrection, insuranceStatus, isReviewMode, isScheduleMode, matchRequirement, requirementStatus, roomProblemCounts, timeGreeting, todaysActionItems } from "../../lib/helpers";
 
 export function Home({ records, assets, rooms, contractors, certificates, responsiblePerson, onEditResponsiblePerson, branding, onEditBranding, onEdit, onOpenRoom, onOpenAsset, onOpenContractor, onOpenCertificate, onOpenLibrary, goToLedger }) {
   const { role, currentUser } = useContext(RoleContext);
@@ -36,6 +36,10 @@ export function Home({ records, assets, rooms, contractors, certificates, respon
   const roomProblems = useMemo(() => roomProblemCounts(activeRecords, activeAssets, activeRooms), [activeRecords, activeAssets, activeRooms]);
   const unreliableAssets = useMemo(() => assetUnreliability(activeRecords, activeAssets), [activeRecords, activeAssets]);
   const overdueTraining = useMemo(() => activeRecords.filter((r) => getMode(r) === "expiry" && getStatus(r) === "overdue").sort((a, b) => (a.expiryDate || "").localeCompare(b.expiryDate || "")), [activeRecords]);
+  // Deliberately separate from every schedule-mode stat below: a review target passing isn't the
+  // same claim as a certificate expiring, and shouldn't be counted alongside "Overdue"/"Due soon" —
+  // isScheduleMode already excludes review-mode records from those for exactly this reason.
+  const reviewsDue = useMemo(() => activeRecords.filter((r) => isReviewMode(r) && ["review-due", "review-overdue"].includes(getStatus(r))).sort((a, b) => (a.nextReviewTarget || "").localeCompare(b.nextReviewTarget || "")), [activeRecords]);
 
   const dueSoonCount = useMemo(() => {
     const recs = activeRecords.filter((r) => isScheduleMode(r) && getStatus(r) === "due-soon").length;
@@ -112,6 +116,19 @@ export function Home({ records, assets, rooms, contractors, certificates, respon
               <span className="muted">{item.kind}</span>
               <span className="mono">{fmtDate(item.expiry)}</span>
               <span><Stamp status={item.status} dense /></span>
+            </div>
+          ))}
+        </div>
+      </DashboardSection>
+
+      <DashboardSection title="Which reviews are due?" icon={Repeat} color="#5B4A8A" count={reviewsDue.length} emptyText="No risk assessment or Fire Risk Assessment review is due — review-due, not the same claim as an expired certificate.">
+        <div className="ledger-table">
+          {reviewsDue.slice(0, 8).map((r) => (
+            <div key={r.id} className="ledger-row ledger-row--flat" style={{ cursor: "pointer" }} onClick={() => onEdit(r)}>
+              <span className="mono-strong">{r.title}</span>
+              <span className="muted">Last reviewed {r.lastReviewed ? fmtDate(r.lastReviewed) : "never"}</span>
+              <span className="muted">{r.nextReviewTarget ? `Target ${fmtDate(r.nextReviewTarget)}` : "No target set"}</span>
+              <span><Stamp status={getStatus(r)} dense /></span>
             </div>
           ))}
         </div>

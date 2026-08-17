@@ -12,13 +12,13 @@ import {
 } from "lucide-react";
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { ErrorBanner, FormPage, HistoryList, SaveStatusBanner, Stamp } from "../shared/UI";
-import { ASSET_TYPES, CERT_TYPES, RoleContext } from "../../lib/constants";
+import { ASSET_TYPES, CERT_TYPES, CERT_DEFAULT_VALIDITY_DAYS, RoleContext } from "../../lib/constants";
 import { addDays, certificateHaystack, certificateStatus, fmtDate, formatBytes, todayStr, uid, validateCertificate } from "../../lib/helpers";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
 export function CertificateFormPage({ cert, assets, contractors, prefill, onSave, onClose }) {
-  const [form, setForm] = useState(cert || { id: uid(), title: "", certType: CERT_TYPES[0], issuer: "", contractorId: null, assetId: null, coverage: "", issueDate: todayStr(), expiryDate: addDays(todayStr(), 365), notes: "", attachments: [], tags: [], ...(prefill || {}) });
+  const [form, setForm] = useState(cert || { id: uid(), title: "", certType: CERT_TYPES[0], issuer: "", contractorId: null, assetId: null, coverage: "", issueDate: todayStr(), expiryDate: addDays(todayStr(), CERT_DEFAULT_VALIDITY_DAYS[CERT_TYPES[0]] ?? 365), notes: "", attachments: [], tags: [], ...(prefill || {}) });
   const [attachments, setAttachments] = useState(form.attachments || []);
   const [tagsInput, setTagsInput] = useState((form.tags || []).join(", "));
   const [errors, setErrors] = useState([]);
@@ -35,7 +35,11 @@ export function CertificateFormPage({ cert, assets, contractors, prefill, onSave
         <ErrorBanner errors={errors} />
         <label>Title<input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Gas Safety Certificate 2026" /></label>
         <label>Type
-          <select value={form.certType} onChange={(e) => set("certType", e.target.value)}>{CERT_TYPES.map((t) => <option key={t}>{t}</option>)}</select>
+          <select value={form.certType} onChange={(e) => {
+            const val = e.target.value;
+            set("certType", val);
+            if (!cert && CERT_DEFAULT_VALIDITY_DAYS[val] != null) set("expiryDate", addDays(form.issueDate || todayStr(), CERT_DEFAULT_VALIDITY_DAYS[val]));
+          }}>{CERT_TYPES.map((t) => <option key={t}>{t}</option>)}</select>
         </label>
         <div className="row-2">
           <label>Issued on<input type="date" value={form.issueDate} onChange={(e) => set("issueDate", e.target.value)} /></label>

@@ -665,7 +665,7 @@ export default function App() {
   } else if (current.page === "requirement-detail") {
     const req = REQUIREMENTS.find((r) => r.id === current.reqId);
     body = req ? <RequirementDetail req={req} records={records} certificates={certificates} onBack={pop}
-      onLogNow={(r) => openRecordForm(TEMPLATES[r.category], null, { title: r.matchValues[0] })}
+      onLogNow={(r) => openRecordForm(TEMPLATES[r.matchCategories?.[0] || r.category], null, { title: r.matchValues[0] })}
       onViewRecord={openRecordView} onEditRecord={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onDeleteRecord={handleDeleteRecord} onResolve={(r) => push({ page: "resolve-form", record: r })}
       onOpenCertificate={(id) => push({ page: "certificate-detail", certificateId: id })} /> : null;
   }

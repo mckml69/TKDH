@@ -21,7 +21,7 @@ export function RecordRow({ record, assets, rooms, contractors = [], staff = [],
   const due = getDueDate(record);
   const showDue = isScheduleMode(record);
   const d = showDue ? daysUntil(due) : null;
-  const dateCol = showDue ? fmtDate(due) : fmtDate(record.dateReported || record.dateRaised || record.completedDate || record.dateLogged || record.periodKey);
+  const dateCol = showDue ? fmtDate(due) : fmtDate(record.dateReported || record.dateRaised || record.completedDate || record.dateLogged || record.lastReviewed || record.periodKey);
   const who = recordWhoText(record, contractors, staff);
   const secondary = recordDetailText(record, assets, rooms, contractors, staff);
   const pending = hasPendingCorrection(record);
@@ -67,7 +67,7 @@ export function Ledger({ records, assets, rooms, contractors, staff, filters, se
       matchesQuery(r, filters.query, rooms, contractors) &&
       (filters.status === "all" || (filters.status === "open-issues" ? isOpenIssue(r) : getStatus(r) === filters.status))
     );
-    const rank = { overdue: 0, open: 0, "in-progress": 1, "due-soon": 1, compliant: 3, resolved: 3, logged: 3 };
+    const rank = { overdue: 0, open: 0, "review-overdue": 0, "in-progress": 1, "due-soon": 1, "review-due": 1, compliant: 3, resolved: 3, logged: 3, reviewed: 3 };
     return list.sort((a, b) => (rank[getStatus(a)] ?? 2) - (rank[getStatus(b)] ?? 2) || (b.updatedAt || "").localeCompare(a.updatedAt || ""));
   }, [records, filters, showArchived]);
 
@@ -120,7 +120,7 @@ export function Ledger({ records, assets, rooms, contractors, staff, filters, se
           ))}
         </div>
         <div className="chip-row">
-          {[["all", "Any status"], ["overdue", "Overdue"], ["due-soon", "Due soon"], ["open-issues", "Open issues"], ["compliant", "Compliant"], ["resolved", "Resolved"]].map(([k, l]) => (
+          {[["all", "Any status"], ["overdue", "Overdue"], ["due-soon", "Due soon"], ["review-overdue", "Review overdue"], ["review-due", "Review due"], ["open-issues", "Open issues"], ["compliant", "Compliant"], ["resolved", "Resolved"]].map(([k, l]) => (
             <button key={k} className={"chip chip--status" + (filters.status === k ? " chip--active" : "")} onClick={() => setFilters((f) => ({ ...f, status: k }))}>{l}</button>
           ))}
           {(archivedCount > 0 || showArchived) && <button className={"chip" + (showArchived ? " chip--active" : "")} onClick={() => setShowArchived((s) => !s)}><Archive size={12} style={{ verticalAlign: -2, marginRight: 3 }} />{showArchived ? "Hide" : "Show"} archived ({archivedCount})</button>}
