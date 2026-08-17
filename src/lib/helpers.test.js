@@ -4,6 +4,7 @@ import {
   initialsOf, getMode, getDueDate, getStatus, isOverdue, isDueSoon, isDueToday, isOpenIssue,
   insuranceStatus, certificateStatus, visitStatus, validateRecord, validateAsset, validateRoom,
   validateContractor, validateStaff, validateCertificate, validateVisit, validateUser, generateAssetCode,
+  recordDetailText, recordWhoText,
 } from "./helpers";
 
 describe("date arithmetic", () => {
@@ -201,6 +202,69 @@ describe("form validators", () => {
         { id: "2", email: "bob@x.com", archived: false },
       ])
     ).toEqual(["That email is already registered to someone else."]);
+  });
+});
+
+describe("recordDetailText", () => {
+  const rooms = [{ id: "r1", roomNumber: "204" }];
+  const assets = [{ id: "a1", assetCode: "KTL001", location: "Kitchen" }];
+
+  it("falls back to the linked room when there's no free-text location or linked asset (the export bug: this used to render blank)", () => {
+    const record = { category: "deep_clean", roomId: "r1", location: "" };
+    expect(recordDetailText(record, assets, rooms, [], [])).toBe("Room 204");
+  });
+
+  it("prefers a free-text location over the linked room", () => {
+    const record = { category: "deep_clean", roomId: "r1", location: "Corridor 3F" };
+    expect(recordDetailText(record, assets, rooms, [], [])).toBe("Corridor 3F");
+  });
+
+  it("a linked asset shows its code plus location, falling back to the asset's own location", () => {
+    const record = { category: "fire", assetId: "a1", location: "" };
+    expect(recordDetailText(record, assets, [], [], [])).toBe("KTL001 · Kitchen");
+  });
+
+  it("expiry-mode records use the free-text detail field", () => {
+    const record = { category: "training", detail: "First Aid at Work" };
+    expect(recordDetailText(record, [], [], [], [])).toBe("First Aid at Work");
+  });
+
+  it("falls back to actionTaken, then an em-dash, when nothing else applies", () => {
+    expect(recordDetailText({ category: "deep_clean", actionTaken: "Deep cleaned bathroom" }, [], [], [], [])).toBe("Deep cleaned bathroom");
+    expect(recordDetailText({ category: "deep_clean" }, [], [], [], [])).toBe("—");
+  });
+
+  it("appends the legionella temperature reading", () => {
+    const record = { category: "legionella", location: "Plant Room", temperatureC: 54, readingType: "Hot water outlet" };
+    expect(recordDetailText(record, [], [], [], [])).toBe("Plant Room · 54°C (Hot water outlet)");
+  });
+
+  it("appends who a maintenance issue is awaiting or was resolved by", () => {
+    const contractors = [{ id: "c1", name: "Acme Fire Ltd" }];
+    const awaiting = { category: "maintenance", status: "Awaiting", location: "Room 12", awaitingContractorId: "c1" };
+    expect(recordDetailText(awaiting, [], [], contractors, [])).toBe("Room 12 · Awaiting Acme Fire Ltd");
+    const resolved = { category: "maintenance", status: "Resolved", location: "Room 12", resolvedContractorId: "c1" };
+    expect(recordDetailText(resolved, [], [], contractors, [])).toBe("Room 12 · Resolved by Acme Fire Ltd");
+  });
+});
+
+describe("recordWhoText", () => {
+  it("prefers the typed people field", () => {
+    expect(recordWhoText({ people: "Duty Manager" }, [], [])).toBe("Duty Manager");
+  });
+
+  it("falls back to a linked contractor, then a linked staff member", () => {
+    expect(recordWhoText({ contractorId: "c1" }, [{ id: "c1", name: "Acme Fire Ltd" }], [])).toBe("Acme Fire Ltd");
+    expect(recordWhoText({ staffId: "s1" }, [], [{ id: "s1", name: "Jane Doe" }])).toBe("Jane Doe");
+  });
+
+  it("falls back to whoever last edited the record (the export bug: this used to render blank)", () => {
+    const record = { history: [{ by: "Valentin Glodeanu" }] };
+    expect(recordWhoText(record, [], [])).toBe("Valentin Glodeanu");
+  });
+
+  it("falls back to an em-dash with no people field, no links, and no history", () => {
+    expect(recordWhoText({}, [], [])).toBe("—");
   });
 });
 

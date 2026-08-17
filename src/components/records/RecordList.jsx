@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { AttachChip, CategoryTag, SaveStatusBanner, Stamp } from "../shared/UI";
 import { RoleContext, STATUS_META, TEMPLATES, TEMPLATE_LIST, categoryFilterMatches } from "../../lib/constants";
-import { daysUntil, fmtDate, getDueDate, getEventDate, getMode, getStatus, hasPendingCorrection, isOpenIssue, isScheduleMode, lastEditor, matchesQuery, todayStr } from "../../lib/helpers";
+import { daysUntil, fmtDate, getDueDate, getEventDate, getStatus, hasPendingCorrection, isOpenIssue, isScheduleMode, matchesQuery, recordDetailText, recordWhoText, todayStr } from "../../lib/helpers";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
@@ -22,21 +22,8 @@ export function RecordRow({ record, assets, rooms, contractors = [], staff = [],
   const showDue = isScheduleMode(record);
   const d = showDue ? daysUntil(due) : null;
   const dateCol = showDue ? fmtDate(due) : fmtDate(record.dateReported || record.dateRaised || record.completedDate || record.dateLogged || record.periodKey);
-  const linkedAsset = record.assetId ? assets.find((a) => a.id === record.assetId) : null;
-  const linkedRoom = record.roomId ? rooms.find((r) => r.id === record.roomId) : null;
-  const linkedContractor = record.contractorId ? contractors.find((c) => c.id === record.contractorId) : null;
-  const linkedStaffMember = record.staffId ? staff.find((s) => s.id === record.staffId) : null;
-  const awaitingWhom = record.awaitingContractorId ? contractors.find((c) => c.id === record.awaitingContractorId)?.name : record.awaitingStaffId ? staff.find((s) => s.id === record.awaitingStaffId)?.name : null;
-  const resolvedByWhom = record.resolvedContractorId ? contractors.find((c) => c.id === record.resolvedContractorId)?.name : record.resolvedStaffId ? staff.find((s) => s.id === record.resolvedStaffId)?.name : null;
-  const who = record.people || linkedContractor?.name || linkedStaffMember?.name || lastEditor(record) || "—";
-  let secondary = getMode(record) === "expiry" ? record.detail
-    : linkedAsset ? `${linkedAsset.assetCode} · ${record.location || linkedAsset.location || (linkedRoom ? `Room ${linkedRoom.roomNumber}` : "")}`
-    : record.location ? record.location
-    : linkedRoom ? `Room ${linkedRoom.roomNumber}`
-    : (record.actionTaken || "—");
-  if (record.category === "legionella" && record.temperatureC != null) secondary += ` · ${record.temperatureC}°C (${record.readingType})`;
-  if (record.category === "maintenance" && record.status === "Awaiting" && awaitingWhom) secondary += ` · Awaiting ${awaitingWhom}`;
-  if (record.category === "maintenance" && record.status === "Resolved" && resolvedByWhom) secondary += ` · Resolved by ${resolvedByWhom}`;
+  const who = recordWhoText(record, contractors, staff);
+  const secondary = recordDetailText(record, assets, rooms, contractors, staff);
   const pending = hasPendingCorrection(record);
 
   return (
@@ -96,11 +83,9 @@ export function Ledger({ records, assets, rooms, contractors, staff, filters, se
     const subtitle = `Saved ${fmtDate(todayStr())} · ${filtered.length} record${filtered.length === 1 ? "" : "s"}`;
     const rows = filtered.map((r) => {
       const showDue = isScheduleMode(r);
-      const linkedAsset = r.assetId ? assets.find((a) => a.id === r.assetId) : null;
-      const detail = getMode(r) === "expiry" ? (r.detail || "") : (linkedAsset ? `${linkedAsset.assetCode} · ${r.location || ""}` : (r.location || ""));
       return {
-        type: TEMPLATES[r.category]?.short || "", title: r.title, detail,
-        who: r.people || "", date: fmtDate(showDue ? getDueDate(r) : getEventDate(r)), status: getStatus(r),
+        type: TEMPLATES[r.category]?.short || "", title: r.title, detail: recordDetailText(r, assets, rooms, contractors, staff),
+        who: recordWhoText(r, contractors, staff), date: fmtDate(showDue ? getDueDate(r) : getEventDate(r)), status: getStatus(r),
       };
     });
     const columns = [

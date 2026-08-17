@@ -540,6 +540,38 @@ export function copyLifecycleFields(oldAsset) {
 }
 
 export function getMode(record) { return TEMPLATES[record.category]?.mode; }
+/** The one true "what's this record about, in one line" computation — used both by RecordRow's
+    in-app secondary text and the Ledger's PDF export, so the two can't silently drift apart. (They
+    used to: the export was an independent, incomplete copy missing the linked-room fallback, so a
+    Deep Clean or Room Inspection record linked to a room but with no free-text location exported
+    with a blank Detail column even though it showed "Room 204" in the app.) */
+export function recordDetailText(record, assets, rooms, contractors, staff) {
+  const linkedAsset = record.assetId ? assets.find((a) => a.id === record.assetId) : null;
+  const linkedRoom = record.roomId ? rooms.find((r) => r.id === record.roomId) : null;
+  let text = getMode(record) === "expiry" ? (record.detail || "")
+    : linkedAsset ? `${linkedAsset.assetCode} · ${record.location || linkedAsset.location || (linkedRoom ? `Room ${linkedRoom.roomNumber}` : "")}`
+    : record.location ? record.location
+    : linkedRoom ? `Room ${linkedRoom.roomNumber}`
+    : (record.actionTaken || "—");
+  if (record.category === "legionella" && record.temperatureC != null) text += ` · ${record.temperatureC}°C (${record.readingType})`;
+  if (record.category === "maintenance" && record.status === "Awaiting") {
+    const awaitingWhom = record.awaitingContractorId ? contractors.find((c) => c.id === record.awaitingContractorId)?.name : record.awaitingStaffId ? staff.find((s) => s.id === record.awaitingStaffId)?.name : null;
+    if (awaitingWhom) text += ` · Awaiting ${awaitingWhom}`;
+  }
+  if (record.category === "maintenance" && record.status === "Resolved") {
+    const resolvedByWhom = record.resolvedContractorId ? contractors.find((c) => c.id === record.resolvedContractorId)?.name : record.resolvedStaffId ? staff.find((s) => s.id === record.resolvedStaffId)?.name : null;
+    if (resolvedByWhom) text += ` · Resolved by ${resolvedByWhom}`;
+  }
+  return text;
+}
+/** Same drift-prevention reasoning as recordDetailText: "who" falls back from a typed people field
+    through a linked contractor/staff member to whoever last actually edited the record, and the
+    export used to skip straight from "no people field" to blank. */
+export function recordWhoText(record, contractors, staff) {
+  const linkedContractor = record.contractorId ? contractors.find((c) => c.id === record.contractorId) : null;
+  const linkedStaffMember = record.staffId ? staff.find((s) => s.id === record.staffId) : null;
+  return record.people || linkedContractor?.name || linkedStaffMember?.name || lastEditor(record) || "—";
+}
 export function getDueDate(record) {
   const mode = getMode(record);
   if (mode === "expiry") return record.expiryDate;
