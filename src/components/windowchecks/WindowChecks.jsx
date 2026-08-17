@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useContext } from "react";
 import { Blinds, CheckCircle2, AlertCircle, Repeat, Share2 } from "lucide-react";
 import {
-  checkpointCheckPeriodKey, checkpointCheckPeriodLabel, checkpointCheckPeriodsInRange,
+  checkpointCheckPeriodKey, checkpointCheckPeriodLabel, checkpointCheckPeriodsInRange, checkpointCheckFindMissing,
   checkpointCheckExportSource, isCheckpointCheckLocked, todayStr, fmtDate,
 } from "../../lib/helpers";
 import { ErrorBanner, FormPage, HistoryList, PatternCallout, SaveStatusBanner } from "../shared/UI";
@@ -97,7 +97,7 @@ export function WindowCheckDetailPage({ checkpoint, periodKey, record, initialSt
   );
 }
 
-export function WindowChecksExportPage({ checkpoints, assets, records, onExportFallback, onClose, branding }) {
+export function WindowChecksExportPage({ checkpoints, assets, records, onOpenMissing, onExportFallback, onClose, branding }) {
   const [startDate, setStartDate] = useState(`${checkpointCheckPeriodKey()}-01`);
   const [endDate, setEndDate] = useState(todayStr());
   const [saveStatus, setSaveStatus] = useState(null);
@@ -107,7 +107,11 @@ export function WindowChecksExportPage({ checkpoints, assets, records, onExportF
     [checkpoints, assets]
   );
   const periods = useMemo(() => (validRange ? checkpointCheckPeriodsInRange(startDate, endDate) : []), [startDate, endDate, validRange]);
-  const canExport = validRange && eligible.length > 0 && periods.length > 0;
+  const missing = useMemo(
+    () => (validRange ? checkpointCheckFindMissing(checkpoints, assets, records, startDate, endDate) : []),
+    [checkpoints, assets, records, startDate, endDate, validRange]
+  );
+  const canExport = validRange && eligible.length > 0 && periods.length > 0 && missing.length === 0;
 
   const handleExport = async () => {
     if (!canExport) return;
@@ -153,11 +157,27 @@ export function WindowChecksExportPage({ checkpoints, assets, records, onExportF
       </div>
       {!validRange && <p className="muted">Pick a start and end date to continue.</p>}
       {validRange && eligible.length === 0 && <p className="muted">No checkpoints have a window asset yet — nothing to export.</p>}
+      {validRange && eligible.length > 0 && missing.length > 0 && (
+        <div className="form-error-banner">
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>
+            Can't export — {missing.length} checkpoint check{missing.length === 1 ? "" : "s"} {missing.length === 1 ? "is" : "are"} missing in this range.
+          </div>
+          <div>Log {missing.length === 1 ? "it" : "them"} first — an inspector should never see a gap nobody caught. Missing:</div>
+          <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {missing.slice(0, 20).map((m) => (
+              <button key={m.checkpointId + m.periodKey} type="button" className="btn btn-ghost" style={{ padding: "3px 10px", fontSize: 12, background: "#fff" }}
+                onClick={() => onOpenMissing(checkpoints.find((cp) => cp.id === m.checkpointId), m.periodKey)}>
+                {m.checkpointName} — {checkpointCheckPeriodLabel(m.periodKey)}
+              </button>
+            ))}
+            {missing.length > 20 && <span className="muted" style={{ alignSelf: "center" }}>and {missing.length - 20} more</span>}
+          </div>
+        </div>
+      )}
       {canExport && (
         <p className="muted">
           {periods.length} month{periods.length === 1 ? "" : "s"} × {eligible.length} checkpoint{eligible.length === 1 ? "" : "s"} —
-          a checkpoint with no record for a given month shows as "Not logged" rather than being skipped, so gaps stay
-          visible to whoever reviews this, instead of quietly disappearing.
+          every one has a record for every month in this range.
         </p>
       )}
     </FormPage>

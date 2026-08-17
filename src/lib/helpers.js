@@ -250,6 +250,23 @@ export function checkpointCheckPeriodLabel(periodKey) {
   const [y, m] = periodKey.split("-").map(Number);
   return new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 }
+/** Same golden rule as fireLogFindMissingDaily: every (eligible checkpoint, month) combination in
+    range with no record at all is a hard block on exporting — an inspector should never see a gap
+    that was never even surfaced to whoever generated the report. "Eligible" mirrors
+    WindowRestrictionChecksPage's own definition — a checkpoint only needs a check once it has at
+    least one non-archived window asset; one with none was never expected to have a record. */
+export function checkpointCheckFindMissing(checkpoints, assets, records, startDate, endDate) {
+  const eligible = checkpoints.filter((cp) => !cp.archived && assets.some((a) => a.checkpointId === cp.id && !a.archived));
+  const periods = checkpointCheckPeriodsInRange(startDate, endDate);
+  const missing = [];
+  for (const periodKey of periods) {
+    for (const cp of eligible) {
+      const exists = records.some((r) => r.category === "window_restriction_check" && r.checkpointId === cp.id && r.periodKey === periodKey && !r.archived);
+      if (!exists) missing.push({ checkpointId: cp.id, checkpointName: cp.name, periodKey });
+    }
+  }
+  return missing;
+}
 export function checkpointCheckLockBoundary(record) {
   const [y, m] = record.periodKey.split("-").map(Number);
   return new Date(y, m, 0, 23, 59, 59, 999); // last day of that month

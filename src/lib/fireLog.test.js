@@ -4,7 +4,7 @@ import {
   fireLogCurrentPeriodKey, fireLogPeriodLabel, fireLogFindMissingDaily, fireLogWeeksInRange,
   fireLogMergeItemForExport, fireLogExportSource, fireLogLockBoundary, isFireLogLocked,
   fireLogEnsureSnapshot, fireLogRepairWeeklyKeys, fireLogSuspectedTimezoneAffected,
-  checkpointCheckPeriodKey, checkpointCheckPeriodLabel, checkpointCheckPeriodsInRange, checkpointCheckLockBoundary,
+  checkpointCheckPeriodKey, checkpointCheckPeriodLabel, checkpointCheckPeriodsInRange, checkpointCheckFindMissing, checkpointCheckLockBoundary,
   isCheckpointCheckLocked, checkpointCheckExportSource,
 } from "./helpers";
 
@@ -314,6 +314,53 @@ describe("checkpointCheckPeriodsInRange", () => {
 
   it("correctly rolls over a year boundary", () => {
     expect(checkpointCheckPeriodsInRange("2025-11-10", "2026-02-05")).toEqual(["2025-11", "2025-12", "2026-01", "2026-02"]);
+  });
+});
+
+describe("checkpointCheckFindMissing", () => {
+  const checkpoints = [
+    { id: "cp1", name: "Corridor 2F", archived: false },
+    { id: "cp2", name: "Reception", archived: false },
+    { id: "cp3", name: "No window assigned", archived: false }, // not eligible, no window asset
+  ];
+  const assets = [
+    { id: "a1", checkpointId: "cp1", archived: false },
+    { id: "a2", checkpointId: "cp2", archived: false },
+  ];
+
+  it("flags every eligible-checkpoint × month combination with no record", () => {
+    const records = [
+      { category: "window_restriction_check", checkpointId: "cp1", periodKey: "2026-01", archived: false },
+      // cp1 Feb missing, cp2 Jan missing, cp2 Feb missing
+    ];
+    const missing = checkpointCheckFindMissing(checkpoints, assets, records, "2026-01-01", "2026-02-28");
+    expect(missing).toEqual([
+      { checkpointId: "cp2", checkpointName: "Reception", periodKey: "2026-01" },
+      { checkpointId: "cp1", checkpointName: "Corridor 2F", periodKey: "2026-02" },
+      { checkpointId: "cp2", checkpointName: "Reception", periodKey: "2026-02" },
+    ]);
+  });
+
+  it("an archived record doesn't count as covering its period", () => {
+    const records = [{ category: "window_restriction_check", checkpointId: "cp1", periodKey: "2026-01", archived: true }];
+    const missing = checkpointCheckFindMissing(checkpoints, assets, records, "2026-01-01", "2026-01-31");
+    expect(missing).toEqual([
+      { checkpointId: "cp1", checkpointName: "Corridor 2F", periodKey: "2026-01" },
+      { checkpointId: "cp2", checkpointName: "Reception", periodKey: "2026-01" },
+    ]);
+  });
+
+  it("returns nothing once every eligible checkpoint has a record for every period", () => {
+    const records = [
+      { category: "window_restriction_check", checkpointId: "cp1", periodKey: "2026-01", archived: false },
+      { category: "window_restriction_check", checkpointId: "cp2", periodKey: "2026-01", archived: false },
+    ];
+    expect(checkpointCheckFindMissing(checkpoints, assets, records, "2026-01-01", "2026-01-31")).toEqual([]);
+  });
+
+  it("a checkpoint with no window asset is never flagged, regardless of records", () => {
+    const missing = checkpointCheckFindMissing(checkpoints, assets, [], "2026-01-01", "2026-01-31");
+    expect(missing.some((m) => m.checkpointId === "cp3")).toBe(false);
   });
 });
 

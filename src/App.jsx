@@ -431,7 +431,9 @@ export default function App() {
       onSave={handleSaveWindowCheck} onClose={pop} />;
   } else if (current.page === "window-checks-export") {
     body = role === "General Manager"
-      ? <WindowChecksExportPage checkpoints={checkpoints} assets={assets} records={records} onExportFallback={openReportFallback} onClose={pop} branding={branding} />
+      ? <WindowChecksExportPage checkpoints={checkpoints} assets={assets} records={records}
+          onOpenMissing={(checkpoint, periodKey) => push({ page: "window-check-not-ok", checkpoint, periodKey, record: null })}
+          onExportFallback={openReportFallback} onClose={pop} branding={branding} />
       : <div className="empty-state">Only a General Manager can export Window Restriction checks.</div>;
   } else if (current.page === "fire-log-menu") {
     body = <FireLogMenuPage records={records} onPick={(category) => {
