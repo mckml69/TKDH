@@ -52,7 +52,12 @@ export function Home({ records, assets, rooms, contractors, certificates, respon
     const matched = matchRequirement(req, activeRecords, activeCertificates);
     return requirementStatus(req, matched) === "missing";
   }).length, [activeRecords, activeCertificates]);
-  const canWaitCount = useMemo(() => activeRecords.filter((r) => isScheduleMode(r) && getStatus(r) === "compliant").length, [activeRecords]);
+  // Not scoped to isScheduleMode: "compliant" is also what a checkpoint_check-mode record (Window
+  // Restriction/Legionella checks marked OK) reports — and this card's own click-through goes to
+  // the Ledger filtered by status alone, with no mode restriction, so the count has to match that
+  // or the two visibly disagree (review mode uses "reviewed", log modes use "logged" — genuinely
+  // distinct status keys — so nothing else can silently sneak into this count).
+  const canWaitCount = useMemo(() => activeRecords.filter((r) => getStatus(r) === "compliant").length, [activeRecords]);
 
   return (
     <div className="overview">
