@@ -4,7 +4,7 @@ import {
   initialsOf, getMode, getDueDate, getStatus, getEventDate, isOverdue, isDueSoon, isDueToday, isOpenIssue,
   insuranceStatus, certificateStatus, visitStatus, validateRecord, validateAsset, validateRoom,
   validateContractor, validateStaff, validateCertificate, validateVisit, validateUser, generateAssetCode,
-  recordDetailText, recordWhoText,
+  recordDetailText, recordWhoText, checkpointCheckEligibleCheckpoints, checkpointCheckFindMissing,
 } from "./helpers";
 
 describe("date arithmetic", () => {
@@ -339,5 +339,35 @@ describe("generateAssetCode", () => {
         { assetType: "fire_extinguisher" },
       ])
     ).toBe("FE-003");
+  });
+});
+
+describe("checkpointCheckEligibleCheckpoints", () => {
+  const checkpoints = [{ id: "cp1", name: "101", archived: false }, { id: "cp2", name: "102", archived: false }];
+
+  it("excludes a checkpoint whose only linked asset isn't a window restrictor (a kettle doesn't need a window check)", () => {
+    const assets = [{ checkpointId: "cp1", assetType: "kettle", archived: false }];
+    expect(checkpointCheckEligibleCheckpoints(checkpoints, assets)).toEqual([]);
+  });
+
+  it("includes a checkpoint with a non-archived window_restrictor asset", () => {
+    const assets = [
+      { checkpointId: "cp1", assetType: "kettle", archived: false },
+      { checkpointId: "cp2", assetType: "window_restrictor", archived: false },
+    ];
+    expect(checkpointCheckEligibleCheckpoints(checkpoints, assets).map((c) => c.id)).toEqual(["cp2"]);
+  });
+
+  it("ignores an archived window_restrictor asset", () => {
+    const assets = [{ checkpointId: "cp1", assetType: "window_restrictor", archived: true }];
+    expect(checkpointCheckEligibleCheckpoints(checkpoints, assets)).toEqual([]);
+  });
+});
+
+describe("checkpointCheckFindMissing", () => {
+  it("never flags a checkpoint with only non-window assets, even with zero records logged", () => {
+    const checkpoints = [{ id: "cp1", name: "101", archived: false }];
+    const assets = [{ checkpointId: "cp1", assetType: "kettle", archived: false }];
+    expect(checkpointCheckFindMissing(checkpoints, assets, [], "2026-01-01", "2026-01-31")).toEqual([]);
   });
 });

@@ -328,8 +328,8 @@ describe("checkpointCheckFindMissing", () => {
     { id: "cp3", name: "No window assigned", archived: false }, // not eligible, no window asset
   ];
   const assets = [
-    { id: "a1", checkpointId: "cp1", archived: false },
-    { id: "a2", checkpointId: "cp2", archived: false },
+    { id: "a1", checkpointId: "cp1", archived: false, assetType: "window_restrictor" },
+    { id: "a2", checkpointId: "cp2", archived: false, assetType: "window_restrictor" },
   ];
 
   it("flags every eligible-checkpoint × month combination with no record", () => {

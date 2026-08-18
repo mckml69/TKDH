@@ -2,7 +2,7 @@ import React, { useState, useMemo, useContext } from "react";
 import { Blinds, CheckCircle2, AlertCircle, Repeat, Share2 } from "lucide-react";
 import {
   checkpointCheckPeriodKey, checkpointCheckPeriodLabel, checkpointCheckPeriodsInRange, checkpointCheckFindMissing,
-  checkpointCheckExportSource, isCheckpointCheckLocked, todayStr, fmtDate,
+  checkpointCheckExportSource, checkpointCheckEligibleCheckpoints, isCheckpointCheckLocked, todayStr, fmtDate,
 } from "../../lib/helpers";
 import { ErrorBanner, FormPage, HistoryList, PatternCallout, SaveStatusBanner } from "../shared/UI";
 import { RoleContext } from "../../lib/constants";
@@ -13,10 +13,7 @@ export function WindowRestrictionChecksPage({ checkpoints, assets, records, canE
   const { canDelete } = useContext(RoleContext);
   const periodKey = checkpointCheckPeriodKey();
   const periodLabel = checkpointCheckPeriodLabel(periodKey);
-  const eligible = useMemo(
-    () => checkpoints.filter((cp) => !cp.archived && assets.some((a) => a.checkpointId === cp.id && !a.archived)),
-    [checkpoints, assets]
-  );
+  const eligible = useMemo(() => checkpointCheckEligibleCheckpoints(checkpoints, assets), [checkpoints, assets]);
   const recordFor = (cpId) => records.find((r) => r.category === "window_restriction_check" && r.checkpointId === cpId && r.periodKey === periodKey && !r.archived);
   const doneCount = eligible.filter((cp) => recordFor(cp.id)).length;
 
@@ -35,7 +32,7 @@ export function WindowRestrictionChecksPage({ checkpoints, assets, records, canE
             const rec = recordFor(cp.id);
             const locked = rec ? isCheckpointCheckLocked(rec) : false;
             const readOnly = locked && !canEdit;
-            const windowCount = assets.filter((a) => a.checkpointId === cp.id && !a.archived).length;
+            const windowCount = assets.filter((a) => a.checkpointId === cp.id && !a.archived && a.assetType === "window_restrictor").length;
             return (
               <div key={cp.id} className="ledger-row ledger-row--flat">
                 <span className="mono-strong" style={rec ? { cursor: "pointer", textDecoration: "underline" } : undefined} onClick={rec ? () => onOpenDetail(cp, periodKey, rec) : undefined}>
@@ -102,10 +99,7 @@ export function WindowChecksExportPage({ checkpoints, assets, records, onOpenMis
   const [endDate, setEndDate] = useState(todayStr());
   const [saveStatus, setSaveStatus] = useState(null);
   const validRange = startDate && endDate && startDate <= endDate;
-  const eligible = useMemo(
-    () => checkpoints.filter((cp) => !cp.archived && assets.some((a) => a.checkpointId === cp.id && !a.archived)),
-    [checkpoints, assets]
-  );
+  const eligible = useMemo(() => checkpointCheckEligibleCheckpoints(checkpoints, assets), [checkpoints, assets]);
   const periods = useMemo(() => (validRange ? checkpointCheckPeriodsInRange(startDate, endDate) : []), [startDate, endDate, validRange]);
   const missing = useMemo(
     () => (validRange ? checkpointCheckFindMissing(checkpoints, assets, records, startDate, endDate) : []),
