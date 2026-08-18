@@ -5,6 +5,7 @@ import {
   insuranceStatus, certificateStatus, visitStatus, validateRecord, validateAsset, validateRoom,
   validateContractor, validateStaff, validateCertificate, validateVisit, validateUser, generateAssetCode,
   recordDetailText, recordWhoText, checkpointCheckEligibleCheckpoints, checkpointCheckFindMissing,
+  findOpenLinkedIssue, hasOpenLinkedIssue,
 } from "./helpers";
 
 describe("date arithmetic", () => {
@@ -369,5 +370,57 @@ describe("checkpointCheckFindMissing", () => {
     const checkpoints = [{ id: "cp1", name: "101", archived: false }];
     const assets = [{ checkpointId: "cp1", assetType: "kettle", archived: false }];
     expect(checkpointCheckFindMissing(checkpoints, assets, [], "2026-01-01", "2026-01-31")).toEqual([]);
+  });
+});
+
+describe("findOpenLinkedIssue / hasOpenLinkedIssue", () => {
+  it("finds nothing with no records at all", () => {
+    expect(findOpenLinkedIssue([], "origin1")).toBeNull();
+    expect(hasOpenLinkedIssue([], "origin1")).toBe(false);
+  });
+
+  it("finds nothing for a falsy linkedId, even with matching-shaped records around", () => {
+    const records = [{ id: "m1", category: "maintenance", linkedRecordId: null, status: "Open", archived: false }];
+    expect(findOpenLinkedIssue(records, null)).toBeNull();
+    expect(findOpenLinkedIssue(records, undefined)).toBeNull();
+  });
+
+  it("ignores a Resolved match — a closed issue never blocks a genuinely new failure", () => {
+    const records = [{ id: "m1", category: "maintenance", linkedRecordId: "origin1", status: "Resolved", archived: false }];
+    expect(hasOpenLinkedIssue(records, "origin1")).toBe(false);
+  });
+
+  it("ignores an archived match", () => {
+    const records = [{ id: "m1", category: "maintenance", linkedRecordId: "origin1", status: "Open", archived: true }];
+    expect(hasOpenLinkedIssue(records, "origin1")).toBe(false);
+  });
+
+  it("finds a genuinely open, non-archived match", () => {
+    const records = [{ id: "m1", category: "maintenance", linkedRecordId: "origin1", status: "Open", archived: false }];
+    expect(findOpenLinkedIssue(records, "origin1")?.id).toBe("m1");
+    expect(hasOpenLinkedIssue(records, "origin1")).toBe(true);
+  });
+
+  it("never matches a different linkedId, including a composite id sharing the same prefix", () => {
+    const records = [
+      { id: "m1", category: "maintenance", linkedRecordId: "origin1", status: "Open", archived: false },
+      { id: "m2", category: "maintenance", linkedRecordId: "origin1:kettle", status: "Open", archived: false },
+    ];
+    expect(findOpenLinkedIssue(records, "origin1")?.id).toBe("m1");
+    expect(findOpenLinkedIssue(records, "origin1:kettle")?.id).toBe("m2");
+    expect(findOpenLinkedIssue(records, "origin2")).toBeNull();
+  });
+
+  it("finds the still-open one even when an earlier, resolved issue for the same origin also exists — the two historical failures case", () => {
+    const records = [
+      { id: "m1", category: "maintenance", linkedRecordId: "origin1", status: "Resolved", archived: false },
+      { id: "m2", category: "maintenance", linkedRecordId: "origin1", status: "Open", archived: false },
+    ];
+    expect(findOpenLinkedIssue(records, "origin1")?.id).toBe("m2");
+  });
+
+  it("ignores non-maintenance records even if they happen to carry a matching linkedRecordId field", () => {
+    const records = [{ id: "r1", category: "pest", linkedRecordId: "origin1", status: "Open", archived: false }];
+    expect(hasOpenLinkedIssue(records, "origin1")).toBe(false);
   });
 });

@@ -5,7 +5,7 @@ import {
   legionellaCheckExportSource, isLegionellaCheckLocked, legionellaCheckEligibleItems, legionellaCheckEligibleCheckpoints,
   checkpointCheckPeriodKey, checkpointCheckPeriodsInRange, checkpointCheckPeriodLabel, isCheckpointCheckLocked,
   legionellaTempCheckEligibleCheckpoints, legionellaTempCheckFindMissing, legionellaTempCheckExportSource,
-  todayStr, fmtDate,
+  todayStr, fmtDate, findOpenLinkedIssue,
 } from "../../lib/helpers";
 import { ErrorBanner, FormPage, HistoryList, PatternCallout, SaveStatusBanner } from "../shared/UI";
 import { RoleContext, TEMPLATES } from "../../lib/constants";
@@ -92,7 +92,7 @@ export function LegionellaChecksPage({ checkpoints, assets, records, canEdit, on
   );
 }
 
-export function LegionellaCheckDetailPage({ checkpoint, assets, periodKey, record, initialItemKey, initialStatus, canEdit, onSave, onClose }) {
+export function LegionellaCheckDetailPage({ checkpoint, assets, periodKey, record, records, initialItemKey, initialStatus, canEdit, onSave, onViewIssue, onClose }) {
   const locked = record ? isLegionellaCheckLocked(record) : false;
   const editable = !locked || canEdit;
   const readOnlyView = locked && !canEdit;
@@ -109,9 +109,15 @@ export function LegionellaCheckDetailPage({ checkpoint, assets, periodKey, recor
     }
     return initial;
   });
+  const [confirmNewKeys, setConfirmNewKeys] = useState(() => new Set());
   const [errors, setErrors] = useState([]);
   const setItemStatus = (key, status) => setForm((f) => ({ ...f, [key]: { status, note: status === "ok" ? "" : f[key].note } }));
   const setItemNote = (key, note) => setForm((f) => ({ ...f, [key]: { ...f[key], note } }));
+  const toggleConfirmNew = (key, checked) => setConfirmNewKeys((s) => {
+    const next = new Set(s);
+    if (checked) next.add(key); else next.delete(key);
+    return next;
+  });
 
   const handleSubmit = () => {
     const missingNotes = items.filter((item) => form[item.key].status === "not_ok" && !form[item.key].note.trim());
@@ -119,7 +125,7 @@ export function LegionellaCheckDetailPage({ checkpoint, assets, periodKey, recor
     setErrors([]);
     const checks = {};
     for (const item of items) if (form[item.key].status) checks[item.key] = { status: form[item.key].status, note: form[item.key].status === "not_ok" ? form[item.key].note.trim() : "" };
-    onSave(checkpoint.id, periodKey, record, checks);
+    onSave(checkpoint.id, periodKey, record, checks, Array.from(confirmNewKeys));
   };
 
   return (
@@ -129,25 +135,42 @@ export function LegionellaCheckDetailPage({ checkpoint, assets, periodKey, recor
       <ErrorBanner errors={errors} />
       {readOnlyView && <PatternCallout icon={Repeat}>This period is locked.</PatternCallout>}
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {items.map((item) => (
-          <div key={item.key}>
-            <div style={{ fontWeight: 600, marginBottom: 6 }}>{item.label}</div>
-            {!readOnlyView && (
-              <div style={{ display: "flex", gap: 6, marginBottom: form[item.key].status === "not_ok" ? 8 : 0 }}>
-                <button type="button" className="btn btn-ghost" disabled={!editable} style={{ background: form[item.key].status === "ok" ? "#EAF3EC" : "#fff", color: form[item.key].status === "ok" ? "#2F6B4C" : undefined }} onClick={() => setItemStatus(item.key, "ok")}>OK</button>
-                <button type="button" className="btn btn-ghost" disabled={!editable} style={{ background: form[item.key].status === "not_ok" ? "#FBEAE7" : "#fff", color: form[item.key].status === "not_ok" ? "#A8402F" : undefined }} onClick={() => setItemStatus(item.key, "not_ok")}>Not OK</button>
-              </div>
-            )}
-            {form[item.key].status === "not_ok" && !readOnlyView && (
-              <textarea rows={3} disabled={!editable} value={form[item.key].note} onChange={(e) => setItemNote(item.key, e.target.value)} placeholder="What's wrong?" />
-            )}
-            {readOnlyView && (
-              form[item.key].status === "ok" ? <p className="muted" style={{ margin: 0 }}>Checked OK for this period.</p>
-                : form[item.key].status === "not_ok" ? <p className="muted" style={{ margin: 0 }}>Not OK — {form[item.key].note}</p>
-                  : <p className="muted" style={{ margin: 0 }}>Not checked this period.</p>
-            )}
-          </div>
-        ))}
+        {items.map((item) => {
+          const openIssue = record ? findOpenLinkedIssue(records, `${record.id}:${item.key}`) : null;
+          return (
+            <div key={item.key}>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>{item.label}</div>
+              {!readOnlyView && (
+                <div style={{ display: "flex", gap: 6, marginBottom: form[item.key].status === "not_ok" ? 8 : 0 }}>
+                  <button type="button" className="btn btn-ghost" disabled={!editable} style={{ background: form[item.key].status === "ok" ? "#EAF3EC" : "#fff", color: form[item.key].status === "ok" ? "#2F6B4C" : undefined }} onClick={() => setItemStatus(item.key, "ok")}>OK</button>
+                  <button type="button" className="btn btn-ghost" disabled={!editable} style={{ background: form[item.key].status === "not_ok" ? "#FBEAE7" : "#fff", color: form[item.key].status === "not_ok" ? "#A8402F" : undefined }} onClick={() => setItemStatus(item.key, "not_ok")}>Not OK</button>
+                </div>
+              )}
+              {form[item.key].status === "not_ok" && openIssue && !readOnlyView && (
+                <>
+                  <PatternCallout icon={AlertCircle}>
+                    There's already an open maintenance issue for {item.label.toLowerCase()}, raised {fmtDate(openIssue.dateRaised)}: "{openIssue.notes}" — still unresolved.
+                  </PatternCallout>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: -6, marginBottom: 8 }}>
+                    <label className="checkbox-row" style={{ fontWeight: 400, fontSize: 13 }}>
+                      <input type="checkbox" checked={confirmNewKeys.has(item.key)} onChange={(e) => toggleConfirmNew(item.key, e.target.checked)} />
+                      This is a new, separate failure — log it as its own issue
+                    </label>
+                    <button type="button" className="btn btn-ghost" style={{ padding: "3px 10px", fontSize: 12, flexShrink: 0 }} onClick={() => onViewIssue(openIssue)}>View open issue</button>
+                  </div>
+                </>
+              )}
+              {form[item.key].status === "not_ok" && !readOnlyView && (
+                <textarea rows={3} disabled={!editable} value={form[item.key].note} onChange={(e) => setItemNote(item.key, e.target.value)} placeholder="What's wrong?" />
+              )}
+              {readOnlyView && (
+                form[item.key].status === "ok" ? <p className="muted" style={{ margin: 0 }}>Checked OK for this period.</p>
+                  : form[item.key].status === "not_ok" ? <p className="muted" style={{ margin: 0 }}>Not OK — {form[item.key].note}</p>
+                    : <p className="muted" style={{ margin: 0 }}>Not checked this period.</p>
+              )}
+            </div>
+          );
+        })}
       </div>
       {record && <HistoryList history={record.history} />}
     </FormPage>
@@ -283,7 +306,7 @@ export function LegionellaTempCheckPage({ checkpoints, assets, records, canEdit,
   );
 }
 
-export function LegionellaTempCheckDetailPage({ checkpoint, periodKey, record, canEdit, onSave, onClose }) {
+export function LegionellaTempCheckDetailPage({ checkpoint, periodKey, record, records, canEdit, onSave, onViewIssue, onClose }) {
   const locked = record ? isCheckpointCheckLocked(record) : false;
   const editable = !locked || canEdit;
   const readOnlyView = locked && !canEdit;
@@ -291,12 +314,14 @@ export function LegionellaTempCheckDetailPage({ checkpoint, periodKey, record, c
   const [coldTempC, setColdTempC] = useState(record?.coldTempC ?? "");
   const [status, setStatus] = useState(record?.status || "ok");
   const [note, setNote] = useState(record?.note || "");
+  const [confirmNew, setConfirmNew] = useState(false);
   const [errors, setErrors] = useState([]);
+  const openIssue = record ? findOpenLinkedIssue(records, record.id) : null;
 
   const handleSubmit = () => {
     if (status === "not_ok" && !note.trim()) { setErrors(["Note what's wrong — this becomes the maintenance issue."]); return; }
     setErrors([]);
-    onSave(checkpoint.id, periodKey, record, hotTempC === "" ? null : parseFloat(hotTempC), coldTempC === "" ? null : parseFloat(coldTempC), status, note.trim());
+    onSave(checkpoint.id, periodKey, record, hotTempC === "" ? null : parseFloat(hotTempC), coldTempC === "" ? null : parseFloat(coldTempC), status, note.trim(), { forceNewIssue: confirmNew });
   };
 
   return (
@@ -317,6 +342,20 @@ export function LegionellaTempCheckDetailPage({ checkpoint, periodKey, record, c
           <button type="button" className="btn btn-ghost" style={{ background: status === "ok" ? "#EAF3EC" : "#fff", color: status === "ok" ? "#2F6B4C" : undefined }} onClick={() => setStatus("ok")}>OK</button>
           <button type="button" className="btn btn-ghost" style={{ background: status === "not_ok" ? "#FBEAE7" : "#fff", color: status === "not_ok" ? "#A8402F" : undefined }} onClick={() => setStatus("not_ok")}>Not OK</button>
         </div>
+      )}
+      {status === "not_ok" && openIssue && !readOnlyView && (
+        <>
+          <PatternCallout icon={AlertCircle}>
+            There's already an open maintenance issue for this, raised {fmtDate(openIssue.dateRaised)}: "{openIssue.notes}" — still unresolved.
+          </PatternCallout>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: -6, marginBottom: 14 }}>
+            <label className="checkbox-row" style={{ fontWeight: 400, fontSize: 13 }}>
+              <input type="checkbox" checked={confirmNew} onChange={(e) => setConfirmNew(e.target.checked)} />
+              This is a new, separate failure — log it as its own issue
+            </label>
+            <button type="button" className="btn btn-ghost" style={{ padding: "3px 10px", fontSize: 12, flexShrink: 0 }} onClick={() => onViewIssue(openIssue)}>View open issue</button>
+          </div>
+        </>
       )}
       {status === "not_ok" && (
         <label>What's wrong?<textarea rows={4} disabled={!editable} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Hot outlet reading only 41°C after 1 minute, expected ≥50°C." /></label>

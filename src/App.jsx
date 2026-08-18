@@ -64,7 +64,7 @@ import {
   hasPendingCorrection, insuranceStatus, isCheckpointCheckLocked, isOverdue, staffTrainingStatus, todayStr, uid, visitStatus,
   fireLogCurrentPeriodKey, fireLogEnsureSnapshot, fireLogPeriodLabel, isFireLogLocked,
   legionellaCheckEnsureSnapshot, legionellaCheckPeriodKey, isLegionellaCheckLocked,
-  legionellaTempCheckEnsureSnapshot, resolveOriginRecord,
+  legionellaTempCheckEnsureSnapshot, resolveOriginRecord, findOpenLinkedIssue, hasOpenLinkedIssue,
 } from "./lib/helpers";
 import "./styles/global.css";
 
@@ -145,10 +145,14 @@ export default function App() {
     const wasPending = isExisting && hasPendingCorrection(records.find((r) => r.id === form.id));
     let next = upsertRecord(form, records);
     if (wasPending) next = resolveRecordCorrection(form.id, next);
-    if (form.flagged && !form.flagResolved && !next.some((r) => r.linkedRecordId === form.id)) {
+    if (form.flagged && !hasOpenLinkedIssue(next, form.id)) {
       const linked = { id: uid(), category: "maintenance", title: `Follow-up: ${form.title}`, location: form.location, people: form.people,
         notes: form.flagDescription, dateRaised: todayStr(), priority: "Medium", status: "Open", linkedRecordId: form.id, assetId: form.assetId || null, roomId: form.roomId || null, attachments: [] };
-      upsertRecord(linked, next);
+      next = upsertRecord(linked, next);
+      // flagResolved only ever meant "the issue that flag most recently raised is closed" — once a
+      // fresh issue is raised against the same flag, that stale "Resolved" label would otherwise
+      // sit right next to a brand-new open one.
+      if (form.flagResolved) upsertRecord({ ...form, flagResolved: false, flagResolvedNotes: null, flagResolvedDate: null }, next);
     }
     if (logAnother) replaceTop({ page: "record-form", template, record: null, prefill: null, formKey: uid() });
     else pop();
@@ -165,7 +169,7 @@ export default function App() {
       records array plus resolution details for resolveOriginRecord to use, or null if there was
       nothing open to resolve (first-time OK, or already resolved earlier). */
   const autoResolveLinkedIssue = (linkedId, recordsArr) => {
-    const issue = recordsArr.find((r) => r.category === "maintenance" && r.linkedRecordId === linkedId && !r.archived && r.status !== "Resolved");
+    const issue = findOpenLinkedIssue(recordsArr, linkedId);
     if (!issue) return { next: recordsArr, resolvedInfo: null };
     const date = todayStr();
     const notes = "Marked OK directly from the checklist.";
@@ -216,7 +220,7 @@ export default function App() {
     if (existingRecord && isLegionellaCheckLocked(existingRecord)) base = legionellaCheckEnsureSnapshot(base);
     upsertRecord({ ...base, checks: { ...(base.checks || {}), [itemKey]: { status: "ok", note: "" } } }, records);
   };
-  const handleSaveLegionellaCheck = (checkpointId, periodKey, existingRecord, checks) => {
+  const handleSaveLegionellaCheck = (checkpointId, periodKey, existingRecord, checks, forceNewIssueKeys = []) => {
     if (existingRecord && isLegionellaCheckLocked(existingRecord) && role !== "General Manager") return;
     let base = existingRecord || { id: uid(), category: "legionella_check", checkpointId, periodKey, title: "Legionella Check", location: "", people: "", notes: "", attachments: [], tags: [] };
     if (existingRecord && isLegionellaCheckLocked(existingRecord)) base = legionellaCheckEnsureSnapshot(base);
@@ -226,7 +230,7 @@ export default function App() {
     for (const [itemKey, itemVal] of Object.entries(checks)) {
       if (itemVal.status === "not_ok") {
         const compositeId = `${updated.id}:${itemKey}`;
-        if (!next.some((r) => r.linkedRecordId === compositeId)) {
+        if (forceNewIssueKeys.includes(itemKey) || !hasOpenLinkedIssue(next, compositeId)) {
           const itemLabel = LEGIONELLA_CHECK_ITEMS.find((i) => i.key === itemKey)?.label || itemKey;
           const linked = {
             id: uid(), category: "maintenance", title: `Legionella issue — ${itemLabel} — ${checkpoint?.name || "checkpoint"}`,
@@ -247,7 +251,7 @@ export default function App() {
     }
     pop();
   };
-  const handleSaveLegionellaTempCheck = (checkpointId, periodKey, existingRecord, hotTempC, coldTempC, status, note) => {
+  const handleSaveLegionellaTempCheck = (checkpointId, periodKey, existingRecord, hotTempC, coldTempC, status, note, options = {}) => {
     if (existingRecord && isCheckpointCheckLocked(existingRecord) && role !== "General Manager") return;
     if (status === "ok" && existingRecord?.status === "not_ok") {
       const { next, resolvedInfo } = autoResolveLinkedIssue(existingRecord.id, records);
@@ -262,7 +266,7 @@ export default function App() {
     if (existingRecord && isCheckpointCheckLocked(existingRecord)) base = legionellaTempCheckEnsureSnapshot(base);
     const updated = { ...base, hotTempC, coldTempC, status, note: status === "not_ok" ? note : "" };
     let next = upsertRecord(updated, records);
-    if (status === "not_ok" && !next.some((r) => r.linkedRecordId === updated.id)) {
+    if (status === "not_ok" && (options.forceNewIssue || !hasOpenLinkedIssue(next, updated.id))) {
       const checkpoint = checkpoints.find((cp) => cp.id === checkpointId);
       const linked = {
         id: uid(), category: "maintenance", title: `Legionella water temperature issue — ${checkpoint?.name || "checkpoint"}`,
@@ -273,7 +277,7 @@ export default function App() {
     }
     pop();
   };
-  const handleSaveWindowCheck = (checkpointId, periodKey, existingRecord, status, note) => {
+  const handleSaveWindowCheck = (checkpointId, periodKey, existingRecord, status, note, options = {}) => {
     if (existingRecord && isCheckpointCheckLocked(existingRecord) && role !== "General Manager") return;
     if (status === "ok" && existingRecord?.status === "not_ok") {
       const { next, resolvedInfo } = autoResolveLinkedIssue(existingRecord.id, records);
@@ -283,7 +287,7 @@ export default function App() {
     if (existingRecord && isCheckpointCheckLocked(existingRecord)) base = checkpointCheckEnsureSnapshot(base);
     const updated = { ...base, status, note: status === "not_ok" ? note : "" };
     let next = upsertRecord(updated, records);
-    if (status === "not_ok" && !next.some((r) => r.linkedRecordId === updated.id)) {
+    if (status === "not_ok" && (options.forceNewIssue || !hasOpenLinkedIssue(next, updated.id))) {
       const checkpoint = checkpoints.find((cp) => cp.id === checkpointId);
       const linked = {
         id: uid(), category: "maintenance", title: `Window restriction issue — ${checkpoint?.name || "checkpoint"}`,
@@ -550,8 +554,8 @@ export default function App() {
       onClose={pop} />;
   } else if (current.page === "window-check-not-ok") {
     const liveRecord = current.record ? records.find((r) => r.id === current.record.id) || current.record : null;
-    body = <WindowCheckDetailPage checkpoint={current.checkpoint} periodKey={current.periodKey} record={liveRecord} initialStatus={current.initialStatus} canEdit={role === "General Manager"}
-      onSave={handleSaveWindowCheck} onClose={pop} />;
+    body = <WindowCheckDetailPage checkpoint={current.checkpoint} periodKey={current.periodKey} record={liveRecord} records={records} initialStatus={current.initialStatus} canEdit={role === "General Manager"}
+      onSave={handleSaveWindowCheck} onViewIssue={openRecordView} onClose={pop} />;
   } else if (current.page === "window-checks-export") {
     body = role === "General Manager"
       ? <WindowChecksExportPage checkpoints={checkpoints} assets={assets} records={records}
@@ -570,9 +574,9 @@ export default function App() {
       onClose={pop} />;
   } else if (current.page === "legionella-check-detail") {
     const liveRecord = current.record ? records.find((r) => r.id === current.record.id) || current.record : null;
-    body = <LegionellaCheckDetailPage checkpoint={current.checkpoint} assets={assets} periodKey={current.periodKey} record={liveRecord}
+    body = <LegionellaCheckDetailPage checkpoint={current.checkpoint} assets={assets} periodKey={current.periodKey} record={liveRecord} records={records}
       initialItemKey={current.initialItemKey} initialStatus={current.initialStatus} canEdit={role === "General Manager"}
-      onSave={handleSaveLegionellaCheck} onClose={pop} />;
+      onSave={handleSaveLegionellaCheck} onViewIssue={openRecordView} onClose={pop} />;
   } else if (current.page === "legionella-checks-export") {
     body = role === "General Manager"
       ? <LegionellaChecksExportPage checkpoints={checkpoints} assets={assets} records={records}
@@ -587,8 +591,8 @@ export default function App() {
       onClose={pop} />;
   } else if (current.page === "legionella-temp-check-detail") {
     const liveRecord = current.record ? records.find((r) => r.id === current.record.id) || current.record : null;
-    body = <LegionellaTempCheckDetailPage checkpoint={current.checkpoint} periodKey={current.periodKey} record={liveRecord} canEdit={role === "General Manager"}
-      onSave={handleSaveLegionellaTempCheck} onClose={pop} />;
+    body = <LegionellaTempCheckDetailPage checkpoint={current.checkpoint} periodKey={current.periodKey} record={liveRecord} records={records} canEdit={role === "General Manager"}
+      onSave={handleSaveLegionellaTempCheck} onViewIssue={openRecordView} onClose={pop} />;
   } else if (current.page === "legionella-temp-checks-export") {
     body = role === "General Manager"
       ? <LegionellaTempChecksExportPage checkpoints={checkpoints} assets={assets} records={records}

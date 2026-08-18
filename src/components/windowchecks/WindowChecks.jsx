@@ -2,7 +2,7 @@ import React, { useState, useMemo, useContext } from "react";
 import { Blinds, CheckCircle2, AlertCircle, Repeat, Share2 } from "lucide-react";
 import {
   checkpointCheckPeriodKey, checkpointCheckPeriodLabel, checkpointCheckPeriodsInRange, checkpointCheckFindMissing,
-  checkpointCheckExportSource, checkpointCheckEligibleCheckpoints, isCheckpointCheckLocked, todayStr, fmtDate,
+  checkpointCheckExportSource, checkpointCheckEligibleCheckpoints, isCheckpointCheckLocked, todayStr, fmtDate, findOpenLinkedIssue,
 } from "../../lib/helpers";
 import { ErrorBanner, FormPage, HistoryList, PatternCallout, SaveStatusBanner } from "../shared/UI";
 import { RoleContext } from "../../lib/constants";
@@ -59,18 +59,20 @@ export function WindowRestrictionChecksPage({ checkpoints, assets, records, canE
   );
 }
 
-export function WindowCheckDetailPage({ checkpoint, periodKey, record, initialStatus, canEdit, onSave, onClose }) {
+export function WindowCheckDetailPage({ checkpoint, periodKey, record, records, initialStatus, canEdit, onSave, onViewIssue, onClose }) {
   const locked = record ? isCheckpointCheckLocked(record) : false;
   const editable = !locked || canEdit;
   const readOnlyView = locked && !canEdit;
   const [status, setStatus] = useState(initialStatus || record?.status || "not_ok");
   const [note, setNote] = useState(record?.note || "");
+  const [confirmNew, setConfirmNew] = useState(false);
   const [errors, setErrors] = useState([]);
+  const openIssue = record ? findOpenLinkedIssue(records, record.id) : null;
 
   const handleSubmit = () => {
     if (status === "not_ok" && !note.trim()) { setErrors(["Note which window and what's wrong — this becomes the maintenance issue."]); return; }
     setErrors([]);
-    onSave(checkpoint.id, periodKey, record, status, note.trim());
+    onSave(checkpoint.id, periodKey, record, status, note.trim(), { forceNewIssue: confirmNew });
   };
 
   return (
@@ -84,6 +86,20 @@ export function WindowCheckDetailPage({ checkpoint, periodKey, record, initialSt
           <button type="button" className="btn btn-ghost" style={{ background: status === "ok" ? "#EAF3EC" : "#fff", color: status === "ok" ? "#2F6B4C" : undefined }} onClick={() => setStatus("ok")}>OK</button>
           <button type="button" className="btn btn-ghost" style={{ background: status === "not_ok" ? "#FBEAE7" : "#fff", color: status === "not_ok" ? "#A8402F" : undefined }} onClick={() => setStatus("not_ok")}>Not OK</button>
         </div>
+      )}
+      {status === "not_ok" && openIssue && !readOnlyView && (
+        <>
+          <PatternCallout icon={AlertCircle}>
+            There's already an open maintenance issue for this, raised {fmtDate(openIssue.dateRaised)}: "{openIssue.notes}" — still unresolved.
+          </PatternCallout>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: -6, marginBottom: 14 }}>
+            <label className="checkbox-row" style={{ fontWeight: 400, fontSize: 13 }}>
+              <input type="checkbox" checked={confirmNew} onChange={(e) => setConfirmNew(e.target.checked)} />
+              This is a new, separate failure — log it as its own issue
+            </label>
+            <button type="button" className="btn btn-ghost" style={{ padding: "3px 10px", fontSize: 12, flexShrink: 0 }} onClick={() => onViewIssue(openIssue)}>View open issue</button>
+          </div>
+        </>
       )}
       {status === "not_ok" && (
         <label>Which window, and what's wrong?<textarea rows={4} disabled={!editable} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Window nearest the bathroom — restrictor arm is loose, doesn't catch." /></label>

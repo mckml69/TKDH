@@ -448,6 +448,21 @@ export function legionellaTempCheckEnsureSnapshot(record) {
   return { ...record, lockedSnapshot: { status: record.status, note: record.note, hotTempC: record.hotTempC, coldTempC: record.coldTempC, by: checkpointCheckLastEditor(record), at: new Date().toISOString() } };
 }
 
+/** Whether there's a currently-OPEN (not archived, not Resolved) maintenance record linked to
+    `linkedId` — the single shared definition of "does this origin already have an active issue,"
+    used both to decide whether logging a new failure should create a fresh maintenance record and
+    to warn someone before they log Not OK on something that already has one open. A resolved or
+    archived match never counts: closing an issue — however it got closed — always clears the way
+    for a genuinely new failure to raise its own, instead of one old link blocking every future
+    failure at that same spot forever. */
+export function findOpenLinkedIssue(records, linkedId) {
+  if (!linkedId) return null;
+  return records.find((r) => r.category === "maintenance" && r.linkedRecordId === linkedId && !r.archived && r.status !== "Resolved") || null;
+}
+export function hasOpenLinkedIssue(records, linkedId) {
+  return !!findOpenLinkedIssue(records, linkedId);
+}
+
 /** What a maintenance resolution writes back into whichever checkpoint-check record raised it —
     the single source of truth for this, used both by the formal Resolve flow and by "mark OK
     directly from the checklist" auto-resolving an already-open linked issue, so the two paths can
@@ -889,6 +904,13 @@ export function validateUser(form, existingUsers) {
   return errors;
 }
 
+/** Already overdue or an open issue is more urgent than something merely due today, which in turn
+    outranks a flagged-but-not-yet-overdue item — ties break on date. */
+function actionRank(r) {
+  if (isOverdue(r) || (isIssueMode(r) && isOpenIssue(r))) return 0;
+  if (isDueToday(r)) return 1;
+  return 2;
+}
 export function todaysActionItems(records) {
   return records
     .filter((r) => (r.flagged && !r.flagResolved) || isOverdue(r) || (isIssueMode(r) && isOpenIssue(r)) || isDueToday(r))
