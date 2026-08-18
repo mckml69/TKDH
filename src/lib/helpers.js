@@ -710,9 +710,24 @@ export function universalSearch(query, records, assets, rooms, contractors, staf
 
 export function assetComplianceStatus(asset, records) {
   const linked = records.filter((r) => r.assetId === asset.id && !r.archived && isScheduleMode(r));
-  if (linked.length === 0) return "no-checks";
-  const rank = { overdue: 0, "due-soon": 1, compliant: 2 };
-  return linked.map(getStatus).sort((a, b) => rank[a] - rank[b])[0];
+  if (linked.length > 0) {
+    const rank = { overdue: 0, "due-soon": 1, compliant: 2 };
+    return linked.map(getStatus).sort((a, b) => rank[a] - rank[b])[0];
+  }
+  // Legionella-eligible fixtures (kettle/tap/shower_head) are never assetId-linked — one
+  // legionella_check record covers every fixture of that type at a checkpoint together (see
+  // LEGIONELLA_CHECK_ITEMS). Fall back to that fixture's own status on the most recent
+  // checkpoint check, so the asset's compliance stamp is the same fact everywhere it's shown
+  // (Room, Asset register, Search…) instead of permanently reading "No checks logged" just
+  // because the check itself lives on the checkpoint, not the asset.
+  if (asset.checkpointId && ["kettle", "tap", "shower_head"].includes(asset.assetType)) {
+    const checkpointChecks = records.filter((r) => r.category === "legionella_check" && r.checkpointId === asset.checkpointId && !r.archived);
+    const mostRecent = checkpointChecks.sort((a, b) => (b.periodKey || "").localeCompare(a.periodKey || ""))[0];
+    const itemStatus = mostRecent?.checks?.[asset.assetType]?.status;
+    if (itemStatus === "ok") return "compliant";
+    if (itemStatus === "not_ok") return "open";
+  }
+  return "no-checks";
 }
 /** The date something actually happened, for timelines — not when it's next due. */
 export function getEventDate(record) {

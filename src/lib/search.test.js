@@ -287,6 +287,29 @@ describe("assetComplianceStatus / staffTrainingStatus", () => {
     expect(assetComplianceStatus(asset, records)).toBe("overdue");
   });
 
+  it("assetComplianceStatus falls back to the checkpoint's legionella check for kettle/tap/shower_head fixtures (never assetId-linked)", () => {
+    const kettle = { id: "k1", assetType: "kettle", checkpointId: "cp1" };
+    expect(assetComplianceStatus(kettle, [])).toBe("no-checks");
+
+    const okRecord = { category: "legionella_check", checkpointId: "cp1", periodKey: "2026-Q1", archived: false, checks: { kettle: { status: "ok" }, tap: { status: "not_ok" } } };
+    expect(assetComplianceStatus(kettle, [okRecord])).toBe("compliant");
+
+    const tap = { id: "t1", assetType: "tap", checkpointId: "cp1" };
+    expect(assetComplianceStatus(tap, [okRecord])).toBe("open");
+
+    const otherCheckpointRecord = { category: "legionella_check", checkpointId: "cp2", periodKey: "2026-Q1", archived: false, checks: { kettle: { status: "ok" } } };
+    expect(assetComplianceStatus(kettle, [otherCheckpointRecord])).toBe("no-checks");
+  });
+
+  it("assetComplianceStatus uses the most recent checkpoint legionella check when there are several", () => {
+    const kettle = { id: "k1", assetType: "kettle", checkpointId: "cp1" };
+    const records = [
+      { category: "legionella_check", checkpointId: "cp1", periodKey: "2026-Q1", archived: false, checks: { kettle: { status: "not_ok" } } },
+      { category: "legionella_check", checkpointId: "cp1", periodKey: "2026-Q2", archived: false, checks: { kettle: { status: "ok" } } },
+    ];
+    expect(assetComplianceStatus(kettle, records)).toBe("compliant");
+  });
+
   it("staffTrainingStatus is 'no-checks' with nothing linked, else the worst linked training status", () => {
     const staff = { id: "s1" };
     expect(staffTrainingStatus(staff, [])).toBe("no-checks");
