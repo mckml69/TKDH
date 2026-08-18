@@ -591,4 +591,13 @@ export const ASSET_HISTORY_FIELDS = { assetType: "Asset type", category: "Catego
 export const ROOM_HISTORY_FIELDS = { roomNumber: "Room number", floor: "Floor", roomType: "Room type", notes: "Notes" };
 export const CONTRACTOR_HISTORY_FIELDS = { name: "Name", contactName: "Contact person", phone: "Phone", email: "Email", insuranceExpiry: "Insurance expiry", notes: "Notes" };
 export const CHECKPOINT_HISTORY_FIELDS = { name: "Name", notes: "Notes" };
+/** Water/gas/electricity meters — a freestanding recording tool, deliberately not linked to any
+    compliance check, requirement, or due-date logic. unit is just a display label on the reading
+    field/export, not enforced or converted. */
+export const METER_TYPES = [
+  { key: "water", label: "Water", unit: "m³" },
+  { key: "gas", label: "Gas", unit: "m³" },
+  { key: "electricity", label: "Electricity", unit: "kWh" },
+];
+export const METER_HISTORY_FIELDS = { name: "Name", meterType: "Type", serialNumber: "Serial number", notes: "Notes" };
 export const STAFF_HISTORY_FIELDS = { name: "Name", role: "Role / position", email: "Email", phone: "Phone", startDate: "Start date", notes: "Notes" };

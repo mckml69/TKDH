@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { computeArchive, computeRestore, computeUpsert } from "../lib/auditTrail";
 import {
   ASSET_HISTORY_FIELDS, CERTIFICATE_HISTORY_FIELDS, CONTRACTOR_HISTORY_FIELDS, RECORD_HISTORY_FIELDS,
-  ROOM_HISTORY_FIELDS, STAFF_HISTORY_FIELDS, VISIT_HISTORY_FIELDS, CHECKPOINT_HISTORY_FIELDS,
+  ROOM_HISTORY_FIELDS, STAFF_HISTORY_FIELDS, VISIT_HISTORY_FIELDS, CHECKPOINT_HISTORY_FIELDS, METER_HISTORY_FIELDS,
   ASSET_TYPES, ROOM_TYPES, ROOM_ASSET_KIT,
 } from "../lib/constants";
 import { fireLogRepairWeeklyKeys, isFireLogLocked, fireLogEnsureSnapshot, copyLifecycleFields, uid } from "../lib/helpers";
@@ -13,6 +13,7 @@ export function useLedger(actorName) {
   const [rooms, setRooms] = useState([]);
   const [contractors, setContractors] = useState([]);
   const [checkpoints, setCheckpoints] = useState([]);
+  const [meters, setMeters] = useState([]);
   const [staff, setStaff] = useState([]);
   const [certificates, setCertificates] = useState([]);
   const [visits, setVisits] = useState([]);
@@ -22,7 +23,7 @@ export function useLedger(actorName) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      for (const [key, setter] of [["ledger-records", setRecords], ["ledger-assets", setAssets], ["ledger-rooms", setRooms], ["ledger-contractors", setContractors], ["ledger-checkpoints", setCheckpoints], ["ledger-staff", setStaff], ["ledger-certificates", setCertificates], ["ledger-visits", setVisits]]) {
+      for (const [key, setter] of [["ledger-records", setRecords], ["ledger-assets", setAssets], ["ledger-rooms", setRooms], ["ledger-contractors", setContractors], ["ledger-checkpoints", setCheckpoints], ["ledger-meters", setMeters], ["ledger-staff", setStaff], ["ledger-certificates", setCertificates], ["ledger-visits", setVisits]]) {
         try {
           const res = await window.storage.get(key, true);
           if (!cancelled) setter(res ? JSON.parse(res.value) : []);
@@ -48,6 +49,7 @@ export function useLedger(actorName) {
   const persistRooms = makePersist("ledger-rooms", setRooms);
   const persistContractors = makePersist("ledger-contractors", setContractors);
   const persistCheckpoints = makePersist("ledger-checkpoints", setCheckpoints);
+  const persistMeters = makePersist("ledger-meters", setMeters);
   const persistStaff = makePersist("ledger-staff", setStaff);
   const persistCertificates = makePersist("ledger-certificates", setCertificates);
   const persistVisits = makePersist("ledger-visits", setVisits);
@@ -206,6 +208,48 @@ export function useLedger(actorName) {
   const archiveCheckpoint = useCallback((id) => persistCheckpoints(computeArchive(checkpoints, id, actorName)), [checkpoints, persistCheckpoints, actorName]);
   const restoreCheckpoint = useCallback((id) => persistCheckpoints(computeRestore(checkpoints, id, actorName)), [checkpoints, persistCheckpoints, actorName]);
 
+  const upsertMeter = useCallback((meter, currentMeters) => {
+    const base = currentMeters || meters;
+    const next = computeUpsert(base, meter, METER_HISTORY_FIELDS, actorName);
+    persistMeters(next);
+    return next;
+  }, [meters, persistMeters, actorName]);
+  const archiveMeter = useCallback((id) => persistMeters(computeArchive(meters, id, actorName)), [meters, persistMeters, actorName]);
+  const restoreMeter = useCallback((id) => persistMeters(computeRestore(meters, id, actorName)), [meters, persistMeters, actorName]);
+  /** Meter readings live directly on the meter (readings: [...]) rather than in the generic
+      Records/Ledger system — there's no due date, no schedule, nothing to compute a status
+      against, just a plain log. Adds a new reading, or edits one in place when reading.id
+      matches an existing entry. */
+  const saveMeterReading = useCallback((meterId, reading) => {
+    const now = new Date().toISOString();
+    const next = meters.map((m) => {
+      if (m.id !== meterId) return m;
+      const readings = m.readings || [];
+      const existingIdx = reading.id ? readings.findIndex((r) => r.id === reading.id) : -1;
+      const isEdit = existingIdx >= 0;
+      const nextReadings = isEdit
+        ? readings.map((r, i) => (i === existingIdx ? { ...r, ...reading, updatedAt: now, updatedBy: actorName } : r))
+        : [...readings, { ...reading, id: uid(), loggedAt: now, loggedBy: actorName }];
+      const note = `${isEdit ? "Reading edited" : "Reading logged"}: ${reading.value} on ${reading.date}`;
+      return { ...m, readings: nextReadings, updatedAt: now.slice(0, 10), history: [...(m.history || []), { at: now, action: isEdit ? "reading-edited" : "reading-logged", by: actorName, note }] };
+    });
+    persistMeters(next);
+  }, [meters, persistMeters, actorName]);
+  const deleteMeterReading = useCallback((meterId, readingId) => {
+    const now = new Date().toISOString();
+    const next = meters.map((m) => {
+      if (m.id !== meterId) return m;
+      const reading = (m.readings || []).find((r) => r.id === readingId);
+      return {
+        ...m,
+        readings: (m.readings || []).filter((r) => r.id !== readingId),
+        updatedAt: now.slice(0, 10),
+        history: [...(m.history || []), { at: now, action: "reading-deleted", by: actorName, note: reading ? `Reading deleted: ${reading.value} on ${reading.date}` : "Reading deleted" }],
+      };
+    });
+    persistMeters(next);
+  }, [meters, persistMeters, actorName]);
+
   const upsertStaff = useCallback((member, currentStaff) => {
     const base = currentStaff || staff;
     const next = computeUpsert(base, member, STAFF_HISTORY_FIELDS, actorName);
@@ -234,12 +278,13 @@ export function useLedger(actorName) {
   const restoreVisit = useCallback((id) => persistVisits(computeRestore(visits, id, actorName)), [visits, persistVisits, actorName]);
 
   return {
-    records, assets, rooms, contractors, checkpoints, staff, certificates, visits, loading, error,
+    records, assets, rooms, contractors, checkpoints, meters, staff, certificates, visits, loading, error,
     upsertRecord, archiveRecord, restoreRecord, requestRecordCorrection, dismissRecordCorrection, resolveRecordCorrection, sweepFireLogSnapshots,
     upsertAsset, archiveAsset, restoreAsset, replaceAsset,
     upsertRoom, archiveRoom, restoreRoom, bulkImportRoomAssets,
     upsertContractor, archiveContractor, restoreContractor,
     upsertCheckpoint, archiveCheckpoint, restoreCheckpoint,
+    upsertMeter, archiveMeter, restoreMeter, saveMeterReading, deleteMeterReading,
     upsertStaff, archiveStaff, restoreStaff,
     upsertCertificate, archiveCertificate, restoreCertificate,
     upsertVisit, archiveVisit, restoreVisit,

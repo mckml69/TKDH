@@ -21,12 +21,14 @@ import {
   Blinds,
   MapPin,
   Droplet,
+  Gauge,
 } from "lucide-react";
 import { AssetDetail, AssetFormPage, AssetsList } from "./components/assets/Assets";
 import { AuditIntro, AuditReport, AuditWizardStep } from "./components/audit/Audit";
 import { CertificateDetail, CertificateFormPage, CertificatesList } from "./components/certificates/Certificates";
 import { CheckpointDetail, CheckpointFormPage, CheckpointsList } from "./components/checkpoints/Checkpoints";
 import { ContractorDetail, ContractorFormPage, ContractorsList } from "./components/contractors/Contractors";
+import { MeterDetail, MeterFormPage, MeterReadingFormPage, MetersList } from "./components/meters/Meters";
 import { Home } from "./components/dashboard/Home";
 import {
   FireLogEntryPage, FireLogExportPage, FireLogMenuPage, FireLogPeriodicEntryPage, FireLogPeriodicMenuPage,
@@ -72,12 +74,13 @@ export default function App() {
   const { currentUser, setCurrentUserId, login, bootstrap, logout, changePassword, loaded: sessionLoaded } = useCurrentUser(users);
   const role = currentUser?.role || "Employee";
   const {
-    records, assets, rooms, contractors, checkpoints, staff, certificates, visits, loading, error,
+    records, assets, rooms, contractors, checkpoints, meters, staff, certificates, visits, loading, error,
     upsertRecord, archiveRecord, restoreRecord, requestRecordCorrection, dismissRecordCorrection, resolveRecordCorrection, sweepFireLogSnapshots,
     upsertAsset, archiveAsset, restoreAsset, replaceAsset,
     upsertRoom, archiveRoom, restoreRoom, bulkImportRoomAssets,
     upsertContractor, archiveContractor, restoreContractor,
     upsertCheckpoint, archiveCheckpoint, restoreCheckpoint,
+    upsertMeter, archiveMeter, restoreMeter, saveMeterReading, deleteMeterReading,
     upsertStaff, archiveStaff, restoreStaff,
     upsertCertificate, archiveCertificate, restoreCertificate,
     upsertVisit, archiveVisit, restoreVisit,
@@ -316,6 +319,7 @@ export default function App() {
     else if (type === "visit") archiveVisit(id);
     else if (type === "user") archiveUser(id);
     else if (type === "checkpoint") archiveCheckpoint(id);
+    else if (type === "meter") archiveMeter(id);
     pop();
   };
 
@@ -518,6 +522,24 @@ export default function App() {
       if (logAnother) { replaceTop({ page: "checkpoint-form", checkpoint: null, formKey: uid() }); return; }
       pop();
     }} onClose={pop} />;
+  } else if (current.page === "meters") {
+    body = <MetersList meters={meters} onOpen={(id) => push({ page: "meter-detail", meterId: id })} onAdd={() => push({ page: "meter-form", meter: null })} onEdit={(m) => push({ page: "meter-form", meter: m })}
+      onDelete={(id) => { if (role !== "General Manager") return; push({ page: "confirm-delete", type: "meter", id, message: "Archive this meter? Its reading history is kept, and you can restore it anytime." }); }}
+      onRestore={restoreMeter} onExportFallback={openReportFallback} branding={branding} />;
+  } else if (current.page === "meter-detail") {
+    const m = meters.find((x) => x.id === current.meterId);
+    body = m ? <MeterDetail meter={m} onBack={pop} onEdit={(meter) => push({ page: "meter-form", meter })}
+      onLogReading={(meter) => push({ page: "meter-reading-form", meter, reading: null })}
+      onEditReading={(meter, reading) => push({ page: "meter-reading-form", meter, reading })}
+      onDeleteReading={deleteMeterReading} /> : null;
+  } else if (current.page === "meter-form") {
+    body = <MeterFormPage key={current.meter?.id ?? current.formKey ?? "meter-form"} meter={current.meter} onSave={(form, logAnother) => {
+      upsertMeter(form, meters);
+      if (logAnother) { replaceTop({ page: "meter-form", meter: null, formKey: uid() }); return; }
+      pop();
+    }} onClose={pop} />;
+  } else if (current.page === "meter-reading-form") {
+    body = <MeterReadingFormPage meter={current.meter} reading={current.reading} onSave={(reading) => { saveMeterReading(current.meter.id, reading); pop(); }} onClose={pop} />;
   } else if (current.page === "window-checks") {
     body = <WindowRestrictionChecksPage checkpoints={checkpoints} assets={assets} records={records} canEdit={role === "General Manager"}
       onSaveOk={handleSaveWindowCheckOk}
@@ -714,7 +736,7 @@ export default function App() {
 
         <div className="nav-divider" />
         {(() => {
-          const registerPages = ["assets", "asset-detail", "rooms", "room-detail", "contractors", "contractor-detail", "checkpoints", "checkpoint-detail", "staff", "staff-detail", "certificates", "certificate-detail", "visits", "visit-detail"];
+          const registerPages = ["assets", "asset-detail", "rooms", "room-detail", "contractors", "contractor-detail", "checkpoints", "checkpoint-detail", "meters", "meter-detail", "staff", "staff-detail", "certificates", "certificate-detail", "visits", "visit-detail"];
           const isOnRegisterPage = registerPages.includes(current.page);
           const expanded = registersOpen || isOnRegisterPage;
           const registerBadgeTotal = contractorBadge + staffBadge + certBadge + visitBadge;
@@ -728,6 +750,7 @@ export default function App() {
                   <button className={"nav-item" + (current.page === "assets" || current.page === "asset-detail" ? " active" : "")} onClick={() => resetTo({ page: "assets" })}><Package size={16} /> Assets</button>
                   <button className={"nav-item" + (current.page === "rooms" || current.page === "room-detail" ? " active" : "")} onClick={() => resetTo({ page: "rooms" })}><BedDouble size={16} /> Rooms</button>
                   <button className={"nav-item" + (current.page === "checkpoints" || current.page === "checkpoint-detail" ? " active" : "")} onClick={() => resetTo({ page: "checkpoints" })}><MapPin size={16} /> Checkpoints</button>
+                  <button className={"nav-item" + (current.page === "meters" || current.page === "meter-detail" ? " active" : "")} onClick={() => resetTo({ page: "meters" })}><Gauge size={16} /> Meters</button>
                   <button className={"nav-item" + (current.page === "contractors" || current.page === "contractor-detail" ? " active" : "")} onClick={() => resetTo({ page: "contractors" })}><HardHat size={16} /> Contractors &amp; Suppliers{contractorBadge > 0 && <span className="nav-badge">{contractorBadge}</span>}</button>
                   <button className={"nav-item" + (current.page === "staff" || current.page === "staff-detail" ? " active" : "")} onClick={() => resetTo({ page: "staff" })}><Users size={16} /> Staff{staffBadge > 0 && <span className="nav-badge">{staffBadge}</span>}</button>
                   {role === "General Manager" && <button className={"nav-item" + (current.page === "certificates" || current.page === "certificate-detail" ? " active" : "")} onClick={() => resetTo({ page: "certificates" })}><Award size={16} /> Certificates{certBadge > 0 && <span className="nav-badge">{certBadge}</span>}</button>}
