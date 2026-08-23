@@ -144,7 +144,7 @@ function DangerZoneSection({ onReset, pin, onSavePin }) {
         <div className="feed-section-head"><h3><AlertTriangle size={16} color="#A8402F" /> Danger zone</h3></div>
         {pin ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 260 }}>
-            <label>Enter PIN to reveal<input type="password" autoComplete="new-password" inputMode="numeric" value={pinInput} onChange={(e) => { setPinInput(e.target.value); setPinError(false); }} placeholder="PIN" autoFocus /></label>
+            <label>Enter PIN to reveal<input type="text" autoComplete="off" inputMode="numeric" value={pinInput} onChange={(e) => { setPinInput(e.target.value); setPinError(false); }} placeholder="PIN" autoFocus /></label>
             {pinError && <p style={{ color: "#A8402F", fontSize: 12.5, margin: 0 }}>Wrong PIN.</p>}
             <button type="button" className="btn btn-ghost" style={{ alignSelf: "flex-start" }} onClick={handleReveal}>Unlock</button>
           </div>
