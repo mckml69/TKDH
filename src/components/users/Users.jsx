@@ -8,6 +8,7 @@ import {
   UserPlus,
   ShieldCheck,
   KeyRound,
+  AlertTriangle,
 } from "lucide-react";
 import { Ledger } from "../records/RecordList";
 import { ErrorBanner, FormPage } from "../shared/UI";
@@ -96,7 +97,46 @@ export function ResetPasswordPage({ targetUser, requireCurrentPassword, onSubmit
   );
 }
 
-export function UsersList({ users, currentUser, onAdd, onEdit, onDelete, onRestore, onResetPassword }) {
+/** One-time "wipe the test data, keep what took real setup effort" action for going live —
+    gated behind typing RESET so it can't be triggered by an accidental click. Deliberately no
+    partial/granular controls: the five things it clears (Records, Assets, Checkpoints, Meters,
+    Regulatory Visits) were chosen once, in conversation, not re-litigated per click. */
+function DangerZoneSection({ onReset }) {
+  const [open, setOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [done, setDone] = useState(false);
+  const canReset = confirmText.trim().toUpperCase() === "RESET";
+  const handleReset = () => {
+    onReset();
+    setOpen(false);
+    setConfirmText("");
+    setDone(true);
+  };
+  return (
+    <div className="feed-section" style={{ marginTop: 28, borderTop: "1px solid #F0B9AC", paddingTop: 18 }}>
+      <div className="feed-section-head"><h3><AlertTriangle size={16} color="#A8402F" /> Danger zone</h3></div>
+      <p className="muted" style={{ marginTop: -4 }}>
+        <strong>Reset for go-live</strong> permanently clears Compliance Records, Assets, Checkpoints,
+        Meters, and Regulatory Visits — every logged check, reading, and test entry. Rooms, Contractors,
+        Staff, Certificates, Users, and Branding are left exactly as they are. This can't be undone.
+      </p>
+      {done && <p style={{ color: "#2F6B4C", fontWeight: 600, fontSize: 13 }}>Done — the app is clear and ready to start populating for go-live.</p>}
+      {!open ? (
+        <button type="button" className="btn btn-ghost" style={{ borderColor: "#A8402F", color: "#A8402F" }} onClick={() => { setOpen(true); setDone(false); }}>Reset for go-live</button>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 380 }}>
+          <label>Type RESET to confirm<input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder="RESET" autoFocus /></label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" className="btn btn-ghost" onClick={() => { setOpen(false); setConfirmText(""); }}>Cancel</button>
+            <button type="button" className="btn btn-primary" style={{ backgroundColor: "#A8402F" }} disabled={!canReset} onClick={handleReset}>Reset now</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function UsersList({ users, currentUser, onAdd, onEdit, onDelete, onRestore, onResetPassword, onResetForGoLive }) {
   const [showArchived, setShowArchived] = useState(false);
   const archivedCount = users.filter((u) => u.archived).length;
   const filtered = users.filter((u) => (showArchived ? u.archived : !u.archived));
@@ -133,6 +173,7 @@ export function UsersList({ users, currentUser, onAdd, onEdit, onDelete, onResto
           ))}
         </div>
       )}
+      {currentUser?.role === "General Manager" && <DangerZoneSection onReset={onResetForGoLive} />}
     </div>
   );
 }

@@ -208,6 +208,19 @@ export function useLedger(actorName) {
   const archiveCheckpoint = useCallback((id) => persistCheckpoints(computeArchive(checkpoints, id, actorName)), [checkpoints, persistCheckpoints, actorName]);
   const restoreCheckpoint = useCallback((id) => persistCheckpoints(computeRestore(checkpoints, id, actorName)), [checkpoints, persistCheckpoints, actorName]);
 
+  /** Clears the transactional/operational data — compliance records, checkpoint checks (folded
+      into records), assets, meter readings, and regulatory visits — back to empty for a fresh
+      go-live. Deliberately leaves Rooms, Contractors, Staff, Certificates, Users, Branding, the
+      Responsible Person, and the First Day Audit untouched: those took real setup effort and
+      aren't "test junk" the way logged checks are. Gated to General Manager at the call site. */
+  const resetForGoLive = useCallback(() => {
+    persistRecords([]);
+    persistAssets([]);
+    persistCheckpoints([]);
+    persistMeters([]);
+    persistVisits([]);
+  }, [persistRecords, persistAssets, persistCheckpoints, persistMeters, persistVisits]);
+
   const upsertMeter = useCallback((meter, currentMeters) => {
     const base = currentMeters || meters;
     const next = computeUpsert(base, meter, METER_HISTORY_FIELDS, actorName);
@@ -284,7 +297,7 @@ export function useLedger(actorName) {
     upsertRoom, archiveRoom, restoreRoom, bulkImportRoomAssets,
     upsertContractor, archiveContractor, restoreContractor,
     upsertCheckpoint, archiveCheckpoint, restoreCheckpoint,
-    upsertMeter, archiveMeter, restoreMeter, saveMeterReading, deleteMeterReading,
+    upsertMeter, archiveMeter, restoreMeter, saveMeterReading, deleteMeterReading, resetForGoLive,
     upsertStaff, archiveStaff, restoreStaff,
     upsertCertificate, archiveCertificate, restoreCertificate,
     upsertVisit, archiveVisit, restoreVisit,

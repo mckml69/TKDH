@@ -80,7 +80,7 @@ export default function App() {
     upsertRoom, archiveRoom, restoreRoom, bulkImportRoomAssets,
     upsertContractor, archiveContractor, restoreContractor,
     upsertCheckpoint, archiveCheckpoint, restoreCheckpoint,
-    upsertMeter, archiveMeter, restoreMeter, saveMeterReading, deleteMeterReading,
+    upsertMeter, archiveMeter, restoreMeter, saveMeterReading, deleteMeterReading, resetForGoLive,
     upsertStaff, archiveStaff, restoreStaff,
     upsertCertificate, archiveCertificate, restoreCertificate,
     upsertVisit, archiveVisit, restoreVisit,
@@ -664,7 +664,7 @@ export default function App() {
   } else if (current.page === "users") {
     body = role === "General Manager"
       ? <UsersList users={users} currentUser={currentUser} onAdd={() => push({ page: "user-form", user: null })} onEdit={(u) => push({ page: "user-form", user: u })} onDelete={handleDeleteUser} onRestore={restoreUser}
-          onResetPassword={(u) => push({ page: "reset-password", targetUser: u, requireCurrentPassword: false })} />
+          onResetPassword={(u) => push({ page: "reset-password", targetUser: u, requireCurrentPassword: false })} onResetForGoLive={resetForGoLive} />
       : <div className="empty-state">Only a General Manager can view this page.</div>;
   } else if (current.page === "user-form") {
     body = <UserFormPage user={current.user} users={users} onSave={handleSaveUser} onClose={pop} />;
