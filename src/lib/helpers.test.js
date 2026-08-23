@@ -5,7 +5,7 @@ import {
   insuranceStatus, certificateStatus, visitStatus, validateRecord, validateAsset, validateRoom,
   validateContractor, validateStaff, validateCertificate, validateVisit, validateUser, generateAssetCode,
   recordDetailText, recordWhoText, checkpointCheckEligibleCheckpoints, checkpointCheckFindMissing,
-  findOpenLinkedIssue, hasOpenLinkedIssue,
+  findOpenLinkedIssue, hasOpenLinkedIssue, phoneContactLinks,
 } from "./helpers";
 
 describe("date arithmetic", () => {
@@ -422,5 +422,28 @@ describe("findOpenLinkedIssue / hasOpenLinkedIssue", () => {
   it("ignores non-maintenance records even if they happen to carry a matching linkedRecordId field", () => {
     const records = [{ id: "r1", category: "pest", linkedRecordId: "origin1", status: "Open", archived: false }];
     expect(hasOpenLinkedIssue(records, "origin1")).toBe(false);
+  });
+});
+
+describe("phoneContactLinks", () => {
+  it("returns null for a blank or missing phone", () => {
+    expect(phoneContactLinks("")).toBeNull();
+    expect(phoneContactLinks(null)).toBeNull();
+    expect(phoneContactLinks(undefined)).toBeNull();
+  });
+
+  it("tel: and sms: keep the number as typed (minus formatting), WhatsApp assumes UK (44) for a leading 0", () => {
+    const links = phoneContactLinks("07911 123456");
+    expect(links).toEqual({ tel: "tel:07911123456", sms: "sms:07911123456", whatsapp: "https://wa.me/447911123456" });
+  });
+
+  it("uses an already-international number (leading +) as-is for WhatsApp, without double-adding 44", () => {
+    const links = phoneContactLinks("+44 7911 123456");
+    expect(links).toEqual({ tel: "tel:+447911123456", sms: "sms:+447911123456", whatsapp: "https://wa.me/447911123456" });
+  });
+
+  it("strips dashes and brackets, not just spaces", () => {
+    const links = phoneContactLinks("(079) 11-123-456");
+    expect(links.tel).toBe("tel:07911123456");
   });
 });

@@ -10,6 +10,8 @@ import {
   HardHat,
   Phone,
   PhoneCall,
+  MessageSquare,
+  MessageCircle,
   Mail,
   Share2,
   Archive,
@@ -19,7 +21,7 @@ import {
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { CategoryTag, ErrorBanner, FormPage, HistoryList, SaveStatusBanner, Stamp, Timeline } from "../shared/UI";
 import { ASSET_TYPES, RoleContext } from "../../lib/constants";
-import { assetComplianceStatus, certificateStatus, contractorHaystack, fmtDate, formatBytes, getEventDate, insuranceStatus, todayStr, uid, validateContractor } from "../../lib/helpers";
+import { assetComplianceStatus, certificateStatus, contractorHaystack, fmtDate, formatBytes, getEventDate, insuranceStatus, phoneContactLinks, todayStr, uid, validateContractor } from "../../lib/helpers";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
@@ -64,6 +66,7 @@ export function ContractorDetail({ contractor, records, assets, certificates, on
   const servicedAssets = assets.filter((a) => servicedAssetIds.includes(a.id));
   const issuedCerts = useMemo(() => certificates.filter((c) => c.contractorId === contractor.id && !c.archived), [certificates, contractor.id]);
   const iStatus = insuranceStatus(contractor);
+  const phoneLinks = contractor.phone ? phoneContactLinks(contractor.phone) : null;
 
   return (
     <div className="module-view">
@@ -78,9 +81,11 @@ export function ContractorDetail({ contractor, records, assets, certificates, on
           {contractor.phone ? (
             <>
               <Phone size={12} style={{ verticalAlign: -1 }} /> {contractor.phone}
-              <a href={`tel:${contractor.phone.replace(/[^\d+]/g, "")}`} className="btn btn-ghost" style={{ marginLeft: 8, padding: "2px 9px", fontSize: 11.5, textDecoration: "none" }}>
-                <PhoneCall size={11} /> Call
-              </a>
+              <span style={{ display: "inline-flex", gap: 4, marginLeft: 8 }}>
+                <a href={phoneLinks.tel} className="btn btn-ghost" style={{ padding: "2px 9px", fontSize: 11.5, textDecoration: "none" }}><PhoneCall size={11} /> Call</a>
+                <a href={phoneLinks.sms} className="btn btn-ghost" style={{ padding: "2px 9px", fontSize: 11.5, textDecoration: "none" }}><MessageSquare size={11} /> Message</a>
+                <a href={phoneLinks.whatsapp} target="_blank" rel="noreferrer" className="btn btn-ghost" style={{ padding: "2px 9px", fontSize: 11.5, textDecoration: "none" }}><MessageCircle size={11} /> WhatsApp</a>
+              </span>
             </>
           ) : "—"}
         </p></div>
