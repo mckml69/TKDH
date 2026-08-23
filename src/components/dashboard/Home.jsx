@@ -16,7 +16,7 @@ import { CategoryTag, DashboardSection, Stamp } from "../shared/UI";
 import { REQUIREMENTS, RoleContext } from "../../lib/constants";
 import { assetComplianceStatus, assetUnreliability, belongsToRoom, certificateStatus, findRecurringIssue, findRepeatFailure, fmtDate, getMode, getStatus, hasPendingCorrection, insuranceStatus, isReviewMode, isScheduleMode, matchRequirement, requirementStatus, roomProblemCounts, timeGreeting, todaysActionItems } from "../../lib/helpers";
 
-export function Home({ records, assets, rooms, contractors, certificates, responsiblePerson, onEditResponsiblePerson, branding, onEditBranding, onEdit, onOpenRoom, onOpenAsset, onOpenContractor, onOpenCertificate, onOpenLibrary, goToLedger }) {
+export function Home({ records, assets, rooms, contractors, certificates, responsiblePerson, onEditResponsiblePerson, branding, onEditBranding, onEdit, onOpenRoom, onOpenAsset, onOpenContractor, onOpenCertificate, onOpenLibrary, onResolve, goToLedger }) {
   const { role, currentUser } = useContext(RoleContext);
   const activeRecords = useMemo(() => records.filter((r) => !r.archived), [records]);
   const pendingCorrections = useMemo(() => activeRecords.filter(hasPendingCorrection), [activeRecords]);
@@ -90,12 +90,12 @@ export function Home({ records, assets, rooms, contractors, certificates, respon
 
       {role === "General Manager" && pendingCorrections.length > 0 && (
         <DashboardSection title="Correction requests" icon={MessageSquareWarning} color="#B8862B" count={pendingCorrections.length} emptyText="">
-          <RecordTable records={pendingCorrections} assets={assets} onView={onEdit} onEdit={onEdit} onDelete={() => {}} onResolve={() => {}} emptyText="" />
+          <RecordTable records={pendingCorrections} assets={assets} onView={onEdit} onEdit={onEdit} onDelete={() => {}} onResolve={onResolve} emptyText="" />
         </DashboardSection>
       )}
 
       <DashboardSection title="Needs doing today" icon={Sparkles} color="#197386" count={today.length} emptyText="Nothing needs attention right now — genuinely clear." onViewAll={() => goToLedger({ category: "all", status: "all", query: "" })}>
-        <RecordTable records={today.slice(0, 8)} assets={assets} onView={onEdit} onEdit={onEdit} onDelete={() => {}} onResolve={() => {}} emptyText="" />
+        <RecordTable records={today.slice(0, 8)} assets={assets} onView={onEdit} onEdit={onEdit} onDelete={() => {}} onResolve={onResolve} emptyText="" />
       </DashboardSection>
 
       <DashboardSection title="Which contractors or suppliers are due?" icon={HardHat} color="#B8862B" count={contractorsDue.length} emptyText="No insurance expiring soon.">
@@ -173,7 +173,7 @@ export function Home({ records, assets, rooms, contractors, certificates, respon
       </DashboardSection>
 
       <DashboardSection title="Which staff have overdue training?" icon={GraduationCap} color="#A8402F" count={overdueTraining.length} emptyText="No staff member has overdue training.">
-        <RecordTable records={overdueTraining.slice(0, 8)} assets={assets} onView={onEdit} onEdit={onEdit} onDelete={() => {}} onResolve={() => {}} emptyText="" />
+        <RecordTable records={overdueTraining.slice(0, 8)} assets={assets} onView={onEdit} onEdit={onEdit} onDelete={() => {}} onResolve={onResolve} emptyText="" />
       </DashboardSection>
     </div>
   );

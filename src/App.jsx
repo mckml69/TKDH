@@ -420,6 +420,7 @@ export default function App() {
       onOpenContractor={(id) => push({ page: "contractor-detail", contractorId: id })}
       onOpenCertificate={(id) => push({ page: "certificate-detail", certificateId: id })}
       onOpenLibrary={() => resetTo({ page: "library" })}
+      onResolve={(r) => push({ page: "resolve-form", record: r })}
       goToLedger={goToLedger} />;
   } else if (current.page === "ledger") {
     body = <Ledger records={records} assets={assets} rooms={rooms} contractors={contractors} staff={staff} filters={ledgerFilters} setFilters={setLedgerFilters} onView={openRecordView} onEdit={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onDelete={handleDeleteRecord} onRestore={restoreRecord} onResolve={(r) => push({ page: "resolve-form", record: r })} onRequestCorrection={handleRequestCorrection} onAdd={() => ledgerFilters.category !== "all" ? openRecordForm(TEMPLATES[ledgerFilters.category], null, null) : openTemplatePicker(TEMPLATE_LIST)} onExportFallback={openReportFallback} branding={branding} />;
