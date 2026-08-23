@@ -5,7 +5,7 @@ import {
   ROOM_HISTORY_FIELDS, STAFF_HISTORY_FIELDS, VISIT_HISTORY_FIELDS, CHECKPOINT_HISTORY_FIELDS, METER_HISTORY_FIELDS,
   ASSET_TYPES, ROOM_TYPES, ROOM_ASSET_KIT,
 } from "../lib/constants";
-import { fireLogRepairWeeklyKeys, isFireLogLocked, fireLogEnsureSnapshot, copyLifecycleFields, uid } from "../lib/helpers";
+import { fireLogRepairWeeklyKeys, isFireLogLocked, fireLogEnsureSnapshot, copyLifecycleFields, generateAssetCode, uid } from "../lib/helpers";
 
 export function useLedger(actorName) {
   const [records, setRecords] = useState([]);
@@ -190,6 +190,35 @@ export function useLedger(actorName) {
     return { createdRooms, createdAssets, skippedAssets, reconciledAssets };
   }, [rooms, assets, persistRooms, persistAssets, actorName]);
 
+  /** Same "skip if it already exists, safe to re-run" idempotence as bulkImportRoomAssets, but for
+      Legionella fixtures (tap/shower_head) linked to Checkpoints instead of Kettle linked to Rooms
+      — checkpoints already exist (unlike rooms, which this can create on the fly), so this takes
+      a list of existing checkpoint ids plus which fixture type(s) to add to each. */
+  const bulkImportCheckpointFixtures = useCallback((checkpointIds, fixtureKeys) => {
+    let nextAssets = [...assets];
+    const created = [];
+    const skipped = [];
+    for (const checkpointId of checkpointIds) {
+      const checkpoint = checkpoints.find((cp) => cp.id === checkpointId);
+      if (!checkpoint) continue;
+      for (const typeKey of fixtureKeys) {
+        const type = ASSET_TYPES.find((t) => t.key === typeKey);
+        const existing = nextAssets.find((a) => !a.archived && a.checkpointId === checkpointId && a.assetType === typeKey);
+        if (existing) { skipped.push(`${type.label} — ${checkpoint.name}`); continue; }
+        const assetCode = generateAssetCode(typeKey, nextAssets);
+        const asset = {
+          id: uid(), assetType: typeKey, category: type.category, eligibleFor: type.eligibleFor, assetCode,
+          name: "", location: checkpoint.name, checkpointId, roomId: null, manufacturer: "", model: "",
+          serialNumber: "", installDate: "", status: "In Service", notes: "", attachments: [], tags: [],
+        };
+        nextAssets = computeUpsert(nextAssets, asset, ASSET_HISTORY_FIELDS, actorName);
+        created.push(`${type.label} — ${checkpoint.name} (${assetCode})`);
+      }
+    }
+    if (created.length) persistAssets(nextAssets);
+    return { created, skipped };
+  }, [assets, checkpoints, persistAssets, actorName]);
+
   const upsertContractor = useCallback((contractor, currentContractors) => {
     const base = currentContractors || contractors;
     const next = computeUpsert(base, contractor, CONTRACTOR_HISTORY_FIELDS, actorName);
@@ -296,7 +325,7 @@ export function useLedger(actorName) {
     upsertAsset, archiveAsset, restoreAsset, replaceAsset,
     upsertRoom, archiveRoom, restoreRoom, bulkImportRoomAssets,
     upsertContractor, archiveContractor, restoreContractor,
-    upsertCheckpoint, archiveCheckpoint, restoreCheckpoint,
+    upsertCheckpoint, archiveCheckpoint, restoreCheckpoint, bulkImportCheckpointFixtures,
     upsertMeter, archiveMeter, restoreMeter, saveMeterReading, deleteMeterReading, resetForGoLive,
     upsertStaff, archiveStaff, restoreStaff,
     upsertCertificate, archiveCertificate, restoreCertificate,

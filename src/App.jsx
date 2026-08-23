@@ -26,7 +26,7 @@ import {
 import { AssetDetail, AssetFormPage, AssetsList } from "./components/assets/Assets";
 import { AuditIntro, AuditReport, AuditWizardStep } from "./components/audit/Audit";
 import { CertificateDetail, CertificateFormPage, CertificatesList } from "./components/certificates/Certificates";
-import { CheckpointDetail, CheckpointFormPage, CheckpointsList } from "./components/checkpoints/Checkpoints";
+import { CheckpointDetail, CheckpointFormPage, CheckpointsList, BulkImportCheckpointFixturesPage } from "./components/checkpoints/Checkpoints";
 import { ContractorDetail, ContractorFormPage, ContractorsList } from "./components/contractors/Contractors";
 import { MeterDetail, MeterFormPage, MeterReadingFormPage, MetersList } from "./components/meters/Meters";
 import { Home } from "./components/dashboard/Home";
@@ -86,7 +86,7 @@ export default function App() {
     upsertAsset, archiveAsset, restoreAsset, replaceAsset,
     upsertRoom, archiveRoom, restoreRoom, bulkImportRoomAssets,
     upsertContractor, archiveContractor, restoreContractor,
-    upsertCheckpoint, archiveCheckpoint, restoreCheckpoint,
+    upsertCheckpoint, archiveCheckpoint, restoreCheckpoint, bulkImportCheckpointFixtures,
     upsertMeter, archiveMeter, restoreMeter, saveMeterReading, deleteMeterReading, resetForGoLive,
     upsertStaff, archiveStaff, restoreStaff,
     upsertCertificate, archiveCertificate, restoreCertificate,
@@ -522,7 +522,9 @@ export default function App() {
   } else if (current.page === "resolve-form") {
     body = <ResolveFormPage record={current.record} contractors={contractors} staff={staff} onClose={pop} onSubmit={handleResolve} />;
   } else if (current.page === "checkpoints") {
-    body = <CheckpointsList checkpoints={checkpoints} assets={assets} onOpen={(id) => push({ page: "checkpoint-detail", checkpointId: id })} onAdd={() => push({ page: "checkpoint-form", checkpoint: null })} onEdit={(cp) => push({ page: "checkpoint-form", checkpoint: cp })} onDelete={(id) => { if (role !== "General Manager") return; push({ page: "confirm-delete", type: "checkpoint", id, message: "Archive this checkpoint? Its history is kept, and you can restore it anytime." }); }} onRestore={restoreCheckpoint} />;
+    body = <CheckpointsList checkpoints={checkpoints} assets={assets} onOpen={(id) => push({ page: "checkpoint-detail", checkpointId: id })} onAdd={() => push({ page: "checkpoint-form", checkpoint: null })} onEdit={(cp) => push({ page: "checkpoint-form", checkpoint: cp })} onDelete={(id) => { if (role !== "General Manager") return; push({ page: "confirm-delete", type: "checkpoint", id, message: "Archive this checkpoint? Its history is kept, and you can restore it anytime." }); }} onRestore={restoreCheckpoint} onBulkImportFixtures={() => push({ page: "checkpoint-fixtures-import" })} />;
+  } else if (current.page === "checkpoint-fixtures-import") {
+    body = <BulkImportCheckpointFixturesPage checkpoints={checkpoints} assets={assets} onImport={bulkImportCheckpointFixtures} onClose={pop} />;
   } else if (current.page === "checkpoint-detail") {
     const cp = checkpoints.find((c) => c.id === current.checkpointId);
     body = cp ? <CheckpointDetail checkpoint={cp} assets={assets} records={records} onBack={pop} onEdit={(c) => push({ page: "checkpoint-form", checkpoint: c })} onOpenAsset={(id) => push({ page: "asset-detail", assetId: id })}

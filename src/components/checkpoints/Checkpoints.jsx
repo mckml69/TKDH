@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useContext } from "react";
-import { Plus, X, Pencil, Archive, ArchiveRestore, MapPin, Package, ArrowLeft, CheckCircle2, AlertCircle, Blinds, Droplet, Thermometer } from "lucide-react";
-import { RoleContext } from "../../lib/constants";
+import { Plus, X, Pencil, Archive, ArchiveRestore, MapPin, Package, ArrowLeft, CheckCircle2, AlertCircle, Blinds, Droplet, Thermometer, PackagePlus } from "lucide-react";
+import { RoleContext, ASSET_TYPES } from "../../lib/constants";
 import {
   uid, tagBlob, attachmentBlob, dateSearchBlob, checkpointCheckPeriodLabel, isCheckpointCheckLocked,
   legionellaCheckPeriodLabel, isLegionellaCheckLocked, legionellaCheckEligibleItems,
 } from "../../lib/helpers";
 import { ErrorBanner, FormPage, HistoryList, CategoryTag } from "../shared/UI";
 import { AttachmentsField } from "../shared/AttachmentsField";
+
+const FIXTURE_KIT = ["tap", "shower_head"];
 
 export function validateCheckpoint(form) {
   const errors = [];
@@ -46,7 +48,7 @@ export function checkpointHaystack(cp) {
   const dates = [cp.createdAt, cp.updatedAt];
   return [cp.name, cp.notes, tagBlob(cp.tags), attachmentBlob(cp.attachments), dateSearchBlob(dates)].filter(Boolean).join(" ").toLowerCase();
 }
-export function CheckpointsList({ checkpoints, assets, onOpen, onAdd, onEdit, onDelete, onRestore }) {
+export function CheckpointsList({ checkpoints, assets, onOpen, onAdd, onEdit, onDelete, onRestore, onBulkImportFixtures }) {
   const { canDelete, canEdit } = useContext(RoleContext);
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -56,7 +58,10 @@ export function CheckpointsList({ checkpoints, assets, onOpen, onAdd, onEdit, on
     <div className="module-view">
       <div className="module-header">
         <div className="module-title"><MapPin size={22} color="#197386" /><h2>Checkpoints</h2></div>
-        <button className="btn btn-primary" onClick={onAdd}><Plus size={16} /> New checkpoint</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          {canEdit && <button className="btn btn-ghost" onClick={onBulkImportFixtures}><PackagePlus size={16} /> Bulk add tap / shower head</button>}
+          <button className="btn btn-primary" onClick={onAdd}><Plus size={16} /> New checkpoint</button>
+        </div>
       </div>
       <p className="muted" style={{ marginTop: -8, marginBottom: 16 }}>
         Physical locations used by checks like Window Restriction and Legionella — deliberately separate from the Room
@@ -93,6 +98,75 @@ export function CheckpointsList({ checkpoints, assets, onOpen, onAdd, onEdit, on
     </div>
   );
 }
+/** Same "skip if it already exists, safe to re-run" idempotence as Rooms' "Import room asset
+    kit" — but for Legionella fixtures linked to Checkpoints, which (unlike rooms) already exist,
+    so this picks from the existing list rather than parsing a list of numbers to create. */
+export function BulkImportCheckpointFixturesPage({ checkpoints, assets, onImport, onClose }) {
+  const activeCheckpoints = useMemo(() => checkpoints.filter((cp) => !cp.archived), [checkpoints]);
+  const hasFixture = (cp, typeKey) => assets.some((a) => !a.archived && a.checkpointId === cp.id && a.assetType === typeKey);
+  const [selected, setSelected] = useState(() => new Set());
+  const [fixtureKeys, setFixtureKeys] = useState(() => new Set(FIXTURE_KIT));
+  const [result, setResult] = useState(null);
+
+  const toggleCheckpoint = (id) => setSelected((s) => { const next = new Set(s); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const toggleAll = () => setSelected((s) => (s.size === activeCheckpoints.length ? new Set() : new Set(activeCheckpoints.map((cp) => cp.id))));
+  const toggleFixture = (key) => setFixtureKeys((s) => { const next = new Set(s); if (next.has(key)) next.delete(key); else next.add(key); return next; });
+
+  const handleImport = () => {
+    if (selected.size === 0 || fixtureKeys.size === 0) return;
+    setResult(onImport(Array.from(selected), Array.from(fixtureKeys)));
+  };
+
+  return (
+    <FormPage title="Bulk add tap / shower head" onClose={onClose} footer={
+      result
+        ? <button type="button" className="btn btn-primary" onClick={onClose}>Done</button>
+        : <button type="button" className="btn btn-primary" disabled={selected.size === 0 || fixtureKeys.size === 0} onClick={handleImport}>
+            Add to {selected.size} checkpoint{selected.size === 1 ? "" : "s"}
+          </button>
+    }>
+      {!result ? (
+        <>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Creates a Tap and/or Shower Head asset — whichever you tick below — linked to each checkpoint you
+            select, so Legionella descaling and water temperature checks pick them up. A checkpoint that
+            already has one of these fixtures is skipped for that one and left untouched, so this is safe to
+            run more than once.
+          </p>
+          <div className="row-2">
+            <label className="checkbox-row"><input type="checkbox" checked={fixtureKeys.has("tap")} onChange={() => toggleFixture("tap")} /> Tap</label>
+            <label className="checkbox-row"><input type="checkbox" checked={fixtureKeys.has("shower_head")} onChange={() => toggleFixture("shower_head")} /> Shower Head</label>
+          </div>
+          {activeCheckpoints.length === 0 ? (
+            <p className="empty-state">No checkpoints yet — add checkpoints first, then come back here.</p>
+          ) : (
+            <>
+              <label className="checkbox-row" style={{ marginTop: 10 }}>
+                <input type="checkbox" checked={selected.size === activeCheckpoints.length} onChange={toggleAll} /> Select all ({activeCheckpoints.length})
+              </label>
+              <div className="ledger-table">
+                {activeCheckpoints.map((cp) => (
+                  <div key={cp.id} className="ledger-row ledger-row--flat" style={{ cursor: "pointer" }} onClick={() => toggleCheckpoint(cp.id)}>
+                    <span className="checkbox-row" style={{ margin: 0 }}><input type="checkbox" checked={selected.has(cp.id)} readOnly /> {cp.name}</span>
+                    <span className="muted">{hasFixture(cp, "tap") ? "Has tap" : "No tap"}</span>
+                    <span className="muted">{hasFixture(cp, "shower_head") ? "Has shower head" : "No shower head"}</span>
+                    <span></span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      ) : (
+        <p>
+          <strong>{result.created.length}</strong> asset{result.created.length === 1 ? "" : "s"} created.
+          {result.skipped.length > 0 && ` ${result.skipped.length} already existed and ${result.skipped.length === 1 ? "was" : "were"} left alone.`}
+        </p>
+      )}
+    </FormPage>
+  );
+}
+
 export function CheckpointDetail({ checkpoint, assets, records, onBack, onEdit, onOpenAsset, onOpenCheck, onOpenLegionellaCheck, onOpenLegionellaTempCheck }) {
   const { canEdit } = useContext(RoleContext);
   const linkedAssets = assets.filter((a) => a.checkpointId === checkpoint.id);
