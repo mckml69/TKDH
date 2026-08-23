@@ -805,7 +805,7 @@ export default function App() {
           </div>
           <div className="search-box search-box--wide">
             <Search size={14} color="#6E6A61" />
-            <input placeholder="Search rooms, assets, contractors, certificates, pest reports, dates, tags…" value={searchQuery}
+            <input placeholder="Search rooms, assets, contractors, certificates, pest reports, dates, tags…" value={searchQuery} autoComplete="off" name="ledger-global-search"
               onChange={(e) => { setSearchQuery(e.target.value); if (e.target.value) resetTo({ page: "search-results" }); }} />
             {searchQuery && <button className="icon-btn" style={{ padding: 3 }} onClick={() => { setSearchQuery(""); resetTo({ page: "home" }); }}><X size={14} /></button>}
           </div>

@@ -144,7 +144,7 @@ function DangerZoneSection({ onReset, pin, onSavePin }) {
         <div className="feed-section-head"><h3><AlertTriangle size={16} color="#A8402F" /> Danger zone</h3></div>
         {pin ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 260 }}>
-            <label>Enter PIN to reveal<input type="password" inputMode="numeric" value={pinInput} onChange={(e) => { setPinInput(e.target.value); setPinError(false); }} placeholder="PIN" autoFocus /></label>
+            <label>Enter PIN to reveal<input type="password" autoComplete="new-password" inputMode="numeric" value={pinInput} onChange={(e) => { setPinInput(e.target.value); setPinError(false); }} placeholder="PIN" autoFocus /></label>
             {pinError && <p style={{ color: "#A8402F", fontSize: 12.5, margin: 0 }}>Wrong PIN.</p>}
             <button type="button" className="btn btn-ghost" style={{ alignSelf: "flex-start" }} onClick={handleReveal}>Unlock</button>
           </div>
@@ -183,7 +183,7 @@ function DangerZoneSection({ onReset, pin, onSavePin }) {
           <button type="button" className="btn btn-ghost" style={{ fontSize: 12.5 }} onClick={() => setSettingPin(true)}>{pin ? "Change PIN" : "Set a PIN"}</button>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 260 }}>
-            <label>{pin ? "New PIN" : "Set a PIN"} <span className="muted">(leave blank to remove it)</span><input inputMode="numeric" value={newPin} onChange={(e) => setNewPin(e.target.value)} placeholder="e.g. 4821" /></label>
+            <label>{pin ? "New PIN" : "Set a PIN"} <span className="muted">(leave blank to remove it)</span><input inputMode="numeric" autoComplete="off" value={newPin} onChange={(e) => setNewPin(e.target.value)} placeholder="e.g. 4821" /></label>
             <div style={{ display: "flex", gap: 8 }}>
               <button type="button" className="btn btn-ghost" onClick={() => { setSettingPin(false); setNewPin(""); }}>Cancel</button>
               <button type="button" className="btn btn-primary" onClick={handleSavePin}>Save PIN</button>
