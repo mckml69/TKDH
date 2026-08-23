@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   HardHat,
   Phone,
+  PhoneCall,
   Mail,
   Share2,
   Archive,
@@ -73,7 +74,16 @@ export function ContractorDetail({ contractor, records, assets, certificates, on
       </div>
       <div className="asset-info-grid">
         <div><span className="field-label">Contact</span><p>{contractor.contactName || "—"}</p></div>
-        <div><span className="field-label">Phone</span><p>{contractor.phone ? <><Phone size={12} style={{ verticalAlign: -1 }} /> {contractor.phone}</> : "—"}</p></div>
+        <div><span className="field-label">Phone</span><p>
+          {contractor.phone ? (
+            <>
+              <Phone size={12} style={{ verticalAlign: -1 }} /> {contractor.phone}
+              <a href={`tel:${contractor.phone.replace(/[^\d+]/g, "")}`} className="btn btn-ghost" style={{ marginLeft: 8, padding: "2px 9px", fontSize: 11.5, textDecoration: "none" }}>
+                <PhoneCall size={11} /> Call
+              </a>
+            </>
+          ) : "—"}
+        </p></div>
         <div><span className="field-label">Email</span><p>{contractor.email ? <><Mail size={12} style={{ verticalAlign: -1 }} /> {contractor.email}</> : "—"}</p></div>
         <div><span className="field-label">Insurance expiry</span><p><Stamp status={iStatus} dense /> {contractor.insuranceExpiry ? fmtDate(contractor.insuranceExpiry) : "Not on file"}</p></div>
       </div>
