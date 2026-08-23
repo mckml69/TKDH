@@ -540,7 +540,7 @@ export const VISIT_TYPES = ["Environmental Health Inspection", "Fire Officer Ins
 export const VISIT_OUTCOMES = ["No issues found", "Advice given", "Improvement notice issued", "Prohibition notice issued", "Enforcement action", "Follow-up required", "Other"];
 export const SERIOUS_OUTCOMES = ["Improvement notice issued", "Prohibition notice issued", "Enforcement action"];
 export const VISIT_HISTORY_FIELDS = { visitType: "Visit type", visitDate: "Visit date", officerName: "Officer name", authority: "Authority", outcome: "Outcome", findings: "Findings", actionsRequired: "Actions required", followUpDate: "Follow-up date", status: "Status", notes: "Notes" };
-export const USER_HISTORY_FIELDS = { name: "Name", email: "Email", role: "Role" };
+export const USER_HISTORY_FIELDS = { name: "Name", email: "Email", role: "Role", canExport: "Export permission" };
 
 /** Display label + color per REQUIREMENTS.basis value — the one central place this classification is
     defined, read by both the record forms (so the form knows what the Library already knows) and the

@@ -54,6 +54,12 @@ export function UserFormPage({ user, users, onSave, onClose }) {
           <select value={form.role} onChange={(e) => set("role", e.target.value)}>{ROLES.map((r) => <option key={r}>{r}</option>)}</select>
         </label>
         <p className="muted" style={{ margin: 0 }}>{form.role === "General Manager" ? "Full access: edit, delete, manage users, view sensitive information." : "Can create records, complete checks, and attach evidence. Cannot edit or delete once saved, or view sensitive information."}</p>
+        {form.role === "Employee" && (
+          <>
+            <label className="checkbox-row"><input type="checkbox" checked={!!form.canExport} onChange={(e) => set("canExport", e.target.checked)} /> Can export records (Fire Log, Window Restriction, Legionella checks)</label>
+            <p className="muted" style={{ margin: 0 }}>Lets this person generate the inspection-ready PDF exports without giving them edit, delete, or user-management access. Turn it off any time to take it back — nothing else about their account changes.</p>
+          </>
+        )}
         {needsPassword && (
           <>
             <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" /></label>
@@ -160,7 +166,7 @@ export function UsersList({ users, currentUser, onAdd, onEdit, onDelete, onResto
               <span className="mono-strong">{u.name}{u.id === currentUser?.id && <span className="tag-pill">You</span>}{u.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</span>
               <span className="muted">{u.email}</span>
               <span><span className="cat-tag" style={{ background: u.role === "General Manager" ? "#EAF3EC" : "#F1EEE6", color: u.role === "General Manager" ? "#2F6B4C" : "#6E6A61" }}>{u.role}</span></span>
-              <span></span>
+              <span>{u.role === "Employee" && u.canExport && <span className="tag-pill" title="Can export Fire Log / Window Restriction / Legionella checks">Can export</span>}</span>
               <span></span>
               <span className="row-actions">
                 {isApiMode && !u.archived && <button className="icon-btn" title="Reset password" onClick={() => onResetPassword(u)}><KeyRound size={15} /></button>}

@@ -11,7 +11,7 @@ import { exportPdfReport } from "../../lib/pdf/exportPdf";
 import { ErrorBanner, FormPage, HistoryList, PatternCallout, SaveStatusBanner } from "../shared/UI";
 
 export function FireLogMenuPage({ records, onPick, onExport, onOpenSuspected, onClose }) {
-  const { canDelete } = useContext(RoleContext);
+  const { canDelete, canExport } = useContext(RoleContext);
   const suspectedCount = useMemo(() => canDelete ? records.filter(fireLogSuspectedTimezoneAffected).length : 0, [records, canDelete]);
   const options = [
     { category: "fire_daily", desc: "Exit doors and opening/closing procedure — one entry per day." },
@@ -20,7 +20,7 @@ export function FireLogMenuPage({ records, onPick, onExport, onOpenSuspected, on
     { category: "fire_periodic", desc: "Fire drills and authority visits — logged whenever they happen." },
   ];
   return (
-    <FormPage title="Fire Log Checks" onClose={onClose} footer={canDelete ? <button type="button" className="btn btn-ghost" onClick={onExport}><Share2 size={15} /> Export for an inspection</button> : null}>
+    <FormPage title="Fire Log Checks" onClose={onClose} footer={canExport ? <button type="button" className="btn btn-ghost" onClick={onExport}><Share2 size={15} /> Export for an inspection</button> : null}>
       {suspectedCount > 0 && (
         <div className="pattern-callout" style={{ cursor: "pointer" }} onClick={onOpenSuspected}>
           <MessageSquareWarning size={15} />

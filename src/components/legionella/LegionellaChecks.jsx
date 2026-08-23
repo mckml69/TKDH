@@ -32,7 +32,7 @@ export function LegionellaChecksMenuPage({ onPickDescaling, onPickTemp, onClose 
 }
 
 export function LegionellaChecksPage({ checkpoints, assets, records, canEdit, onSaveOk, onOpenNotOk, onOpenDetail, onViewPast, onExport, onClose }) {
-  const { canDelete } = useContext(RoleContext);
+  const { canExport } = useContext(RoleContext);
   const periodKey = legionellaCheckPeriodKey();
   const periodLabel = legionellaCheckPeriodLabel(periodKey);
   const eligible = useMemo(() => legionellaCheckEligibleCheckpoints(checkpoints, assets), [checkpoints, assets]);
@@ -42,7 +42,7 @@ export function LegionellaChecksPage({ checkpoints, assets, records, canEdit, on
   const doneItems = eligible.reduce((sum, cp) => sum + itemsFor(cp).filter((item) => recordFor(cp.id)?.checks?.[item.key]?.status).length, 0);
 
   return (
-    <FormPage title="Legionella Descaling Checks" onClose={onClose} footer={canDelete ? <button type="button" className="btn btn-ghost" onClick={onExport}><Share2 size={15} /> Export for an inspection</button> : null}>
+    <FormPage title="Legionella Descaling Checks" onClose={onClose} footer={canExport ? <button type="button" className="btn btn-ghost" onClick={onExport}><Share2 size={15} /> Export for an inspection</button> : null}>
       <p className="muted" style={{ marginTop: 0 }}>
         {periodLabel} — {doneItems}/{totalItems} items done. Tap OK once a fixture's been descaled/checked;
         tap Not OK to note what's wrong — it'll automatically raise a maintenance issue. Tap the checkpoint
@@ -267,7 +267,7 @@ export function LegionellaChecksExportPage({ checkpoints, assets, records, onOpe
 }
 
 export function LegionellaTempCheckPage({ checkpoints, assets, records, canEdit, onOpenDetail, onViewPast, onExport, onClose }) {
-  const { canDelete } = useContext(RoleContext);
+  const { canExport } = useContext(RoleContext);
   const periodKey = checkpointCheckPeriodKey();
   const periodLabel = checkpointCheckPeriodLabel(periodKey);
   const eligible = useMemo(() => legionellaTempCheckEligibleCheckpoints(checkpoints, assets), [checkpoints, assets]);
@@ -275,7 +275,7 @@ export function LegionellaTempCheckPage({ checkpoints, assets, records, canEdit,
   const doneCount = eligible.filter((cp) => recordFor(cp.id)).length;
 
   return (
-    <FormPage title="Legionella Water Temperature Checks" onClose={onClose} footer={canDelete ? <button type="button" className="btn btn-ghost" onClick={onExport}><Share2 size={15} /> Export for an inspection</button> : null}>
+    <FormPage title="Legionella Water Temperature Checks" onClose={onClose} footer={canExport ? <button type="button" className="btn btn-ghost" onClick={onExport}><Share2 size={15} /> Export for an inspection</button> : null}>
       <p className="muted" style={{ marginTop: 0 }}>
         {periodLabel} — {doneCount}/{eligible.length} checkpoints done. Tap a checkpoint to log this month's hot and cold readings.
       </p>

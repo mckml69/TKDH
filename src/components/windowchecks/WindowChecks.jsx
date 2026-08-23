@@ -10,7 +10,7 @@ import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
 export function WindowRestrictionChecksPage({ checkpoints, assets, records, canEdit, onSaveOk, onOpenNotOk, onOpenDetail, onViewPast, onExport, onClose }) {
-  const { canDelete } = useContext(RoleContext);
+  const { canExport } = useContext(RoleContext);
   const periodKey = checkpointCheckPeriodKey();
   const periodLabel = checkpointCheckPeriodLabel(periodKey);
   const eligible = useMemo(() => checkpointCheckEligibleCheckpoints(checkpoints, assets), [checkpoints, assets]);
@@ -18,7 +18,7 @@ export function WindowRestrictionChecksPage({ checkpoints, assets, records, canE
   const doneCount = eligible.filter((cp) => recordFor(cp.id)).length;
 
   return (
-    <FormPage title="Window Restriction Checks" onClose={onClose} footer={canDelete ? <button type="button" className="btn btn-ghost" onClick={onExport}><Share2 size={15} /> Export for an inspection</button> : null}>
+    <FormPage title="Window Restriction Checks" onClose={onClose} footer={canExport ? <button type="button" className="btn btn-ghost" onClick={onExport}><Share2 size={15} /> Export for an inspection</button> : null}>
       <p className="muted" style={{ marginTop: 0 }}>
         {periodLabel} — {doneCount}/{eligible.length} checkpoints done. Tap OK to mark every window here checked;
         tap Not OK to note what's wrong — it'll automatically raise a maintenance issue. Tap the checkpoint name

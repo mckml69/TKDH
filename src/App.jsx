@@ -73,6 +73,12 @@ export default function App() {
   const { users, loaded: usersLoaded, upsertUser, archiveUser, restoreUser, reload: reloadUsers } = useUsers();
   const { currentUser, setCurrentUserId, login, bootstrap, logout, changePassword, loaded: sessionLoaded } = useCurrentUser(users);
   const role = currentUser?.role || "Employee";
+  // A General Manager can always export; an Employee can too, but only while a GM has explicitly
+  // and individually granted it (Users & Permissions -> edit user -> "Can export"). Deliberately
+  // separate from canEdit/canDelete/canManageUsers/canViewSensitive below — this is the one
+  // permission meant to be handed out and taken back on its own, without promoting someone to
+  // General Manager (which would also give them edit/delete/user-management/sensitive-data access).
+  const canExport = role === "General Manager" || !!currentUser?.canExport;
   const {
     records, assets, rooms, contractors, checkpoints, meters, staff, certificates, visits, loading, error,
     upsertRecord, archiveRecord, restoreRecord, requestRecordCorrection, dismissRecordCorrection, resolveRecordCorrection, sweepFireLogSnapshots,
@@ -558,11 +564,11 @@ export default function App() {
     body = <WindowCheckDetailPage checkpoint={current.checkpoint} periodKey={current.periodKey} record={liveRecord} records={records} initialStatus={current.initialStatus} canEdit={role === "General Manager"}
       onSave={handleSaveWindowCheck} onViewIssue={openRecordView} onClose={pop} />;
   } else if (current.page === "window-checks-export") {
-    body = role === "General Manager"
+    body = canExport
       ? <WindowChecksExportPage checkpoints={checkpoints} assets={assets} records={records}
           onOpenMissing={(checkpoint, periodKey) => push({ page: "window-check-not-ok", checkpoint, periodKey, record: null })}
           onExportFallback={openReportFallback} onClose={pop} branding={branding} />
-      : <div className="empty-state">Only a General Manager can export Window Restriction checks.</div>;
+      : <div className="empty-state">You don't have permission to export Window Restriction checks — ask a General Manager to grant it from Users &amp; Permissions.</div>;
   } else if (current.page === "legionella-menu") {
     body = <LegionellaChecksMenuPage onPickDescaling={() => push({ page: "legionella-checks" })} onPickTemp={() => push({ page: "legionella-temp-checks" })} onClose={pop} />;
   } else if (current.page === "legionella-checks") {
@@ -579,11 +585,11 @@ export default function App() {
       initialItemKey={current.initialItemKey} initialStatus={current.initialStatus} canEdit={role === "General Manager"}
       onSave={handleSaveLegionellaCheck} onViewIssue={openRecordView} onClose={pop} />;
   } else if (current.page === "legionella-checks-export") {
-    body = role === "General Manager"
+    body = canExport
       ? <LegionellaChecksExportPage checkpoints={checkpoints} assets={assets} records={records}
           onOpenMissing={(checkpoint, periodKey, itemKey) => push({ page: "legionella-check-detail", checkpoint, periodKey, record: null, initialItemKey: itemKey })}
           onExportFallback={openReportFallback} onClose={pop} branding={branding} />
-      : <div className="empty-state">Only a General Manager can export Legionella checks.</div>;
+      : <div className="empty-state">You don't have permission to export Legionella checks — ask a General Manager to grant it from Users &amp; Permissions.</div>;
   } else if (current.page === "legionella-temp-checks") {
     body = <LegionellaTempCheckPage checkpoints={checkpoints} assets={assets} records={records} canEdit={role === "General Manager"}
       onOpenDetail={(cp, periodKey, rec) => push({ page: "legionella-temp-check-detail", checkpoint: cp, periodKey, record: rec })}
@@ -595,11 +601,11 @@ export default function App() {
     body = <LegionellaTempCheckDetailPage checkpoint={current.checkpoint} periodKey={current.periodKey} record={liveRecord} records={records} canEdit={role === "General Manager"}
       onSave={handleSaveLegionellaTempCheck} onViewIssue={openRecordView} onClose={pop} />;
   } else if (current.page === "legionella-temp-checks-export") {
-    body = role === "General Manager"
+    body = canExport
       ? <LegionellaTempChecksExportPage checkpoints={checkpoints} assets={assets} records={records}
           onOpenMissing={(checkpoint, periodKey) => push({ page: "legionella-temp-check-detail", checkpoint, periodKey, record: null })}
           onExportFallback={openReportFallback} onClose={pop} branding={branding} />
-      : <div className="empty-state">Only a General Manager can export Legionella water temperature checks.</div>;
+      : <div className="empty-state">You don't have permission to export Legionella water temperature checks — ask a General Manager to grant it from Users &amp; Permissions.</div>;
   } else if (current.page === "fire-log-menu") {
     body = <FireLogMenuPage records={records} onPick={(category) => {
       if (category === "fire_periodic") { push({ page: "fire-log-periodic-menu" }); return; }
@@ -610,13 +616,13 @@ export default function App() {
       ? <FireLogSuspectedListPage records={records} onView={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onClose={pop} />
       : <div className="empty-state">Only a General Manager can view this.</div>;
   } else if (current.page === "fire-log-export") {
-    body = role === "General Manager"
+    body = canExport
       ? <FireLogExportPage records={records} onOpenDay={(dateStr) => {
           const periodKey = dateStr;
           const existing = records.find((r) => r.category === "fire_daily" && r.periodKey === periodKey && !r.archived);
           push({ page: "fire-log-entry", category: "fire_daily", record: existing || null, periodKeyOverride: periodKey });
         }} onExportFallback={openReportFallback} onClose={pop} branding={branding} />
-      : <div className="empty-state">Only a General Manager can export the Fire Log.</div>;
+      : <div className="empty-state">You don't have permission to export the Fire Log — ask a General Manager to grant it from Users &amp; Permissions.</div>;
   } else if (current.page === "fire-log-type-menu") {
     body = <FireLogTypeMenuPage category={current.category} records={records}
       onOpenCurrent={() => {
@@ -698,7 +704,7 @@ export default function App() {
   }
 
   return (
-    <RoleContext.Provider value={{ role, currentUser, canEdit: role === "General Manager", canDelete: role === "General Manager", canManageUsers: role === "General Manager", canViewSensitive: role === "General Manager" }}>
+    <RoleContext.Provider value={{ role, currentUser, canEdit: role === "General Manager", canDelete: role === "General Manager", canManageUsers: role === "General Manager", canViewSensitive: role === "General Manager", canExport }}>
     <div className="app">
       <datalist id="loc-presets">{LOCATION_PRESETS.map((l) => <option key={l} value={l} />)}</datalist>
 
