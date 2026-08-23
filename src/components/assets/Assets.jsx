@@ -10,6 +10,7 @@ import {
 } from "../../lib/helpers";
 import { AttachChip, CategoryTag, ErrorBanner, FormPage, HistoryList, PatternCallout, SaveStatusBanner, Stamp } from "../shared/UI";
 import { AttachmentsField } from "../shared/AttachmentsField";
+import { RecordTable } from "../records/RecordList";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
