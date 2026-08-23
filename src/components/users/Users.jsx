@@ -104,23 +104,63 @@ export function ResetPasswordPage({ targetUser, requireCurrentPassword, onSubmit
 }
 
 /** One-time "wipe the test data, keep what took real setup effort" action for going live —
-    gated behind typing RESET so it can't be triggered by an accidental click. Deliberately no
-    partial/granular controls: the five things it clears (Records, Assets, Checkpoints, Meters,
-    Regulatory Visits) were chosen once, in conversation, not re-litigated per click. */
-function DangerZoneSection({ onReset }) {
+    gated behind typing RESET so it can't be triggered by an accidental click, and hidden behind
+    a reveal step (a plain click, or a PIN if one's been set) so it isn't just sitting in plain
+    view on the Users page. Deliberately no partial/granular controls: the five things it clears
+    (Records, Assets, Checkpoints, Meters, Regulatory Visits) were chosen once, in conversation,
+    not re-litigated per click. The PIN itself lives in the same plain key-value store as
+    everything else in this app — it deters a casual glance or an accidental tap, it isn't a real
+    security boundary against anyone with technical access to the underlying data. */
+function DangerZoneSection({ onReset, pin, onSavePin }) {
+  const [revealed, setRevealed] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState(false);
   const [open, setOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [done, setDone] = useState(false);
+  const [settingPin, setSettingPin] = useState(false);
+  const [newPin, setNewPin] = useState("");
   const canReset = confirmText.trim().toUpperCase() === "RESET";
+
+  const handleReveal = () => {
+    if (!pin || pinInput === pin) { setRevealed(true); setPinInput(""); setPinError(false); }
+    else setPinError(true);
+  };
   const handleReset = () => {
     onReset();
     setOpen(false);
     setConfirmText("");
     setDone(true);
   };
+  const handleSavePin = () => {
+    onSavePin(newPin.trim() || null);
+    setSettingPin(false);
+    setNewPin("");
+  };
+
+  if (!revealed) {
+    return (
+      <div className="feed-section" style={{ marginTop: 28, borderTop: "1px solid #F0B9AC", paddingTop: 18 }}>
+        <div className="feed-section-head"><h3><AlertTriangle size={16} color="#A8402F" /> Danger zone</h3></div>
+        {pin ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 260 }}>
+            <label>Enter PIN to reveal<input type="password" inputMode="numeric" value={pinInput} onChange={(e) => { setPinInput(e.target.value); setPinError(false); }} placeholder="PIN" autoFocus /></label>
+            {pinError && <p style={{ color: "#A8402F", fontSize: 12.5, margin: 0 }}>Wrong PIN.</p>}
+            <button type="button" className="btn btn-ghost" style={{ alignSelf: "flex-start" }} onClick={handleReveal}>Unlock</button>
+          </div>
+        ) : (
+          <button type="button" className="btn btn-ghost" onClick={handleReveal}>Show danger zone</button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="feed-section" style={{ marginTop: 28, borderTop: "1px solid #F0B9AC", paddingTop: 18 }}>
-      <div className="feed-section-head"><h3><AlertTriangle size={16} color="#A8402F" /> Danger zone</h3></div>
+      <div className="feed-section-head" style={{ justifyContent: "space-between", display: "flex" }}>
+        <h3><AlertTriangle size={16} color="#A8402F" /> Danger zone</h3>
+        <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setRevealed(false)}>Hide</button>
+      </div>
       <p className="muted" style={{ marginTop: -4 }}>
         <strong>Reset for go-live</strong> permanently clears Compliance Records, Assets, Checkpoints,
         Meters, and Regulatory Visits — every logged check, reading, and test entry. Rooms, Contractors,
@@ -138,11 +178,24 @@ function DangerZoneSection({ onReset }) {
           </div>
         </div>
       )}
+      <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+        {!settingPin ? (
+          <button type="button" className="btn btn-ghost" style={{ fontSize: 12.5 }} onClick={() => setSettingPin(true)}>{pin ? "Change PIN" : "Set a PIN"}</button>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 260 }}>
+            <label>{pin ? "New PIN" : "Set a PIN"} <span className="muted">(leave blank to remove it)</span><input inputMode="numeric" value={newPin} onChange={(e) => setNewPin(e.target.value)} placeholder="e.g. 4821" /></label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" className="btn btn-ghost" onClick={() => { setSettingPin(false); setNewPin(""); }}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={handleSavePin}>Save PIN</button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-export function UsersList({ users, currentUser, onAdd, onEdit, onDelete, onRestore, onResetPassword, onResetForGoLive }) {
+export function UsersList({ users, currentUser, onAdd, onEdit, onDelete, onRestore, onResetPassword, onResetForGoLive, dangerZonePin, onSaveDangerZonePin }) {
   const [showArchived, setShowArchived] = useState(false);
   const archivedCount = users.filter((u) => u.archived).length;
   const filtered = users.filter((u) => (showArchived ? u.archived : !u.archived));
@@ -179,7 +232,7 @@ export function UsersList({ users, currentUser, onAdd, onEdit, onDelete, onResto
           ))}
         </div>
       )}
-      {currentUser?.role === "General Manager" && <DangerZoneSection onReset={onResetForGoLive} />}
+      {currentUser?.role === "General Manager" && <DangerZoneSection onReset={onResetForGoLive} pin={dangerZonePin} onSavePin={onSaveDangerZonePin} />}
     </div>
   );
 }

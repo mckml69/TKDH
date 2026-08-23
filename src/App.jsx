@@ -55,6 +55,7 @@ import { useCurrentUser } from "./hooks/useCurrentUser";
 import { useLedger } from "./hooks/useLedger";
 import { useResponsiblePerson } from "./hooks/useResponsiblePerson";
 import { useBranding } from "./hooks/useBranding";
+import { useDangerZonePin } from "./hooks/useDangerZonePin";
 import { useUsers } from "./hooks/useUsers";
 import { storageMode } from "./lib/storage";
 import { apiAdapter } from "./lib/storage/apiAdapter";
@@ -94,6 +95,7 @@ export default function App() {
   const { audit, saveAudit } = useAudit();
   const { person: responsiblePerson, savePerson: saveResponsiblePerson } = useResponsiblePerson();
   const { branding, saveBranding } = useBranding();
+  const { pin: dangerZonePin, savePin: saveDangerZonePin } = useDangerZonePin();
   const [wizardStep, setWizardStep] = useState(0);
   const [registersOpen, setRegistersOpen] = useState(true);
   const [checksOpen, setChecksOpen] = useState(true);
@@ -671,7 +673,8 @@ export default function App() {
   } else if (current.page === "users") {
     body = role === "General Manager"
       ? <UsersList users={users} currentUser={currentUser} onAdd={() => push({ page: "user-form", user: null })} onEdit={(u) => push({ page: "user-form", user: u })} onDelete={handleDeleteUser} onRestore={restoreUser}
-          onResetPassword={(u) => push({ page: "reset-password", targetUser: u, requireCurrentPassword: false })} onResetForGoLive={resetForGoLive} />
+          onResetPassword={(u) => push({ page: "reset-password", targetUser: u, requireCurrentPassword: false })} onResetForGoLive={resetForGoLive}
+          dangerZonePin={dangerZonePin} onSaveDangerZonePin={saveDangerZonePin} />
       : <div className="empty-state">Only a General Manager can view this page.</div>;
   } else if (current.page === "user-form") {
     body = <UserFormPage user={current.user} users={users} onSave={handleSaveUser} onClose={pop} />;
