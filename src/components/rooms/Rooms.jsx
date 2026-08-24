@@ -152,7 +152,31 @@ export function RoomsList({ rooms, records, onOpen, onAdd, onEdit, onDelete, onR
       { key: "open", label: "Open issues", width: 0.25 },
     ];
     const subtitle = `Saved ${fmtDate(todayStr())} · ${filtered.length} room${filtered.length === 1 ? "" : "s"}`;
-    const pdfBytes = await buildRegisterPdf({ title, subtitle, branding, sections: [{ type: "table", columns, rows }] });
+    const sections = [{ type: "table", columns, rows }];
+
+    // The summary table only ever showed a count — an inspector (or you) reading "1 open issue"
+    // still has to go look each one up separately. List what they actually are underneath it.
+    const openIssues = filtered
+      .flatMap((r) => records.filter((rec) => rec.roomId === r.id && rec.category === "maintenance" && isOpenIssue(rec) && !rec.archived).map((rec) => ({ room: r, rec })))
+      .sort((a, b) => a.room.roomNumber.localeCompare(b.room.roomNumber, undefined, { numeric: true }));
+    if (openIssues.length > 0) {
+      sections.push({ type: "heading", text: "Open issue detail" });
+      sections.push({
+        type: "table",
+        columns: [
+          { key: "room", label: "Room", width: 0.13 },
+          { key: "issueTitle", label: "Issue", width: 0.25 },
+          { key: "raised", label: "Raised", width: 0.13 },
+          { key: "priority", label: "Priority", width: 0.13 },
+          { key: "notes", label: "Notes", width: 0.36 },
+        ],
+        rows: openIssues.map(({ room, rec }) => ({
+          room: `Room ${room.roomNumber}`, issueTitle: rec.title, raised: fmtDate(rec.dateRaised), priority: rec.priority || "—", notes: rec.notes || "—",
+        })),
+      });
+    }
+
+    const pdfBytes = await buildRegisterPdf({ title, subtitle, branding, sections });
     const result = await exportPdfReport(`room-register-${todayStr()}.pdf`, title, pdfBytes);
     if (result.status === "fallback") onExportFallback(result);
     else setSaveStatus(result.status);
