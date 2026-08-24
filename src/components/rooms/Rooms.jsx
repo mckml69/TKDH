@@ -20,7 +20,7 @@ import {
 import { RecordTable } from "../records/RecordList";
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { CategoryTag, ErrorBanner, FormPage, HistoryList, PatternCallout, SaveStatusBanner, Stamp, Timeline } from "../shared/UI";
-import { ASSET_TYPES, ROOM_ASSET_KIT, ROOM_TYPES, RoleContext } from "../../lib/constants";
+import { ASSET_TYPES, ROOM_ASSET_KIT, ROOM_TYPES, RoleContext, TEMPLATES } from "../../lib/constants";
 import { assetComplianceStatus, belongsToRoom, daysUntil, findRecurringIssue, fmtDate, getDueDate, getEventDate, getStatus, isOpenIssue, isScheduleMode, todayStr, uid, validateRoom } from "../../lib/helpers";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
@@ -139,7 +139,9 @@ export function RoomsList({ rooms, records, onOpen, onAdd, onEdit, onDelete, onR
   const [showArchived, setShowArchived] = useState(false);
   const archivedCount = useMemo(() => rooms.filter((r) => r.archived).length, [rooms]);
   const filtered = useMemo(() => rooms.filter((r) => (showArchived ? r.archived : !r.archived) && (!query || r.roomNumber.toLowerCase().includes(query.toLowerCase()))), [rooms, query, showArchived]);
-  const openCount = (roomId) => records.filter((r) => r.roomId === roomId && r.category === "maintenance" && isOpenIssue(r) && !r.archived).length;
+  // isOpenIssue already covers every issue-shaped category (Maintenance and Pest Control alike) —
+  // filtering on the literal "maintenance" category here would silently drop open pest reports.
+  const openCount = (roomId) => records.filter((r) => r.roomId === roomId && isOpenIssue(r) && !r.archived).length;
 
   const [saveStatus, setSaveStatus] = useState(null);
   const handleSave = async () => {
@@ -157,21 +159,26 @@ export function RoomsList({ rooms, records, onOpen, onAdd, onEdit, onDelete, onR
     // The summary table only ever showed a count — an inspector (or you) reading "1 open issue"
     // still has to go look each one up separately. List what they actually are underneath it.
     const openIssues = filtered
-      .flatMap((r) => records.filter((rec) => rec.roomId === r.id && rec.category === "maintenance" && isOpenIssue(rec) && !rec.archived).map((rec) => ({ room: r, rec })))
+      .flatMap((r) => records.filter((rec) => rec.roomId === r.id && isOpenIssue(rec) && !rec.archived).map((rec) => ({ room: r, rec })))
       .sort((a, b) => a.room.roomNumber.localeCompare(b.room.roomNumber, undefined, { numeric: true }));
     if (openIssues.length > 0) {
       sections.push({ type: "heading", text: "Open issue detail" });
       sections.push({
         type: "table",
         columns: [
-          { key: "room", label: "Room", width: 0.13 },
-          { key: "issueTitle", label: "Issue", width: 0.25 },
+          { key: "room", label: "Room", width: 0.12 },
+          { key: "type", label: "Type", width: 0.13 },
+          { key: "issueTitle", label: "Issue", width: 0.2 },
           { key: "raised", label: "Raised", width: 0.13 },
-          { key: "priority", label: "Priority", width: 0.13 },
-          { key: "notes", label: "Notes", width: 0.36 },
+          { key: "priority", label: "Priority", width: 0.12 },
+          { key: "notes", label: "Notes", width: 0.3 },
         ],
+        // Pest reports have no "priority" field (they use dateReported/actionTaken instead of
+        // dateRaised/priority) — getEventDate picks the right date per category; priority just
+        // falls back to "—" for pest, same as every other mode that lacks the field.
         rows: openIssues.map(({ room, rec }) => ({
-          room: `Room ${room.roomNumber}`, issueTitle: rec.title, raised: fmtDate(rec.dateRaised), priority: rec.priority || "—", notes: rec.notes || "—",
+          room: `Room ${room.roomNumber}`, type: TEMPLATES[rec.category]?.short || "", issueTitle: rec.title,
+          raised: fmtDate(getEventDate(rec)), priority: rec.priority || "—", notes: rec.notes || "—",
         })),
       });
     }
