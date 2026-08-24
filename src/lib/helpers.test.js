@@ -5,7 +5,7 @@ import {
   insuranceStatus, certificateStatus, visitStatus, validateRecord, validateAsset, validateRoom,
   validateContractor, validateStaff, validateCertificate, validateVisit, validateUser, generateAssetCode,
   recordDetailText, recordWhoText, checkpointCheckEligibleCheckpoints, checkpointCheckFindMissing,
-  findOpenLinkedIssue, hasOpenLinkedIssue, phoneContactLinks,
+  findOpenLinkedIssue, hasOpenLinkedIssue, phoneContactLinks, checkResult,
 } from "./helpers";
 
 describe("date arithmetic", () => {
@@ -445,5 +445,32 @@ describe("phoneContactLinks", () => {
   it("strips dashes and brackets, not just spaces", () => {
     const links = phoneContactLinks("(079) 11-123-456");
     expect(links.tel).toBe("tel:07911123456");
+  });
+});
+
+describe("checkResult", () => {
+  it("recurring mode: unflagged is OK, flagged is Not OK", () => {
+    expect(checkResult({ category: "equipment", flagged: false })).toBe("OK");
+    expect(checkResult({ category: "equipment", flagged: true })).toBe("Not OK");
+    expect(checkResult({ category: "equipment" })).toBe("OK"); // flagged undefined -> falsy -> OK
+  });
+
+  it("checkpoint_check mode (window_restriction_check / legionella_temp_check): reads record.status", () => {
+    expect(checkResult({ category: "window_restriction_check", status: "ok" })).toBe("OK");
+    expect(checkResult({ category: "window_restriction_check", status: "not_ok" })).toBe("Not OK");
+  });
+
+  it("checkpoint_check mode (legionella_check, multi-item): any not_ok item is Not OK, all ok is OK, partial is dashed", () => {
+    expect(checkResult({ category: "legionella_check", checks: { kettle: { status: "ok" }, tap: { status: "not_ok" } } })).toBe("Not OK");
+    expect(checkResult({ category: "legionella_check", checks: { kettle: { status: "ok" }, tap: { status: "ok" } } })).toBe("OK");
+    expect(checkResult({ category: "legionella_check", checks: {} })).toBe("—"); // nothing ticked yet this quarter
+  });
+
+  it("never invents OK/Not OK for modes with no real pass/fail tick — expiry, review, log, incident/maintenance, firelog all read as dashed", () => {
+    expect(checkResult({ category: "training", expiryDate: "2027-01-01" })).toBe("—");
+    expect(checkResult({ category: "risk", lastReviewed: "2026-01-01" })).toBe("—");
+    expect(checkResult({ category: "room_inspection", dateLogged: "2026-01-01" })).toBe("—");
+    expect(checkResult({ category: "maintenance", status: "Open" })).toBe("—");
+    expect(checkResult({ category: "fire_daily", periodKey: "2026-01-01" })).toBe("—");
   });
 });

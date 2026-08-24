@@ -669,6 +669,23 @@ export function getStatus(record) {
   if (record.status === "In Progress" || record.status === "Awaiting") return "in-progress";
   return "open";
 }
+/** Whether the check itself passed, as opposed to getStatus's due-date/lifecycle status — "OK" /
+    "Not OK" is only a real, filled-in-by-a-human concept for the two mode families that actually
+    carry a pass/fail tick: recurring-mode's "Flag as failed" checkbox, and checkpoint_check mode's
+    own OK/Not OK toggle. Every other mode (expiry, review, log, incident/maintenance, firelog) has
+    no such tick at all, so this deliberately returns "—" there rather than defaulting to "OK" and
+    implying a check that was never actually ticked one way or the other. */
+export function checkResult(record) {
+  const mode = getMode(record);
+  if (mode === "recurring") return record.flagged ? "Not OK" : "OK";
+  if (mode === "checkpoint_check") {
+    const s = getStatus(record);
+    if (s === "open") return "Not OK";
+    if (s === "compliant") return "OK";
+    return "—";
+  }
+  return "—";
+}
 export const isIssueMode = (record) => ["incident", "maintenance"].includes(getMode(record));
 export const isScheduleMode = (record) => ["recurring", "expiry"].includes(getMode(record));
 export const isLogMode = (record) => getMode(record) === "log";

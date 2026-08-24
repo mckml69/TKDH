@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { AttachChip, CategoryTag, SaveStatusBanner, Stamp } from "../shared/UI";
 import { RoleContext, STATUS_META, TEMPLATES, TEMPLATE_LIST, categoryFilterMatches } from "../../lib/constants";
-import { daysUntil, fmtDate, getDueDate, getEventDate, getStatus, hasPendingCorrection, isOpenIssue, isScheduleMode, matchesQuery, recordDetailText, recordWhoText, todayStr } from "../../lib/helpers";
+import { checkResult, daysUntil, fmtDate, getDueDate, getEventDate, getStatus, hasPendingCorrection, isOpenIssue, isScheduleMode, matchesQuery, recordDetailText, recordWhoText, todayStr } from "../../lib/helpers";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
@@ -81,22 +81,38 @@ export function Ledger({ records, assets, rooms, contractors, staff, filters, se
   const handleSave = async () => {
     const title = `Compliance Ledger — ${filterLabel}`;
     const subtitle = `Saved ${fmtDate(todayStr())} · ${filtered.length} record${filtered.length === 1 ? "" : "s"}`;
-    const rows = filtered.map((r) => {
-      const showDue = isScheduleMode(r);
-      return {
-        type: TEMPLATES[r.category]?.short || "", title: r.title, detail: recordDetailText(r, assets, rooms, contractors, staff),
-        who: recordWhoText(r, contractors, staff), date: fmtDate(showDue ? getDueDate(r) : getEventDate(r)), status: getStatus(r),
-      };
-    });
     const columns = [
-      { key: "type", label: "Type", width: 0.12 },
-      { key: "title", label: "Title", width: 0.22 },
+      { key: "type", label: "Type", width: 0.1 },
       { key: "detail", label: "Detail", width: 0.24 },
-      { key: "who", label: "Who", width: 0.14 },
-      { key: "date", label: "Date", width: 0.12 },
-      { key: "status", label: "Status", width: 0.16, chip: true },
+      { key: "who", label: "Who", width: 0.16 },
+      { key: "date", label: "Date", width: 0.13 },
+      { key: "result", label: "Result", width: 0.13 },
+      { key: "status", label: "Status", width: 0.24, chip: true },
     ];
-    const pdfBytes = await buildRegisterPdf({ title, subtitle, branding, sections: [{ type: "table", columns, rows }] });
+    // One heading + table per distinct title, sorted alphabetically, rather than one flat list —
+    // so a filter with several different tasks in it (e.g. every Equipment Check together) reads
+    // as separate, clearly-labelled groups instead of one undifferentiated table that only gets
+    // harder to scan as more records pile up under it.
+    const groups = new Map();
+    for (const r of filtered) {
+      const key = r.title || "Untitled";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(r);
+    }
+    const sections = [];
+    for (const groupTitle of Array.from(groups.keys()).sort((a, b) => a.localeCompare(b))) {
+      sections.push({ type: "heading", text: groupTitle });
+      const rows = groups.get(groupTitle).map((r) => {
+        const showDue = isScheduleMode(r);
+        return {
+          type: TEMPLATES[r.category]?.short || "", detail: recordDetailText(r, assets, rooms, contractors, staff),
+          who: recordWhoText(r, contractors, staff), date: fmtDate(showDue ? getDueDate(r) : getEventDate(r)),
+          result: checkResult(r), status: getStatus(r),
+        };
+      });
+      sections.push({ type: "table", columns, rows });
+    }
+    const pdfBytes = await buildRegisterPdf({ title, subtitle, branding, sections });
     const result = await exportPdfReport(`compliance-ledger-${todayStr()}.pdf`, title, pdfBytes);
     if (result.status === "fallback") onExportFallback(result);
     else setSaveStatus(result.status);
