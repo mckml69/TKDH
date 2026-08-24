@@ -22,6 +22,7 @@ import {
   MapPin,
   Droplet,
   Gauge,
+  Menu,
 } from "lucide-react";
 import { AssetDetail, AssetFormPage, AssetsList } from "./components/assets/Assets";
 import { AuditIntro, AuditReport, AuditWizardStep } from "./components/audit/Audit";
@@ -98,9 +99,11 @@ export default function App() {
   const { pin: dangerZonePin, savePin: saveDangerZonePin } = useDangerZonePin();
   const [wizardStep, setWizardStep] = useState(0);
   const [registersOpen, setRegistersOpen] = useState(true);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [checksOpen, setChecksOpen] = useState(true);
   const [stack, setStack] = useState([{ page: "home" }]);
   const current = stack[stack.length - 1];
+  useEffect(() => { setMobileNavOpen(false); }, [current.page]);
   const push = (v) => setStack((s) => [...s, v]);
   const pop = () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : [{ page: "home" }]));
   const replaceTop = (v) => setStack((s) => [...s.slice(0, -1), v]);
@@ -721,7 +724,8 @@ export default function App() {
           onBootstrap={async (form) => { await bootstrap(form); await reloadUsers(); }} />
       ) : (
       <>
-      <aside className="sidebar">
+      {mobileNavOpen && <div className="sidebar-backdrop" onClick={() => setMobileNavOpen(false)} />}
+      <aside className={"sidebar" + (mobileNavOpen ? " sidebar--open" : "")}>
         <img src="/tkdh-logo.png" alt="TKDH" className="brand-logo" />
         <div className="brand-sub">Compliance Ledger</div>
         <button className="new-record-btn" onClick={() => openTemplatePicker(TEMPLATE_LIST)}><Plus size={16} /> <span>New record</span></button>
@@ -787,6 +791,7 @@ export default function App() {
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div className="topbar">
+          <button className="mobile-nav-toggle" onClick={() => setMobileNavOpen(true)} aria-label="Open menu"><Menu size={20} /></button>
           <div className="user-menu">
             <button className="user-menu-trigger" onClick={() => setUserMenuOpen((o) => !o)}>
               <div className="user-menu-trigger-text">
