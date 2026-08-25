@@ -491,6 +491,13 @@ describe("assetComplianceStatus", () => {
     expect(assetComplianceStatus(asset, [resolvedMaintenance, overdueCheck])).toBe("overdue");
   });
 
+  it("a resolved Maintenance/Pest issue with no other record reads as compliant, not no-checks — it was checked and fixed, not never logged", () => {
+    const resolvedMaintenance = { id: "r1", category: "maintenance", assetId: "a1", status: "Resolved" };
+    expect(assetComplianceStatus(asset, [resolvedMaintenance])).toBe("compliant");
+    const resolvedPest = { id: "r2", category: "pest", assetId: "a1", status: "Resolved" };
+    expect(assetComplianceStatus(asset, [resolvedMaintenance, resolvedPest])).toBe("compliant");
+  });
+
   it("falls back to no-checks when nothing is linked to the asset at all", () => {
     expect(assetComplianceStatus(asset, [])).toBe("no-checks");
     expect(assetComplianceStatus(asset, [{ id: "r1", category: "maintenance", assetId: "someone-else", status: "Open" }])).toBe("no-checks");

@@ -775,6 +775,10 @@ export function assetComplianceStatus(asset, records) {
     if (itemStatus === "ok") return "compliant";
     if (itemStatus === "not_ok") return "open";
   }
+  // No open issue and no schedule-mode record — but a resolved Maintenance/Pest issue is still
+  // real history (it was checked and the problem was fixed), not "nothing on file". Reads the
+  // same as a passing routine check: known-good, not "no checks logged".
+  if (own.some((r) => isIssueMode(r))) return "compliant";
   return "no-checks";
 }
 /** The date something actually happened, for timelines — not when it's next due. */
