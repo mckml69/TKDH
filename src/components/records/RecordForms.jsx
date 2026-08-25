@@ -65,7 +65,12 @@ export function RecordFormPage({ template, record, assets, rooms, contractors, s
     onSave({ ...form, attachments, tags }, logAnother);
   };
 
-  const eligibleAssets = template.assetEligible ? assets.filter((a) => template.key === "maintenance" || a.category === template.key) : [];
+  // Once a room is picked, narrow the asset list to that room's own assets — otherwise every room's
+  // AC filter/kettle/etc. shows up in one flat list under an identical-looking label (e.g. "AC Filter"),
+  // making it easy to link the record to the wrong room's asset by mistake.
+  const eligibleAssets = template.assetEligible
+    ? assets.filter((a) => (template.key === "maintenance" || a.category === template.key) && (!form.roomId || a.roomId === form.roomId))
+    : [];
 
   return (
     <>
@@ -91,7 +96,13 @@ export function RecordFormPage({ template, record, assets, rooms, contractors, s
           <div className="row-2">
             {template.roomEligible && (
               <label>Linked room <span className="muted">(optional)</span>
-                <select value={form.roomId || ""} onChange={(e) => set("roomId", e.target.value || null)}>
+                <select value={form.roomId || ""} onChange={(e) => {
+                  const roomId = e.target.value || null;
+                  setForm((f) => {
+                    const staleAsset = f.assetId && !assets.find((a) => a.id === f.assetId && (!roomId || a.roomId === roomId));
+                    return { ...f, roomId, assetId: staleAsset ? null : f.assetId };
+                  });
+                }}>
                   <option value="">Not linked</option>
                   {rooms.map((r) => <option key={r.id} value={r.id}>Room {r.roomNumber}</option>)}
                 </select>
