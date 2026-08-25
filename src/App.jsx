@@ -42,7 +42,7 @@ import { BulkImportRoomAssetsPage, RoomDetail, RoomFormPage, RoomsList } from ".
 import { SearchResults } from "./components/search/Search";
 import { ResponsiblePersonFormPage } from "./components/settings/ResponsiblePerson";
 import { BrandingFormPage } from "./components/settings/Branding";
-import { ConfirmDeletePage, ReportFallback, TemplatePickerPage } from "./components/shared/UI";
+import { ConfirmDeletePage, MouseLoader, ReportFallback, TemplatePickerPage } from "./components/shared/UI";
 import { StaffDetail, StaffFormPage, StaffList } from "./components/staff/Staff";
 import { ResetPasswordPage, SignInScreen, UserFormPage, UsersList } from "./components/users/Users";
 import { VisitDetail, VisitFormPage, VisitsList } from "./components/visits/Visits";
@@ -423,7 +423,7 @@ export default function App() {
 
   let body;
   if (loading || !usersLoaded || !sessionLoaded) {
-    body = <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#6E6A61", padding: "60px 0" }}><Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Loading ledger…</div>;
+    body = <MouseLoader label="Loading ledger…" />;
   } else if (current.page === "home") {
     body = <Home records={records} assets={assets} rooms={rooms} contractors={contractors} certificates={certificates} responsiblePerson={responsiblePerson} onEditResponsiblePerson={() => push({ page: "responsible-person-form" })} branding={branding} onEditBranding={() => push({ page: "branding-form" })} onEdit={openRecordView}
       onOpenRoom={(id) => push({ page: "room-detail", roomId: id })}

@@ -18,6 +18,29 @@ export function Stamp({ status, dense }) {
   return <span className={"stamp" + (dense ? " stamp--dense" : "")} style={{ color: meta.color, borderColor: meta.color }}>{meta.label}</span>;
 }
 
+export function MouseLoader({ label }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "60px 0" }}>
+      <div className="mouse-loader">
+        <svg width="60" height="30" viewBox="0 0 60 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M14,19 Q3,10 8,23" stroke="#8A8378" strokeWidth="2" strokeLinecap="round" fill="none" />
+          <ellipse cx="26" cy="18" rx="14" ry="8.5" fill="#8A8378" />
+          <circle cx="44" cy="13" r="7" fill="#8A8378" />
+          <circle cx="46.5" cy="5" r="4.5" fill="#8A8378" />
+          <circle cx="46.5" cy="5" r="2.4" fill="#F2C9C9" />
+          <circle cx="47" cy="11" r="1.1" fill="#2A2622" />
+          <circle cx="51" cy="14.5" r="1.3" fill="#4A3B36" />
+          <path d="M52,14 L57,12.5 M52,15 L57,15 M52,16 L57,17.5" stroke="#4A3B36" strokeWidth="0.6" strokeLinecap="round" />
+          <g className="mouse-loader-legs">
+            <path d="M18,25 L16,29 M23,26 L22,29.5 M30,26 L31,29.5 M35,25 L37,29" stroke="#6E6355" strokeWidth="2" strokeLinecap="round" />
+          </g>
+        </svg>
+      </div>
+      {label && <span className="muted">{label}</span>}
+    </div>
+  );
+}
+
 export function AttachChip({ count }) {
   if (!count) return null;
   return <span className="attach-chip"><Paperclip size={11} /> {count}</span>;

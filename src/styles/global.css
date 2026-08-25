@@ -297,3 +297,10 @@
         }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.mouse-loader { position:relative; width:100%; max-width:420px; height:34px; overflow:hidden; }
+.mouse-loader svg { position:absolute; top:2px; left:-56px; animation:mouse-run 2.4s linear infinite, mouse-bob .18s ease-in-out infinite; }
+@keyframes mouse-run { to { left:calc(100% + 56px); } }
+@keyframes mouse-bob { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-2px); } }
+.mouse-loader-legs { animation:mouse-legs .18s steps(2) infinite; transform-origin:30px 24px; }
+@keyframes mouse-legs { 0%,100% { transform:translateX(0); } 50% { transform:translateX(1px); } }
