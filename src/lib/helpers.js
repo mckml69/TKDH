@@ -751,7 +751,13 @@ export function universalSearch(query, records, assets, rooms, contractors, staf
 }
 
 export function assetComplianceStatus(asset, records) {
-  const linked = records.filter((r) => r.assetId === asset.id && !r.archived && isScheduleMode(r));
+  const own = records.filter((r) => r.assetId === asset.id && !r.archived);
+  // An open Maintenance/Pest issue against this asset is more urgent than any routine schedule
+  // status, and needs to dominate the stamp — otherwise an asset with a live reported problem
+  // still reads as "no checks logged" (recurring/expiry-only records were the only thing this
+  // function ever looked at) or even "compliant" from an unrelated passing check.
+  if (own.some((r) => isOpenIssue(r))) return "open";
+  const linked = own.filter((r) => isScheduleMode(r));
   if (linked.length > 0) {
     const rank = { overdue: 0, "due-soon": 1, compliant: 2 };
     return linked.map(getStatus).sort((a, b) => rank[a] - rank[b])[0];

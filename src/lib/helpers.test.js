@@ -5,7 +5,7 @@ import {
   insuranceStatus, certificateStatus, visitStatus, validateRecord, validateAsset, validateRoom,
   validateContractor, validateStaff, validateCertificate, validateVisit, validateUser, generateAssetCode,
   recordDetailText, recordWhoText, checkpointCheckEligibleCheckpoints, checkpointCheckFindMissing,
-  findOpenLinkedIssue, hasOpenLinkedIssue, phoneContactLinks, checkResult,
+  findOpenLinkedIssue, hasOpenLinkedIssue, phoneContactLinks, checkResult, assetComplianceStatus,
 } from "./helpers";
 
 describe("date arithmetic", () => {
@@ -472,5 +472,32 @@ describe("checkResult", () => {
     expect(checkResult({ category: "room_inspection", dateLogged: "2026-01-01" })).toBe("—");
     expect(checkResult({ category: "maintenance", status: "Open" })).toBe("—");
     expect(checkResult({ category: "fire_daily", periodKey: "2026-01-01" })).toBe("—");
+  });
+});
+
+describe("assetComplianceStatus", () => {
+  const asset = { id: "a1", assetType: "kettle" };
+
+  it("an open Maintenance/Pest issue linked to the asset dominates, even alongside a compliant recurring check", () => {
+    const openMaintenance = { id: "r1", category: "maintenance", assetId: "a1", status: "Open" };
+    const compliantCheck = { id: "r2", category: "equipment", assetId: "a1", frequencyDays: 90, lastCompleted: "2026-08-01", flagged: false };
+    expect(assetComplianceStatus(asset, [openMaintenance])).toBe("open");
+    expect(assetComplianceStatus(asset, [openMaintenance, compliantCheck])).toBe("open");
+  });
+
+  it("a resolved Maintenance/Pest issue does not mask a recurring check's own status", () => {
+    const resolvedMaintenance = { id: "r1", category: "maintenance", assetId: "a1", status: "Resolved" };
+    const overdueCheck = { id: "r2", category: "equipment", assetId: "a1", frequencyDays: 30, lastCompleted: "2020-01-01", flagged: false };
+    expect(assetComplianceStatus(asset, [resolvedMaintenance, overdueCheck])).toBe("overdue");
+  });
+
+  it("falls back to no-checks when nothing is linked to the asset at all", () => {
+    expect(assetComplianceStatus(asset, [])).toBe("no-checks");
+    expect(assetComplianceStatus(asset, [{ id: "r1", category: "maintenance", assetId: "someone-else", status: "Open" }])).toBe("no-checks");
+  });
+
+  it("ignores an archived open issue", () => {
+    const archivedOpenMaintenance = { id: "r1", category: "maintenance", assetId: "a1", status: "Open", archived: true };
+    expect(assetComplianceStatus(asset, [archivedOpenMaintenance])).toBe("no-checks");
   });
 });
