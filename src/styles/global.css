@@ -55,6 +55,8 @@
 
         .sidebar { width:220px; flex-shrink:0; background:var(--sidebar); color:#D6E3E5; padding:24px 14px; display:flex; flex-direction:column; gap:4px; }
         .brand-logo { display:block; width:100%; max-width:176px; margin:2px auto 6px; border-radius:8px; }
+        .brand-logo-btn { display:block; width:100%; padding:0; border:none; background:none; cursor:pointer; }
+        .brand-logo-btn .brand-logo { margin:2px auto 6px; }
         .brand-sub { font-family:'Manrope',sans-serif; font-size:12px; color:#8FB4BA; padding:0 10px 18px; font-weight:500; text-align:center; }
         .nav-item { display:flex; align-items:center; gap:10px; padding:9px 12px 9px 9px; border-radius:8px; background:none; border:none; border-left:3px solid transparent; color:#D6E3E5; font-size:13.5px; text-align:left; cursor:pointer; }
         .nav-item svg { stroke-width: 2.25; color:#8FB4BA; }
@@ -304,3 +306,6 @@
 @keyframes mouse-bob { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-2px); } }
 .mouse-loader-legs { animation:mouse-legs .18s steps(2) infinite; transform-origin:30px 24px; }
 @keyframes mouse-legs { 0%,100% { transform:translateX(0); } 50% { transform:translateX(1px); } }
+
+.gorilla-overlay { position:fixed; inset:0; z-index:200; background:rgba(10,14,16,.85); display:flex; align-items:center; justify-content:center; padding:24px; cursor:pointer; }
+.gorilla-overlay img { max-width:min(90vw,420px); max-height:80vh; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,.5); }

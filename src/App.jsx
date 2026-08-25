@@ -100,6 +100,8 @@ export default function App() {
   const [wizardStep, setWizardStep] = useState(0);
   const [registersOpen, setRegistersOpen] = useState(true);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [logoClicks, setLogoClicks] = useState(0);
+  const [showGorilla, setShowGorilla] = useState(false);
   const [checksOpen, setChecksOpen] = useState(true);
   const [stack, setStack] = useState([{ page: "home" }]);
   const current = stack[stack.length - 1];
@@ -726,7 +728,13 @@ export default function App() {
       <>
       {mobileNavOpen && <div className="sidebar-backdrop" onClick={() => setMobileNavOpen(false)} />}
       <aside className={"sidebar" + (mobileNavOpen ? " sidebar--open" : "")}>
-        <img src="/tkdh-logo.png" alt="TKDH" className="brand-logo" />
+        <button
+          className="brand-logo-btn"
+          onClick={() => setLogoClicks((n) => { const next = n + 1; if (next >= 5) { setShowGorilla(true); return 0; } return next; })}
+          aria-label="TKDH logo"
+        >
+          <img src="/tkdh-logo.png" alt="TKDH" className="brand-logo" />
+        </button>
         <div className="brand-sub">Compliance Ledger</div>
         <button className="new-record-btn" onClick={() => openTemplatePicker(TEMPLATE_LIST)}><Plus size={16} /> <span>New record</span></button>
         <button className={"nav-item" + (current.page === "home" ? " active" : "")} onClick={() => resetTo({ page: "home" })}><HomeIcon size={16} /> Home</button>
@@ -822,6 +830,11 @@ export default function App() {
           {body}
         </main>
       </div>
+      {showGorilla && (
+        <div className="gorilla-overlay" onClick={() => setShowGorilla(false)}>
+          <img src="/gorilla.png" alt="" />
+        </div>
+      )}
       </>
       )}
 
