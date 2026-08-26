@@ -264,7 +264,7 @@ describe("form validators", () => {
 
 describe("recordDetailText", () => {
   const rooms = [{ id: "r1", roomNumber: "204" }];
-  const assets = [{ id: "a1", assetCode: "KTL001", location: "Kitchen" }];
+  const assets = [{ id: "a1", assetCode: "KTL001", assetType: "kettle", location: "Kitchen" }];
 
   it("falls back to the linked room when there's no free-text location or linked asset (the export bug: this used to render blank)", () => {
     const record = { category: "deep_clean", roomId: "r1", location: "" };
@@ -276,9 +276,15 @@ describe("recordDetailText", () => {
     expect(recordDetailText(record, assets, rooms, [], [])).toBe("Corridor 3F");
   });
 
-  it("a linked asset shows its code plus location, falling back to the asset's own location", () => {
+  it("a linked asset shows its human-readable type and code, plus location, falling back to the asset's own location — a bare asset code means nothing to anyone outside this hotel", () => {
     const record = { category: "fire", assetId: "a1", location: "" };
-    expect(recordDetailText(record, assets, [], [], [])).toBe("KTL001 · Kitchen");
+    expect(recordDetailText(record, assets, [], [], [])).toBe("Kettle (KTL001) · Kitchen");
+  });
+
+  it("falls back to the asset's own code when it has no assetType/name to look up a human label", () => {
+    const codeOnly = [{ id: "a2", assetCode: "XYZ999", location: "Store room" }];
+    const record = { category: "fire", assetId: "a2", location: "" };
+    expect(recordDetailText(record, codeOnly, [], [], [])).toBe("XYZ999 (XYZ999) · Store room");
   });
 
   it("expiry-mode records use the free-text detail field", () => {

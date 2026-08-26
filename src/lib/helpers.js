@@ -604,8 +604,11 @@ export function getMode(record) {
 export function recordDetailText(record, assets, rooms, contractors, staff) {
   const linkedAsset = record.assetId ? assets.find((a) => a.id === record.assetId) : null;
   const linkedRoom = record.roomId ? rooms.find((r) => r.id === record.roomId) : null;
+  // An asset's own code (e.g. "FRG205") means nothing to anyone outside this hotel — lead with what
+  // the thing actually is, so an export handed to head office or an inspector reads on its own.
+  const assetLabel = linkedAsset ? (linkedAsset.name || ASSET_TYPES.find((t) => t.key === linkedAsset.assetType)?.label || linkedAsset.assetCode) : null;
   let text = getMode(record) === "expiry" ? (record.detail || "")
-    : linkedAsset ? `${linkedAsset.assetCode} · ${record.location || linkedAsset.location || (linkedRoom ? `Room ${linkedRoom.roomNumber}` : "")}`
+    : linkedAsset ? `${assetLabel} (${linkedAsset.assetCode}) · ${record.location || linkedAsset.location || (linkedRoom ? `Room ${linkedRoom.roomNumber}` : "")}`
     : record.location ? record.location
     : linkedRoom ? `Room ${linkedRoom.roomNumber}`
     : (record.actionTaken || "—");
