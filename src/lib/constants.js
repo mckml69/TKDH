@@ -7,6 +7,17 @@ import {
 export const DUE_SOON_WINDOW = 30;
 export const RECENT_WINDOW = 7;
 export const MAX_FILE_BYTES = 3.5 * 1024 * 1024;
+/** This same codebase gets deployed once per venue (e.g. the hotel, and separately the pub &
+    kitchen) — each deployment sets its own VITE_VENUE_NAME so "this venue" reads correctly without
+    a code change or a hardcoded venue name baked into either build. */
+export const VENUE_NAME = import.meta.env.VITE_VENUE_NAME || "Hotel";
+/** A contractor/certificate is either scoped to this venue only, or "whole_building" — visible
+    (read-only) from every other venue's deployment too. Undefined/missing on existing records
+    behaves exactly like "venue" (the default), so no backfill is needed for pre-existing data. */
+export const SCOPE_OPTIONS = [
+  { value: "venue", label: `${VENUE_NAME} only` },
+  { value: "whole_building", label: "Whole building" },
+];
 
 export const TEMPLATES = {
   fire: { key: "fire", label: "Fire Safety", short: "Fire", icon: Flame, mode: "recurring", accent: "#A8402F", assetEligible: true, roomEligible: true, contractorEligible: true,
@@ -535,7 +546,7 @@ export const RoleContext = createContext({ role: "Employee", currentUser: null, 
     fields apply, not this register's plain expiry-date model. Existing certificates of that type
     (if any) stay exactly as they are; this just stops offering the type for new entries. */
 export const CERT_TYPES = ["Gas Safety Certificate (CP12)", "EICR", "PAT Testing Summary", "Fire Alarm Service Certificate", "Employers' Liability Insurance", "Public Liability Insurance", "Lift LOLER Report", "Food Hygiene Rating", "Other"];
-export const CERTIFICATE_HISTORY_FIELDS = { title: "Title", certType: "Type", issuer: "Issuer", issueDate: "Issue date", expiryDate: "Expiry date", coverage: "Coverage", notes: "Notes" };
+export const CERTIFICATE_HISTORY_FIELDS = { title: "Title", certType: "Type", issuer: "Issuer", issueDate: "Issue date", expiryDate: "Expiry date", coverage: "Coverage", scope: "Visibility", notes: "Notes" };
 export const VISIT_TYPES = ["Environmental Health Inspection", "Fire Officer Inspection", "Food Safety Inspection", "Health & Safety Executive Visit", "Licensing Visit", "Insurance Assessor Visit", "Other"];
 export const VISIT_OUTCOMES = ["No issues found", "Advice given", "Improvement notice issued", "Prohibition notice issued", "Enforcement action", "Follow-up required", "Other"];
 export const SERIOUS_OUTCOMES = ["Improvement notice issued", "Prohibition notice issued", "Enforcement action"];
@@ -589,7 +600,7 @@ export const RECORD_HISTORY_FIELDS = {
 };
 export const ASSET_HISTORY_FIELDS = { assetType: "Asset type", category: "Category", eligibleFor: "Eligible for", assetCode: "Asset code", name: "Name", location: "Location", manufacturer: "Manufacturer", model: "Model", serialNumber: "Serial number", installDate: "Installed on", status: "Status", notes: "Notes" };
 export const ROOM_HISTORY_FIELDS = { roomNumber: "Room number", floor: "Floor", roomType: "Room type", notes: "Notes" };
-export const CONTRACTOR_HISTORY_FIELDS = { name: "Name", contactName: "Contact person", phone: "Phone", email: "Email", notes: "Notes" };
+export const CONTRACTOR_HISTORY_FIELDS = { name: "Name", contactName: "Contact person", phone: "Phone", email: "Email", scope: "Visibility", notes: "Notes" };
 export const CHECKPOINT_HISTORY_FIELDS = { name: "Name", notes: "Notes" };
 /** Water/gas/electricity meters — a freestanding recording tool, deliberately not linked to any
     compliance check, requirement, or due-date logic. unit is just a display label on the reading

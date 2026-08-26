@@ -12,13 +12,13 @@ import {
 } from "lucide-react";
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { ErrorBanner, FormPage, HistoryList, SaveStatusBanner, Stamp } from "../shared/UI";
-import { ASSET_TYPES, CERT_TYPES, CERT_DEFAULT_VALIDITY_DAYS, RoleContext } from "../../lib/constants";
-import { addDays, certificateHaystack, certificateStatus, fmtDate, formatBytes, todayStr, uid, validateCertificate } from "../../lib/helpers";
+import { ASSET_TYPES, CERT_TYPES, CERT_DEFAULT_VALIDITY_DAYS, RoleContext, SCOPE_OPTIONS } from "../../lib/constants";
+import { addDays, certificateHaystack, certificateStatus, fmtDate, formatBytes, scopeLabel, todayStr, uid, validateCertificate } from "../../lib/helpers";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
 export function CertificateFormPage({ cert, assets, contractors, prefill, onSave, onClose }) {
-  const [form, setForm] = useState(cert || { id: uid(), title: "", certType: CERT_TYPES[0], issuer: "", contractorId: null, assetId: null, coverage: "", issueDate: todayStr(), expiryDate: addDays(todayStr(), CERT_DEFAULT_VALIDITY_DAYS[CERT_TYPES[0]] ?? 365), notes: "", attachments: [], tags: [], ...(prefill || {}) });
+  const [form, setForm] = useState(cert || { id: uid(), title: "", certType: CERT_TYPES[0], issuer: "", contractorId: null, assetId: null, coverage: "", scope: "venue", issueDate: todayStr(), expiryDate: addDays(todayStr(), CERT_DEFAULT_VALIDITY_DAYS[CERT_TYPES[0]] ?? 365), notes: "", attachments: [], tags: [], ...(prefill || {}) });
   const [attachments, setAttachments] = useState(form.attachments || []);
   const [tagsInput, setTagsInput] = useState((form.tags || []).join(", "));
   const [errors, setErrors] = useState([]);
@@ -65,6 +65,11 @@ export function CertificateFormPage({ cert, assets, contractors, prefill, onSave
           </label>
           <label>Coverage <span className="muted">(free text)</span><input value={form.coverage} onChange={(e) => set("coverage", e.target.value)} placeholder="e.g. Whole building" /></label>
         </div>
+        <label>Visibility <span className="muted">(only relevant once another venue is connected)</span>
+          <select value={form.scope || "venue"} onChange={(e) => set("scope", e.target.value)}>
+            {SCOPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
         <label>Tags <span className="muted">(comma-separated)</span><input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="e.g. annual, statutory" /></label>
         <label>Notes<textarea rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Optional" /></label>
         <AttachmentsField recordId={form.id} attachments={attachments} setAttachments={setAttachments} />
@@ -84,7 +89,7 @@ export function CertificateDetail({ cert, assets, contractors, onBack, onEdit, o
     <div className="module-view">
       <button className="btn btn-ghost" style={{ padding: "4px 0", marginBottom: 10 }} onClick={onBack}><ArrowLeft size={15} /> Back to certificates</button>
       <div className="module-header">
-        <div className="module-title"><Award size={22} color="#197386" /><h2>{cert.title}{cert.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
+        <div className="module-title"><Award size={22} color="#197386" /><h2>{cert.title}{cert.scope === "whole_building" && <span className="flag-tag" style={{ color: "#2A3A6E", background: "#EEF0FA" }}>{scopeLabel(cert.scope)}</span>}{cert.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
         {!cert.archived && canEdit && <button className="btn btn-ghost" onClick={() => onEdit(cert)}><Pencil size={15} /> Edit certificate</button>}
       </div>
       <div className="asset-info-grid">
@@ -169,7 +174,7 @@ export function CertificatesList({ certificates, assets, contractors, onOpen, on
               <span className="muted">{c.certType}</span>
               <span className="mono">{fmtDate(c.expiryDate)}</span>
               <span><Stamp status={certificateStatus(c)} dense /></span>
-              <span></span>
+              <span>{c.scope === "whole_building" && <span className="flag-tag" style={{ marginLeft: 0, color: "#2A3A6E", background: "#EEF0FA" }}>{scopeLabel(c.scope)}</span>}</span>
               <span className="row-actions">
                 {!c.archived && canEdit && <button className="icon-btn" onClick={() => onEdit(c)}><Pencil size={15} /></button>}
                 {canDelete && (c.archived

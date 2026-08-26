@@ -1,4 +1,4 @@
-import { TEMPLATES, DUE_SOON_WINDOW, RECENT_WINDOW, ASSET_TYPES, REQUIREMENTS, LEGIONELLA_CHECK_ITEMS } from "./constants";
+import { TEMPLATES, DUE_SOON_WINDOW, RECENT_WINDOW, ASSET_TYPES, REQUIREMENTS, LEGIONELLA_CHECK_ITEMS, VENUE_NAME } from "./constants";
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 export const fmtDate = (d) => {
@@ -811,6 +811,11 @@ export function getEventDate(record) {
    the record) rather than destroying evidence.
 --------------------------------------------------------- */
 
+/** Undefined/missing scope (every record created before this field existed) behaves exactly like
+    "venue" — the default — so nothing needs backfilling on old data. */
+export function scopeLabel(scope) {
+  return scope === "whole_building" ? "Whole building" : `${VENUE_NAME} only`;
+}
 export function contractorHaystack(c) {
   const dates = [c.createdAt, c.updatedAt];
   return [c.name, c.contactName, c.phone, c.email, c.notes, tagBlob(c.tags), attachmentBlob(c.attachments), dateSearchBlob(dates)]
