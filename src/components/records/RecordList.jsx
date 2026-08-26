@@ -89,27 +89,40 @@ export function Ledger({ records, assets, rooms, contractors, staff, filters, se
       { key: "result", label: "Result", width: 0.13 },
       { key: "status", label: "Status", width: 0.24, chip: true },
     ];
-    // One heading + table per distinct title, sorted alphabetically, rather than one flat list —
-    // so a filter with several different tasks in it (e.g. every Equipment Check together) reads
-    // as separate, clearly-labelled groups instead of one undifferentiated table that only gets
-    // harder to scan as more records pile up under it.
+    // One heading + table per group, rather than one flat list — so a filter with several
+    // different tasks in it reads as separate, clearly-labelled groups instead of one
+    // undifferentiated table that only gets harder to scan as more records pile up under it.
+    // Grouped by room when a record has one — for room-linked issues (Maintenance, Pest, an
+    // Equipment check against a room's asset…) that's what's actually useful to scan by; a free-typed
+    // title groups near-identical problems inconsistently and tells a reader nothing about where the
+    // work is. Records with no room (Staff Training, a whole-building Fire Safety check…) still group
+    // by title, since there's no room axis to use instead.
     const groups = new Map();
     for (const r of filtered) {
-      const key = r.title || "Untitled";
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(r);
+      const room = r.roomId ? rooms.find((rm) => rm.id === r.roomId) : null;
+      const key = room ? `room:${room.id}` : `title:${r.title || "Untitled"}`;
+      if (!groups.has(key)) groups.set(key, { heading: room ? `Room ${room.roomNumber}` : (r.title || "Untitled"), isRoomGroup: !!room, records: [] });
+      groups.get(key).records.push(r);
     }
+    const sortedKeys = Array.from(groups.keys()).sort((a, b) => groups.get(a).heading.localeCompare(groups.get(b).heading, undefined, { numeric: true }));
     const sections = [];
-    for (const groupTitle of Array.from(groups.keys()).sort((a, b) => a.localeCompare(b))) {
-      sections.push({ type: "heading", text: groupTitle });
+    for (const key of sortedKeys) {
+      const { heading, isRoomGroup, records } = groups.get(key);
+      sections.push({ type: "heading", text: heading });
       // "Completed" would be a lie for a still-open Maintenance/Pest issue — getEventDate returns
       // when it was raised/reported for those, since there's no completion date yet. Once resolved,
       // show the actual completion date (resolvedDate) instead of the original raised/reported date.
-      const rows = groups.get(groupTitle).map((r) => ({
-        type: TEMPLATES[r.category]?.short || "", detail: recordDetailText(r, assets, rooms, contractors, staff),
-        who: recordWhoText(r, contractors, staff), date: fmtDate(r.resolvedDate && getStatus(r) === "resolved" ? r.resolvedDate : getEventDate(r)),
-        result: checkResult(r), status: getStatus(r),
-      }));
+      // When grouped by room, the title is no longer the heading, so it has to go in Detail instead —
+      // otherwise a room full of issues would just repeat the same asset/location with no indication
+      // of what's actually wrong with each one.
+      const rows = records.map((r) => {
+        const detail = recordDetailText(r, assets, rooms, contractors, staff);
+        return {
+          type: TEMPLATES[r.category]?.short || "", detail: isRoomGroup ? `${r.title || "Untitled"} — ${detail}` : detail,
+          who: recordWhoText(r, contractors, staff), date: fmtDate(r.resolvedDate && getStatus(r) === "resolved" ? r.resolvedDate : getEventDate(r)),
+          result: checkResult(r), status: getStatus(r),
+        };
+      });
       sections.push({ type: "table", columns, rows });
     }
     const pdfBytes = await buildRegisterPdf({ title, subtitle, branding, sections });
