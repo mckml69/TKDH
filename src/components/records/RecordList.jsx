@@ -85,7 +85,7 @@ export function Ledger({ records, assets, rooms, contractors, staff, filters, se
       { key: "type", label: "Type", width: 0.1 },
       { key: "detail", label: "Detail", width: 0.24 },
       { key: "who", label: "Who", width: 0.16 },
-      { key: "date", label: "Completed", width: 0.13 },
+      { key: "date", label: "Date", width: 0.13 },
       { key: "result", label: "Result", width: 0.13 },
       { key: "status", label: "Status", width: 0.24, chip: true },
     ];
@@ -102,9 +102,12 @@ export function Ledger({ records, assets, rooms, contractors, staff, filters, se
     const sections = [];
     for (const groupTitle of Array.from(groups.keys()).sort((a, b) => a.localeCompare(b))) {
       sections.push({ type: "heading", text: groupTitle });
+      // "Completed" would be a lie for a still-open Maintenance/Pest issue — getEventDate returns
+      // when it was raised/reported for those, since there's no completion date yet. Once resolved,
+      // show the actual completion date (resolvedDate) instead of the original raised/reported date.
       const rows = groups.get(groupTitle).map((r) => ({
         type: TEMPLATES[r.category]?.short || "", detail: recordDetailText(r, assets, rooms, contractors, staff),
-        who: recordWhoText(r, contractors, staff), date: fmtDate(getEventDate(r)),
+        who: recordWhoText(r, contractors, staff), date: fmtDate(r.resolvedDate && getStatus(r) === "resolved" ? r.resolvedDate : getEventDate(r)),
         result: checkResult(r), status: getStatus(r),
       }));
       sections.push({ type: "table", columns, rows });
