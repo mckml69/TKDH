@@ -137,7 +137,7 @@ export function Home({ records, assets, rooms, certificates, responsiblePerson, 
         </div>
       </DashboardSection>
 
-      <DashboardSection title="Which assets are most unreliable?" icon={Package} color="#A8402F" count={unreliableAssets.length} emptyText="No asset has any failed checks or maintenance history yet.">
+      <DashboardSection title="Which assets are most unreliable?" icon={Package} color="#A8402F" count={unreliableAssets.length} emptyText="No asset has failed the same check, or had the same issue logged, 2 or more times yet.">
         <div className="ledger-table">
           {unreliableAssets.slice(0, 8).map(({ asset, count }) => {
             const assetRecords = activeRecords.filter((r) => r.assetId === asset.id);
