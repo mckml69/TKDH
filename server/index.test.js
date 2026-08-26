@@ -185,7 +185,7 @@ describe("cross-venue sharing (/api/shared/pull, /api/venue-pull)", () => {
     }
   });
 
-  afterEach(() => { delete process.env.SHARED_SYNC_SECRET; delete process.env.OTHER_VENUE_URL; vi.unstubAllGlobals(); });
+  afterEach(() => { delete process.env.SHARED_SYNC_SECRET; delete process.env.OTHER_VENUE_URL; delete process.env.SHARE_ISSUES_WITH_OTHER_VENUE; vi.unstubAllGlobals(); });
 
   describe("/api/shared/pull (outbound — another venue's server calls in)", () => {
     it("is unavailable when this deployment has no SHARED_SYNC_SECRET configured", async () => {
@@ -201,8 +201,24 @@ describe("cross-venue sharing (/api/shared/pull, /api/venue-pull)", () => {
       expect(missing.status).toBe(401);
     });
 
-    it("returns only Maintenance/Pest issues (not archived, not other categories), with just the referenced context", async () => {
+    // This is the important regression test: a valid, correctly-authenticated request from the
+    // other venue must NOT get this venue's own issues back unless SHARE_ISSUES_WITH_OTHER_VENUE
+    // was deliberately turned on — a real prior bug had every deployment hand its own issues to
+    // anyone holding the shared secret, in both directions, regardless of intent.
+    it("never returns this venue's own issues (or their asset/room/contractor context) unless SHARE_ISSUES_WITH_OTHER_VENUE=true, even with a valid secret", async () => {
       process.env.SHARED_SYNC_SECRET = secret;
+      const res = await request(app).get("/api/shared/pull").set("Authorization", `Bearer ${secret}`);
+      expect(res.status).toBe(200);
+      expect(res.body.issues).toEqual([]);
+      expect(res.body.assets).toEqual([]);
+      expect(res.body.rooms).toEqual([]);
+      expect(res.body.contractors).toEqual([]);
+      expect(res.body.staff).toEqual([]);
+    });
+
+    it("returns Maintenance/Pest issues (not archived, not other categories), with just the referenced context, once SHARE_ISSUES_WITH_OTHER_VENUE=true", async () => {
+      process.env.SHARED_SYNC_SECRET = secret;
+      process.env.SHARE_ISSUES_WITH_OTHER_VENUE = "true";
       const res = await request(app).get("/api/shared/pull").set("Authorization", `Bearer ${secret}`);
       expect(res.status).toBe(200);
       expect(res.body.issues.map((r) => r.id).sort()).toEqual(["r1", "r2"]);
@@ -211,7 +227,7 @@ describe("cross-venue sharing (/api/shared/pull, /api/venue-pull)", () => {
       expect(res.body.contractors.map((c) => c.id)).toEqual(["c1"]); // referenced by r2.resolvedContractorId
     });
 
-    it("returns only non-archived whole_building contractors and certificates, never venue-scoped ones", async () => {
+    it("returns only non-archived whole_building contractors and certificates, never venue-scoped ones — regardless of SHARE_ISSUES_WITH_OTHER_VENUE", async () => {
       process.env.SHARED_SYNC_SECRET = secret;
       const res = await request(app).get("/api/shared/pull").set("Authorization", `Bearer ${secret}`);
       expect(res.body.wholeBuildingContractors.map((c) => c.id)).toEqual(["c2"]);

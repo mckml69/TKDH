@@ -249,13 +249,21 @@ app.get("/api/health", (req, res) => res.json({ ok: true }));
 // the hotel, and separately the pub & kitchen it's also responsible for).
 // /api/shared/pull is the OUTBOUND side: another venue's deployment calls in
 // here, authenticated by a shared secret (not a session cookie — the caller is
-// a server, not a signed-in browser), and gets back this venue's own open
-// Maintenance/Pest issues plus whichever Contractors/Certificates are scoped
-// "whole_building". /api/venue-pull is the INBOUND side: this venue's own
-// frontend calls it, and it fetches from the OTHER venue's /api/shared/pull.
-// Both are no-ops (503 / { available: false }) until SHARED_SYNC_SECRET and
-// OTHER_VENUE_URL are actually configured — nothing here fires until a second
-// venue genuinely exists and both deployments agree on the same secret.
+// a server, not a signed-in browser), and gets back whichever Contractors/
+// Certificates are scoped "whole_building" — always, since marking a record
+// "whole_building" is itself a deliberate, opt-in act of sharing. Open
+// Maintenance/Pest issues are a different matter: this venue's own operational
+// log isn't opt-in per record, so it's only ever included when THIS deployment
+// has explicitly turned on SHARE_ISSUES_WITH_OTHER_VENUE. That's what makes the
+// relationship one-directional in practice — e.g. the pub sets it (so the
+// hotel can see the pub's open issues), the hotel never does (so the pub can
+// authenticate against the hotel's endpoint all day and only ever get the
+// whole-building stuff back, never the hotel's own issues). Both SHARED_SYNC_SECRET
+// checks below are no-ops (503 / 401) until it's actually configured, and
+// /api/venue-pull (the INBOUND side — this venue's own frontend calling out to
+// the OTHER venue's /api/shared/pull) is a no-op ({ available: false }) until
+// OTHER_VENUE_URL is set too — nothing here fires until a second venue
+// genuinely exists and both deployments agree on the same secret.
 // ---------------------------------------------------------------------------
 
 function readSharedList(key) {
@@ -270,28 +278,36 @@ app.get("/api/shared/pull", (req, res) => {
   const auth = req.headers.authorization || "";
   if (auth !== `Bearer ${secret}`) return res.status(401).json({ error: "invalid shared secret" });
 
-  const records = readSharedList("ledger-records");
-  const assets = readSharedList("ledger-assets");
-  const rooms = readSharedList("ledger-rooms");
   const contractors = readSharedList("ledger-contractors");
-  const staff = readSharedList("ledger-staff");
   const certificates = readSharedList("ledger-certificates");
+  const shareIssues = process.env.SHARE_ISSUES_WITH_OTHER_VENUE === "true";
 
-  // Everything else about a Maintenance/Pest issue (asset name, room number, who raised/resolved
-  // it) has to travel alongside it, or the other venue would have nothing to resolve those ids
-  // against — it never has (and never will have) its own copy of this venue's assets/rooms/staff.
-  const issues = records.filter((r) => !r.archived && (r.category === "maintenance" || r.category === "pest"));
-  const assetIds = new Set(issues.map((r) => r.assetId).filter(Boolean));
-  const roomIds = new Set(issues.map((r) => r.roomId).filter(Boolean));
-  const contractorIds = new Set(issues.flatMap((r) => [r.contractorId, r.awaitingContractorId, r.resolvedContractorId]).filter(Boolean));
-  const staffIds = new Set(issues.flatMap((r) => [r.staffId, r.awaitingStaffId, r.resolvedStaffId]).filter(Boolean));
+  let issues = [], sharedAssets = [], sharedRooms = [], sharedContractors = [], sharedStaff = [];
+  if (shareIssues) {
+    const records = readSharedList("ledger-records");
+    const assets = readSharedList("ledger-assets");
+    const rooms = readSharedList("ledger-rooms");
+    const staff = readSharedList("ledger-staff");
+    // Everything else about a Maintenance/Pest issue (asset name, room number, who raised/resolved
+    // it) has to travel alongside it, or the other venue would have nothing to resolve those ids
+    // against — it never has (and never will have) its own copy of this venue's assets/rooms/staff.
+    issues = records.filter((r) => !r.archived && (r.category === "maintenance" || r.category === "pest"));
+    const assetIds = new Set(issues.map((r) => r.assetId).filter(Boolean));
+    const roomIds = new Set(issues.map((r) => r.roomId).filter(Boolean));
+    const contractorIds = new Set(issues.flatMap((r) => [r.contractorId, r.awaitingContractorId, r.resolvedContractorId]).filter(Boolean));
+    const staffIds = new Set(issues.flatMap((r) => [r.staffId, r.awaitingStaffId, r.resolvedStaffId]).filter(Boolean));
+    sharedAssets = assets.filter((a) => assetIds.has(a.id));
+    sharedRooms = rooms.filter((rm) => roomIds.has(rm.id));
+    sharedContractors = contractors.filter((c) => contractorIds.has(c.id));
+    sharedStaff = staff.filter((s) => staffIds.has(s.id));
+  }
 
   res.json({
     issues,
-    assets: assets.filter((a) => assetIds.has(a.id)),
-    rooms: rooms.filter((rm) => roomIds.has(rm.id)),
-    contractors: contractors.filter((c) => contractorIds.has(c.id)),
-    staff: staff.filter((s) => staffIds.has(s.id)),
+    assets: sharedAssets,
+    rooms: sharedRooms,
+    contractors: sharedContractors,
+    staff: sharedStaff,
     wholeBuildingContractors: contractors.filter((c) => c.scope === "whole_building" && !c.archived),
     wholeBuildingCertificates: certificates.filter((c) => c.scope === "whole_building" && !c.archived),
   });
