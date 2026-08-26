@@ -66,6 +66,57 @@ node reset-password.js someone@yourhotel.com newPassword123
 
 See `server/README.md` → "Locked out?" for details.
 
+## 5. Adding a second venue (e.g. a pub & kitchen the same GM is responsible for)
+
+This same repo can run as a second, fully independent deployment — its own
+database, its own accounts, nobody there can see this venue's data — with a
+read-only, General-Manager-only pull of Maintenance/Pest issues and
+"Whole building"-scoped Contractors/Certificates between the two. See
+`src/App.jsx` (the switcher link), `src/hooks/useVenuePull.js`, and
+`server/index.js`'s `/api/shared/pull` + `/api/venue-pull` for how it works.
+Nothing here is active until you do this.
+
+1. **Render dashboard → New → Web Service** (not Blueprint this time — Blueprint
+   would try to manage the `compliance-ledger` name already used by your hotel
+   service). Connect the same GitHub repo.
+2. Give it a distinct name, e.g. `tkdh-pub` — this becomes its subdomain
+   (`https://tkdh-pub.onrender.com`).
+3. Build command: `npm install --include=dev && npm run build && cd server && npm install`
+   Start command: `node server/index.js`
+   (copy these straight from `render.yaml` — same as the hotel service).
+4. Add a disk (Settings → Disks): a **different** name than the hotel's
+   (e.g. `tkdh-pub-data`), mount path `/var/data`, 1GB. Skipping this loses the
+   pub's database on every redeploy, same as it would for the hotel service.
+5. Environment variables on **this new pub service**:
+   ```
+   NODE_ENV=production
+   COOKIE_SECURE=true
+   DATABASE_PATH=/var/data/data.sqlite
+   VITE_STORAGE_MODE=api
+   VITE_VENUE_NAME=TKDH Pub
+   VITE_PUB_URL=<the hotel service's URL>
+   VITE_PUB_VENUE_NAME=<whatever you want the hotel called here — the default "TKDH Pub" is wrong on this side>
+   OTHER_VENUE_URL=<the hotel service's URL>
+   SHARED_SYNC_SECRET=<make up a long random string>
+   ```
+6. Deploy, then open its URL and bootstrap the pub's own first General Manager
+   account — same flow as the hotel, entirely separate database.
+7. Go back to the **existing hotel service**'s Environment tab and add:
+   ```
+   VITE_PUB_URL=<the pub service's URL, from step 6>
+   OTHER_VENUE_URL=<the pub service's URL>
+   SHARED_SYNC_SECRET=<the exact same string you made up in step 5>
+   ```
+   Trigger a deploy (adding an env var normally does this automatically) —
+   `VITE_PUB_URL` is baked into the frontend at build time, so it needs a real
+   rebuild to take effect, not just a restart.
+8. Reload the hotel site, signed in as General Manager — the sidebar switcher
+   and "TKDH Pub issues" section on Home should now appear.
+
+`SHARED_SYNC_SECRET` must be the exact same value on both services — that's
+what lets each side prove to the other it's really the paired venue, not
+anyone else's deployment of this same open-source app.
+
 ## Notes
 
 - **The persistent disk matters.** Without it, the SQLite database would reset
