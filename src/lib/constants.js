@@ -18,6 +18,12 @@ export const SCOPE_OPTIONS = [
   { value: "venue", label: `${VENUE_NAME} only` },
   { value: "whole_building", label: "Whole building" },
 ];
+/** The other venue's deployment to switch to, General Manager only. Unset (no VITE_PUB_URL) until
+    that deployment actually exists — the switcher link simply doesn't render until it's configured,
+    rather than pointing somewhere broken. PUB_VENUE_NAME is independently overridable so this isn't
+    tied to any single name if the linked venue ever changes. */
+export const PUB_URL = import.meta.env.VITE_PUB_URL || null;
+export const PUB_VENUE_NAME = import.meta.env.VITE_PUB_VENUE_NAME || "TKDH Pub";
 
 export const TEMPLATES = {
   fire: { key: "fire", label: "Fire Safety", short: "Fire", icon: Flame, mode: "recurring", accent: "#A8402F", assetEligible: true, roomEligible: true, contractorEligible: true,

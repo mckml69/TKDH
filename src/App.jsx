@@ -23,6 +23,7 @@ import {
   Droplet,
   Gauge,
   Menu,
+  ExternalLink,
 } from "lucide-react";
 import { AssetDetail, AssetFormPage, AssetsList } from "./components/assets/Assets";
 import { AuditIntro, AuditReport, AuditWizardStep } from "./components/audit/Audit";
@@ -60,7 +61,7 @@ import { useDangerZonePin } from "./hooks/useDangerZonePin";
 import { useUsers } from "./hooks/useUsers";
 import { storageMode } from "./lib/storage";
 import { apiAdapter } from "./lib/storage/apiAdapter";
-import { AUDIT_CATEGORIES, LOCATION_PRESETS, REQUIREMENTS, RoleContext, TEMPLATES, TEMPLATE_LIST, FIRE_LOG_ITEMS, LEGIONELLA_CHECK_ITEMS } from "./lib/constants";
+import { AUDIT_CATEGORIES, LOCATION_PRESETS, REQUIREMENTS, RoleContext, TEMPLATES, TEMPLATE_LIST, FIRE_LOG_ITEMS, LEGIONELLA_CHECK_ITEMS, PUB_URL, PUB_VENUE_NAME } from "./lib/constants";
 import {
   certificateStatus, checkpointCheckEnsureSnapshot, checkpointCheckPeriodKey, findRoomMentions, fmtDate,
   hasPendingCorrection, isCheckpointCheckLocked, isOverdue, staffTrainingStatus, todayStr, uid, visitStatus,
@@ -792,6 +793,9 @@ export default function App() {
         <button className={"nav-item" + (["audit-intro", "audit-wizard", "audit-report"].includes(current.page) ? " active" : "")} onClick={() => resetTo({ page: "audit-intro" })}><ListChecks size={16} /> First Day Audit</button>
         {role === "General Manager" && (
           <button className={"nav-item" + (current.page === "users" ? " active" : "")} onClick={() => resetTo({ page: "users" })}><ShieldCheck size={16} /> Users &amp; Permissions</button>
+        )}
+        {role === "General Manager" && PUB_URL && (
+          <a className="nav-item" href={PUB_URL} target="_blank" rel="noreferrer"><ExternalLink size={16} /> Switch to {PUB_VENUE_NAME}</a>
         )}
       </aside>
 
