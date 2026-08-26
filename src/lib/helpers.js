@@ -694,6 +694,15 @@ export const isOverdue = (record) => isScheduleMode(record) && getStatus(record)
 export const isDueSoon = (record, window = DUE_SOON_WINDOW) => isScheduleMode(record) && getStatus(record) === "due-soon" && daysUntil(getDueDate(record)) <= window;
 export const isDueToday = (record) => isScheduleMode(record) && daysUntil(getDueDate(record)) === 0;
 export const isOpenIssue = (record) => isIssueMode(record) && getStatus(record) !== "resolved";
+/** A contractor can be linked to a record two ways: contractorId (assigned/engaged when the record
+    was first logged) or resolvedContractorId (who actually attended, set later when resolving a
+    Maintenance issue — often a different person than whoever was first contacted). Both count as
+    a real visit for that contractor. */
+export const contractorVisitedRecord = (record, contractorId) => record.contractorId === contractorId || record.resolvedContractorId === contractorId;
+/** Same idea as contractorVisitedRecord, for staff: staffId (assigned/logged at creation) or
+    resolvedStaffId (who actually attended, set later when resolving) both count as this staff
+    member's own record. */
+export const staffLinkedToRecord = (record, staffId) => record.staffId === staffId || record.resolvedStaffId === staffId;
 export const isRecent = (record, window = RECENT_WINDOW) => {
   const t = record.updatedAt || record.createdAt;
   return t && daysSince(t) <= window && daysSince(t) >= 0;

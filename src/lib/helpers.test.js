@@ -6,6 +6,7 @@ import {
   validateContractor, validateStaff, validateCertificate, validateVisit, validateUser, generateAssetCode,
   recordDetailText, recordWhoText, checkpointCheckEligibleCheckpoints, checkpointCheckFindMissing,
   findOpenLinkedIssue, hasOpenLinkedIssue, phoneContactLinks, checkResult, assetComplianceStatus,
+  contractorVisitedRecord, staffLinkedToRecord,
 } from "./helpers";
 
 describe("date arithmetic", () => {
@@ -506,5 +507,22 @@ describe("assetComplianceStatus", () => {
   it("ignores an archived open issue", () => {
     const archivedOpenMaintenance = { id: "r1", category: "maintenance", assetId: "a1", status: "Open", archived: true };
     expect(assetComplianceStatus(asset, [archivedOpenMaintenance])).toBe("no-checks");
+  });
+});
+
+describe("contractorVisitedRecord / staffLinkedToRecord", () => {
+  it("matches on the record's own contractorId/staffId, set when the record was first logged", () => {
+    expect(contractorVisitedRecord({ contractorId: "c1" }, "c1")).toBe(true);
+    expect(staffLinkedToRecord({ staffId: "s1" }, "s1")).toBe(true);
+  });
+
+  it("also matches on resolvedContractorId/resolvedStaffId, set later when resolving — who actually attended can differ from who was first assigned", () => {
+    expect(contractorVisitedRecord({ contractorId: "c1", resolvedContractorId: "c2" }, "c2")).toBe(true);
+    expect(staffLinkedToRecord({ staffId: "s1", resolvedStaffId: "s2" }, "s2")).toBe(true);
+  });
+
+  it("does not match an unrelated contractor/staff id", () => {
+    expect(contractorVisitedRecord({ contractorId: "c1", resolvedContractorId: "c2" }, "c3")).toBe(false);
+    expect(staffLinkedToRecord({ staffId: "s1", resolvedStaffId: "s2" }, "s3")).toBe(false);
   });
 });

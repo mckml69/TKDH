@@ -21,7 +21,7 @@ import {
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { CategoryTag, ErrorBanner, FormPage, HistoryList, SaveStatusBanner, Stamp, Timeline } from "../shared/UI";
 import { ASSET_TYPES, RoleContext } from "../../lib/constants";
-import { assetComplianceStatus, certificateStatus, contractorHaystack, fmtDate, formatBytes, getEventDate, insuranceStatus, phoneContactLinks, todayStr, uid, validateContractor } from "../../lib/helpers";
+import { assetComplianceStatus, certificateStatus, contractorHaystack, contractorVisitedRecord, fmtDate, formatBytes, getEventDate, insuranceStatus, phoneContactLinks, todayStr, uid, validateContractor } from "../../lib/helpers";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
@@ -61,7 +61,7 @@ export function ContractorFormPage({ contractor, onSave, onClose }) {
 
 export function ContractorDetail({ contractor, records, assets, certificates, onBack, onEdit, onViewRecord, onEditRecord, onDeleteRecord, onRestoreRecord, onResolve, onOpenAsset, onOpenCertificate }) {
   const { canEdit, canViewSensitive } = useContext(RoleContext);
-  const visits = useMemo(() => records.filter((r) => r.contractorId === contractor.id).sort((a, b) => (getEventDate(b) || "").localeCompare(getEventDate(a) || "")), [records, contractor.id]);
+  const visits = useMemo(() => records.filter((r) => contractorVisitedRecord(r, contractor.id)).sort((a, b) => (getEventDate(b) || "").localeCompare(getEventDate(a) || "")), [records, contractor.id]);
   const servicedAssetIds = [...new Set(visits.map((r) => r.assetId).filter(Boolean))];
   const servicedAssets = assets.filter((a) => servicedAssetIds.includes(a.id));
   const issuedCerts = useMemo(() => certificates.filter((c) => c.contractorId === contractor.id && !c.archived), [certificates, contractor.id]);
@@ -157,7 +157,7 @@ export function ContractorsList({ contractors, records, onOpen, onAdd, onEdit, o
   const handleSave = async () => {
     const rows = filtered.map((c) => ({
       name: c.name, contact: c.contactName || "", phone: c.phone || "", email: c.email || "",
-      visits: records.filter((r) => r.contractorId === c.id).length, insurance: insuranceStatus(c),
+      visits: records.filter((r) => contractorVisitedRecord(r, c.id)).length, insurance: insuranceStatus(c),
     }));
     const title = "Contractor Register";
     const columns = [
@@ -195,7 +195,7 @@ export function ContractorsList({ contractors, records, onOpen, onAdd, onEdit, o
         <div className="ledger-table">
           <div className="ledger-row ledger-row--asset ledger-row--head"><span>Name</span><span>Contact</span><span>Visits</span><span>Insurance</span><span></span><span></span></div>
           {filtered.map((c) => {
-            const visits = records.filter((r) => r.contractorId === c.id).length;
+            const visits = records.filter((r) => contractorVisitedRecord(r, c.id)).length;
             return (
               <div className="ledger-row ledger-row--asset" key={c.id}>
                 <span className="mono-strong" style={{ cursor: "pointer" }} onClick={() => onOpen(c.id)}>{c.name}{c.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</span>

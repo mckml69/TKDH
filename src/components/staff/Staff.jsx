@@ -17,7 +17,7 @@ import {
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { ErrorBanner, FormPage, HistoryList, SaveStatusBanner, Stamp, Timeline } from "../shared/UI";
 import { RoleContext } from "../../lib/constants";
-import { fmtDate, formatBytes, getEventDate, getMode, staffHaystack, staffTrainingStatus, todayStr, uid, validateStaff } from "../../lib/helpers";
+import { fmtDate, formatBytes, getEventDate, getMode, staffHaystack, staffLinkedToRecord, staffTrainingStatus, todayStr, uid, validateStaff } from "../../lib/helpers";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
@@ -61,7 +61,7 @@ export function StaffFormPage({ member, onSave, onClose }) {
 
 export function StaffDetail({ member, records, assets, onBack, onEdit, onViewRecord, onEditRecord, onResolve }) {
   const { canEdit, canViewSensitive } = useContext(RoleContext);
-  const linked = useMemo(() => records.filter((r) => r.staffId === member.id), [records, member.id]);
+  const linked = useMemo(() => records.filter((r) => staffLinkedToRecord(r, member.id)), [records, member.id]);
   const trainings = useMemo(() => linked.filter((r) => getMode(r) === "expiry").sort((a, b) => (getEventDate(b) || "").localeCompare(getEventDate(a) || "")), [linked]);
   const workRecords = useMemo(() => linked.filter((r) => getMode(r) !== "expiry").sort((a, b) => (getEventDate(b) || "").localeCompare(getEventDate(a) || "")), [linked]);
   const status = staffTrainingStatus(member, records);
@@ -120,7 +120,7 @@ export function StaffList({ staff, records, onOpen, onAdd, onEdit, onDelete, onR
   const handleSave = async () => {
     const rows = filtered.map((s) => ({
       name: s.name, role: s.role || "", contact: s.phone || s.email || "",
-      records: records.filter((r) => r.staffId === s.id).length, status: staffTrainingStatus(s, records),
+      records: records.filter((r) => staffLinkedToRecord(r, s.id)).length, status: staffTrainingStatus(s, records),
     }));
     const title = "Staff Register";
     const columns = [
@@ -157,7 +157,7 @@ export function StaffList({ staff, records, onOpen, onAdd, onEdit, onDelete, onR
         <div className="ledger-table">
           <div className="ledger-row ledger-row--asset ledger-row--head"><span>Name</span><span>Role</span><span>Records</span><span>Status</span><span></span><span></span></div>
           {filtered.map((s) => {
-            const trainings = records.filter((r) => r.staffId === s.id).length;
+            const trainings = records.filter((r) => staffLinkedToRecord(r, s.id)).length;
             return (
               <div className="ledger-row ledger-row--asset" key={s.id}>
                 <span className="mono-strong" style={{ cursor: "pointer" }} onClick={() => onOpen(s.id)}>{s.name}{s.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</span>

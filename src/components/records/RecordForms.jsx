@@ -119,7 +119,7 @@ export function RecordFormPage({ template, record, assets, rooms, contractors, s
           </div>
         )}
         {template.contractorEligible && (
-          <label>Completed by <span className="muted">(optional — contractor or in-house staff)</span>
+          <label>{mode === "maintenance" ? "Assigned to" : "Completed by"} <span className="muted">(optional — contractor or in-house staff{mode === "maintenance" ? " — who actually did the work is recorded separately, when you resolve it" : ""})</span>
             <select
               value={form.contractorId ? `contractor:${form.contractorId}` : form.staffId ? `staff:${form.staffId}` : ""}
               onChange={(e) => {
