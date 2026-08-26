@@ -802,14 +802,6 @@ export function getEventDate(record) {
   if (mode === "log") return record.dateLogged;
   return record.updatedAt || record.createdAt;
 }
-export function insuranceStatus(contractor) {
-  if (!contractor.insuranceExpiry) return "missing";
-  const d = daysUntil(contractor.insuranceExpiry);
-  if (d < 0) return "overdue";
-  if (d <= 30) return "due-soon";
-  return "compliant";
-}
-
 /* ---------------------------------------------------------
    AUDIT TRAIL — every create/edit is logged automatically, and nothing
    is ever truly deleted. "Delete" archives (hidden from lists, kept for
@@ -817,7 +809,7 @@ export function insuranceStatus(contractor) {
 --------------------------------------------------------- */
 
 export function contractorHaystack(c) {
-  const dates = [c.insuranceExpiry, c.createdAt, c.updatedAt];
+  const dates = [c.createdAt, c.updatedAt];
   return [c.name, c.contactName, c.phone, c.email, c.notes, tagBlob(c.tags), attachmentBlob(c.attachments), dateSearchBlob(dates)]
     .filter(Boolean).join(" ").toLowerCase();
 }

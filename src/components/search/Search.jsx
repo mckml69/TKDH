@@ -13,7 +13,7 @@ import {
 import { RecordTable } from "../records/RecordList";
 import { CategoryTag, ReqCategoryTag, Stamp } from "../shared/UI";
 import { ASSET_TYPES } from "../../lib/constants";
-import { assetComplianceStatus, certificateStatus, fmtDate, insuranceStatus, matchRequirement, requirementStatus, staffTrainingStatus, universalSearch, visitStatus } from "../../lib/helpers";
+import { assetComplianceStatus, certificateStatus, contractorVisitedRecord, fmtDate, matchRequirement, requirementStatus, staffTrainingStatus, universalSearch, visitStatus } from "../../lib/helpers";
 
 export function SearchSection({ title, icon: Icon, count, children }) {
   if (count === 0) return null;
@@ -88,8 +88,7 @@ export function SearchResults({ query, records, assets, rooms, contractors, staf
                   <span className="mono-strong">{c.name}{(c.tags || []).map((t) => <span key={t} className="tag-pill">{t}</span>)}</span>
                   <span className="muted">{c.contactName || "—"}</span>
                   <span className="muted">{c.phone || c.email || "—"}</span>
-                  <span className="muted">{records.filter((r) => r.contractorId === c.id).length} visit{records.filter((r) => r.contractorId === c.id).length === 1 ? "" : "s"}</span>
-                  <span><Stamp status={insuranceStatus(c)} dense /></span>
+                  <span className="muted">{records.filter((r) => contractorVisitedRecord(r, c.id)).length} visit{records.filter((r) => contractorVisitedRecord(r, c.id)).length === 1 ? "" : "s"}</span>
                 </div>
               ))}
             </div>

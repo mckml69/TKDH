@@ -589,7 +589,7 @@ export const RECORD_HISTORY_FIELDS = {
 };
 export const ASSET_HISTORY_FIELDS = { assetType: "Asset type", category: "Category", eligibleFor: "Eligible for", assetCode: "Asset code", name: "Name", location: "Location", manufacturer: "Manufacturer", model: "Model", serialNumber: "Serial number", installDate: "Installed on", status: "Status", notes: "Notes" };
 export const ROOM_HISTORY_FIELDS = { roomNumber: "Room number", floor: "Floor", roomType: "Room type", notes: "Notes" };
-export const CONTRACTOR_HISTORY_FIELDS = { name: "Name", contactName: "Contact person", phone: "Phone", email: "Email", insuranceExpiry: "Insurance expiry", notes: "Notes" };
+export const CONTRACTOR_HISTORY_FIELDS = { name: "Name", contactName: "Contact person", phone: "Phone", email: "Email", notes: "Notes" };
 export const CHECKPOINT_HISTORY_FIELDS = { name: "Name", notes: "Notes" };
 /** Water/gas/electricity meters — a freestanding recording tool, deliberately not linked to any
     compliance check, requirement, or due-date logic. unit is just a display label on the reading

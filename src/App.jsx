@@ -63,7 +63,7 @@ import { apiAdapter } from "./lib/storage/apiAdapter";
 import { AUDIT_CATEGORIES, LOCATION_PRESETS, REQUIREMENTS, RoleContext, TEMPLATES, TEMPLATE_LIST, FIRE_LOG_ITEMS, LEGIONELLA_CHECK_ITEMS } from "./lib/constants";
 import {
   certificateStatus, checkpointCheckEnsureSnapshot, checkpointCheckPeriodKey, findRoomMentions, fmtDate,
-  hasPendingCorrection, insuranceStatus, isCheckpointCheckLocked, isOverdue, staffTrainingStatus, todayStr, uid, visitStatus,
+  hasPendingCorrection, isCheckpointCheckLocked, isOverdue, staffTrainingStatus, todayStr, uid, visitStatus,
   fireLogCurrentPeriodKey, fireLogEnsureSnapshot, fireLogPeriodLabel, isFireLogLocked,
   legionellaCheckEnsureSnapshot, legionellaCheckPeriodKey, isLegionellaCheckLocked,
   legionellaTempCheckEnsureSnapshot, resolveOriginRecord, findOpenLinkedIssue, hasOpenLinkedIssue,
@@ -418,7 +418,6 @@ export default function App() {
     resetTo({ page: "audit-report" });
   };
   const overdueCount = records.filter(isOverdue).length;
-  const contractorBadge = contractors.filter((c) => ["overdue", "due-soon"].includes(insuranceStatus(c))).length;
   const staffBadge = staff.filter((s) => staffTrainingStatus(s, records) === "overdue").length;
   const certBadge = certificates.filter((c) => ["overdue", "due-soon"].includes(certificateStatus(c))).length;
   const visitBadge = visits.filter((v) => ["overdue", "open"].includes(visitStatus(v))).length;
@@ -427,10 +426,9 @@ export default function App() {
   if (loading || !usersLoaded || !sessionLoaded) {
     body = <MouseLoader label="Loading ledger…" />;
   } else if (current.page === "home") {
-    body = <Home records={records} assets={assets} rooms={rooms} contractors={contractors} certificates={certificates} responsiblePerson={responsiblePerson} onEditResponsiblePerson={() => push({ page: "responsible-person-form" })} branding={branding} onEditBranding={() => push({ page: "branding-form" })} onEdit={openRecordView}
+    body = <Home records={records} assets={assets} rooms={rooms} certificates={certificates} responsiblePerson={responsiblePerson} onEditResponsiblePerson={() => push({ page: "responsible-person-form" })} branding={branding} onEditBranding={() => push({ page: "branding-form" })} onEdit={openRecordView}
       onOpenRoom={(id) => push({ page: "room-detail", roomId: id })}
       onOpenAsset={(id) => push({ page: "asset-detail", assetId: id })}
-      onOpenContractor={(id) => push({ page: "contractor-detail", contractorId: id })}
       onOpenCertificate={(id) => push({ page: "certificate-detail", certificateId: id })}
       onOpenLibrary={() => resetTo({ page: "library" })}
       onResolve={(r) => push({ page: "resolve-form", record: r })}
@@ -767,7 +765,7 @@ export default function App() {
           const registerPages = ["assets", "asset-detail", "rooms", "room-detail", "contractors", "contractor-detail", "checkpoints", "checkpoint-detail", "meters", "meter-detail", "staff", "staff-detail", "certificates", "certificate-detail", "visits", "visit-detail"];
           const isOnRegisterPage = registerPages.includes(current.page);
           const expanded = registersOpen || isOnRegisterPage;
-          const registerBadgeTotal = contractorBadge + staffBadge + certBadge + visitBadge;
+          const registerBadgeTotal = staffBadge + certBadge + visitBadge;
           return (
             <>
               <button className="nav-item" onClick={() => setRegistersOpen((o) => !o)}>
@@ -779,7 +777,7 @@ export default function App() {
                   <button className={"nav-item" + (current.page === "rooms" || current.page === "room-detail" ? " active" : "")} onClick={() => resetTo({ page: "rooms" })}><BedDouble size={16} /> Rooms</button>
                   <button className={"nav-item" + (current.page === "checkpoints" || current.page === "checkpoint-detail" ? " active" : "")} onClick={() => resetTo({ page: "checkpoints" })}><MapPin size={16} /> Checkpoints</button>
                   <button className={"nav-item" + (current.page === "meters" || current.page === "meter-detail" ? " active" : "")} onClick={() => resetTo({ page: "meters" })}><Gauge size={16} /> Meters</button>
-                  <button className={"nav-item" + (current.page === "contractors" || current.page === "contractor-detail" ? " active" : "")} onClick={() => resetTo({ page: "contractors" })}><HardHat size={16} /> Contractors &amp; Suppliers{contractorBadge > 0 && <span className="nav-badge">{contractorBadge}</span>}</button>
+                  <button className={"nav-item" + (current.page === "contractors" || current.page === "contractor-detail" ? " active" : "")} onClick={() => resetTo({ page: "contractors" })}><HardHat size={16} /> Contractors &amp; Suppliers</button>
                   <button className={"nav-item" + (current.page === "staff" || current.page === "staff-detail" ? " active" : "")} onClick={() => resetTo({ page: "staff" })}><Users size={16} /> Staff{staffBadge > 0 && <span className="nav-badge">{staffBadge}</span>}</button>
                   {role === "General Manager" && <button className={"nav-item" + (current.page === "certificates" || current.page === "certificate-detail" ? " active" : "")} onClick={() => resetTo({ page: "certificates" })}><Award size={16} /> Certificates{certBadge > 0 && <span className="nav-badge">{certBadge}</span>}</button>}
                   <button className={"nav-item" + (current.page === "visits" || current.page === "visit-detail" ? " active" : "")} onClick={() => resetTo({ page: "visits" })}><Landmark size={16} /> Regulatory Visits{visitBadge > 0 && <span className="nav-badge">{visitBadge}</span>}</button>

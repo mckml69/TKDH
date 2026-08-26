@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   localDateStr, addDays, weekStartDate, daysUntil, daysSince, fmtDate, formatBytes,
   initialsOf, getMode, getDueDate, getStatus, getEventDate, isOverdue, isDueSoon, isDueToday, isOpenIssue,
-  insuranceStatus, certificateStatus, visitStatus, validateRecord, validateAsset, validateRoom,
+  certificateStatus, visitStatus, validateRecord, validateAsset, validateRoom,
   validateContractor, validateStaff, validateCertificate, validateVisit, validateUser, generateAssetCode,
   recordDetailText, recordWhoText, checkpointCheckEligibleCheckpoints, checkpointCheckFindMissing,
   findOpenLinkedIssue, hasOpenLinkedIssue, phoneContactLinks, checkResult, assetComplianceStatus,
@@ -191,19 +191,12 @@ describe("record mode/status logic", () => {
   });
 });
 
-describe("insuranceStatus / certificateStatus / visitStatus", () => {
+describe("certificateStatus / visitStatus", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 0, 15, 10, 0, 0)); // fixed "now": 2026-01-15
   });
   afterEach(() => vi.useRealTimers());
-
-  it("insuranceStatus", () => {
-    expect(insuranceStatus({})).toBe("missing");
-    expect(insuranceStatus({ insuranceExpiry: "2025-12-01" })).toBe("overdue");
-    expect(insuranceStatus({ insuranceExpiry: "2026-01-25" })).toBe("due-soon");
-    expect(insuranceStatus({ insuranceExpiry: "2026-06-01" })).toBe("compliant");
-  });
 
   it("certificateStatus", () => {
     expect(certificateStatus({})).toBe("missing");

@@ -21,12 +21,12 @@ import {
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { CategoryTag, ErrorBanner, FormPage, HistoryList, SaveStatusBanner, Stamp, Timeline } from "../shared/UI";
 import { ASSET_TYPES, RoleContext } from "../../lib/constants";
-import { assetComplianceStatus, certificateStatus, contractorHaystack, contractorVisitedRecord, fmtDate, formatBytes, getEventDate, insuranceStatus, phoneContactLinks, todayStr, uid, validateContractor } from "../../lib/helpers";
+import { assetComplianceStatus, certificateStatus, contractorHaystack, contractorVisitedRecord, fmtDate, formatBytes, getEventDate, phoneContactLinks, todayStr, uid, validateContractor } from "../../lib/helpers";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
 export function ContractorFormPage({ contractor, onSave, onClose }) {
-  const [form, setForm] = useState(contractor || { id: uid(), name: "", contactName: "", phone: "", email: "", insuranceExpiry: "", notes: "", attachments: [], tags: [] });
+  const [form, setForm] = useState(contractor || { id: uid(), name: "", contactName: "", phone: "", email: "", notes: "", attachments: [], tags: [] });
   const [attachments, setAttachments] = useState(form.attachments || []);
   const [tagsInput, setTagsInput] = useState((form.tags || []).join(", "));
   const [errors, setErrors] = useState([]);
@@ -44,12 +44,9 @@ export function ContractorFormPage({ contractor, onSave, onClose }) {
         <label>Company / contractor / supplier name<input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Acme Fire Ltd" /></label>
         <div className="row-2">
           <label>Contact person<input value={form.contactName} onChange={(e) => set("contactName", e.target.value)} /></label>
-          <label>Insurance expiry <span className="muted">(optional)</span><input type="date" value={form.insuranceExpiry} onChange={(e) => set("insuranceExpiry", e.target.value)} /></label>
-        </div>
-        <div className="row-2">
           <label>Phone<input value={form.phone} onChange={(e) => set("phone", e.target.value)} /></label>
-          <label>Email<input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} /></label>
         </div>
+        <label>Email<input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} /></label>
         <label>Tags <span className="muted">(comma-separated — trades, specialties)</span><input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="e.g. fire alarms, gas safe" /></label>
         <label>Notes<textarea rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Optional" /></label>
         <AttachmentsField recordId={form.id} attachments={attachments} setAttachments={setAttachments} />
@@ -65,7 +62,6 @@ export function ContractorDetail({ contractor, records, assets, certificates, on
   const servicedAssetIds = [...new Set(visits.map((r) => r.assetId).filter(Boolean))];
   const servicedAssets = assets.filter((a) => servicedAssetIds.includes(a.id));
   const issuedCerts = useMemo(() => certificates.filter((c) => c.contractorId === contractor.id && !c.archived), [certificates, contractor.id]);
-  const iStatus = insuranceStatus(contractor);
   const phoneLinks = contractor.phone ? phoneContactLinks(contractor.phone) : null;
 
   return (
@@ -75,7 +71,7 @@ export function ContractorDetail({ contractor, records, assets, certificates, on
         <div className="module-title"><HardHat size={22} color="#197386" /><h2>{contractor.name}{contractor.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
         {!contractor.archived && canEdit && <button className="btn btn-ghost" onClick={() => onEdit(contractor)}><Pencil size={15} /> Edit contractor</button>}
       </div>
-      <div className="asset-info-grid">
+      <div className="asset-info-grid" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
         <div><span className="field-label">Contact</span><p>{contractor.contactName || "—"}</p></div>
         <div><span className="field-label">Phone</span><p>
           {contractor.phone ? (
@@ -90,7 +86,6 @@ export function ContractorDetail({ contractor, records, assets, certificates, on
           ) : "—"}
         </p></div>
         <div><span className="field-label">Email</span><p>{contractor.email ? <><Mail size={12} style={{ verticalAlign: -1 }} /> {contractor.email}</> : "—"}</p></div>
-        <div><span className="field-label">Insurance expiry</span><p><Stamp status={iStatus} dense /> {contractor.insuranceExpiry ? fmtDate(contractor.insuranceExpiry) : "Not on file"}</p></div>
       </div>
       {contractor.notes && <p className="muted" style={{ marginBottom: 10 }}>{contractor.notes}</p>}
       {(contractor.attachments || []).length > 0 && (
@@ -157,16 +152,15 @@ export function ContractorsList({ contractors, records, onOpen, onAdd, onEdit, o
   const handleSave = async () => {
     const rows = filtered.map((c) => ({
       name: c.name, contact: c.contactName || "", phone: c.phone || "", email: c.email || "",
-      visits: records.filter((r) => contractorVisitedRecord(r, c.id)).length, insurance: insuranceStatus(c),
+      visits: records.filter((r) => contractorVisitedRecord(r, c.id)).length,
     }));
     const title = "Contractor Register";
     const columns = [
-      { key: "name", label: "Name", width: 0.24 },
-      { key: "contact", label: "Contact", width: 0.16 },
-      { key: "phone", label: "Phone", width: 0.14 },
-      { key: "email", label: "Email", width: 0.2 },
-      { key: "visits", label: "Visits", width: 0.1 },
-      { key: "insurance", label: "Insurance", width: 0.16, chip: true },
+      { key: "name", label: "Name", width: 0.26 },
+      { key: "contact", label: "Contact", width: 0.18 },
+      { key: "phone", label: "Phone", width: 0.16 },
+      { key: "email", label: "Email", width: 0.24 },
+      { key: "visits", label: "Visits", width: 0.16 },
     ];
     const subtitle = `Saved ${fmtDate(todayStr())} · ${filtered.length} contractor${filtered.length === 1 ? "" : "s"}`;
     const pdfBytes = await buildRegisterPdf({ title, subtitle, branding, sections: [{ type: "table", columns, rows }] });
@@ -193,7 +187,7 @@ export function ContractorsList({ contractors, records, onOpen, onAdd, onEdit, o
         <div className="empty-state">{showArchived ? "No archived entries." : "No contractors or suppliers registered yet — anyone who services your building or supplies your hotel, from the fire alarm engineer to your linen supplier."}</div>
       ) : (
         <div className="ledger-table">
-          <div className="ledger-row ledger-row--asset ledger-row--head"><span>Name</span><span>Contact</span><span>Visits</span><span>Insurance</span><span></span><span></span></div>
+          <div className="ledger-row ledger-row--asset ledger-row--head"><span>Name</span><span>Contact</span><span>Visits</span><span></span><span></span><span></span></div>
           {filtered.map((c) => {
             const visits = records.filter((r) => contractorVisitedRecord(r, c.id)).length;
             return (
@@ -201,7 +195,7 @@ export function ContractorsList({ contractors, records, onOpen, onAdd, onEdit, o
                 <span className="mono-strong" style={{ cursor: "pointer" }} onClick={() => onOpen(c.id)}>{c.name}{c.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</span>
                 <span className="muted">{c.contactName || c.phone || c.email || "—"}</span>
                 <span className="muted">{visits}</span>
-                <span><Stamp status={insuranceStatus(c)} dense /></span>
+                <span></span>
                 <span></span>
                 <span className="row-actions">
                   {!c.archived && canEdit && <button className="icon-btn" onClick={() => onEdit(c)}><Pencil size={15} /></button>}

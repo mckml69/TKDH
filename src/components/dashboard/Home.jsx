@@ -4,7 +4,6 @@ import {
   Sparkles,
   Package,
   BedDouble,
-  HardHat,
   Award,
   Repeat,
   MessageSquareWarning,
@@ -14,18 +13,16 @@ import { ResponsiblePersonCard } from "../settings/ResponsiblePerson";
 import { BrandingCard } from "../settings/Branding";
 import { CategoryTag, DashboardSection, Stamp } from "../shared/UI";
 import { REQUIREMENTS, RoleContext } from "../../lib/constants";
-import { assetComplianceStatus, assetUnreliability, belongsToRoom, certificateStatus, findRecurringIssue, findRepeatFailure, fmtDate, getMode, getStatus, hasPendingCorrection, insuranceStatus, isReviewMode, isScheduleMode, matchRequirement, requirementStatus, roomProblemCounts, timeGreeting, todaysActionItems } from "../../lib/helpers";
+import { assetComplianceStatus, assetUnreliability, belongsToRoom, certificateStatus, findRecurringIssue, findRepeatFailure, fmtDate, getMode, getStatus, hasPendingCorrection, isReviewMode, isScheduleMode, matchRequirement, requirementStatus, roomProblemCounts, timeGreeting, todaysActionItems } from "../../lib/helpers";
 
-export function Home({ records, assets, rooms, contractors, certificates, responsiblePerson, onEditResponsiblePerson, branding, onEditBranding, onEdit, onOpenRoom, onOpenAsset, onOpenContractor, onOpenCertificate, onOpenLibrary, onResolve, goToLedger }) {
+export function Home({ records, assets, rooms, certificates, responsiblePerson, onEditResponsiblePerson, branding, onEditBranding, onEdit, onOpenRoom, onOpenAsset, onOpenCertificate, onOpenLibrary, onResolve, goToLedger }) {
   const { role, currentUser } = useContext(RoleContext);
   const activeRecords = useMemo(() => records.filter((r) => !r.archived), [records]);
   const pendingCorrections = useMemo(() => activeRecords.filter(hasPendingCorrection), [activeRecords]);
   const activeAssets = useMemo(() => assets.filter((a) => !a.archived), [assets]);
   const activeRooms = useMemo(() => rooms.filter((r) => !r.archived), [rooms]);
-  const activeContractors = useMemo(() => contractors.filter((c) => !c.archived), [contractors]);
   const activeCertificates = useMemo(() => certificates.filter((c) => !c.archived), [certificates]);
   const today = useMemo(() => todaysActionItems(activeRecords), [activeRecords]);
-  const contractorsDue = useMemo(() => activeContractors.filter((c) => ["overdue", "due-soon"].includes(insuranceStatus(c))).sort((a, b) => (a.insuranceExpiry || "").localeCompare(b.insuranceExpiry || "")), [activeContractors]);
   const certsExpiringTraining = useMemo(() => activeRecords.filter((r) => getMode(r) === "expiry" && ["overdue", "due-soon"].includes(getStatus(r))), [activeRecords]);
   const certsExpiringDocs = useMemo(() => activeCertificates.filter((c) => ["overdue", "due-soon"].includes(certificateStatus(c))), [activeCertificates]);
   const certsExpiringMerged = useMemo(() => {
@@ -44,9 +41,8 @@ export function Home({ records, assets, rooms, contractors, certificates, respon
   const dueSoonCount = useMemo(() => {
     const recs = activeRecords.filter((r) => isScheduleMode(r) && getStatus(r) === "due-soon").length;
     const certs = certsExpiringMerged.filter((item) => item.status === "due-soon").length;
-    const contr = contractorsDue.filter((c) => insuranceStatus(c) === "due-soon").length;
-    return recs + certs + contr;
-  }, [activeRecords, certsExpiringMerged, contractorsDue]);
+    return recs + certs;
+  }, [activeRecords, certsExpiringMerged]);
   const forgottenCount = useMemo(() => REQUIREMENTS.filter((req) => {
     if (req.matchMode === "none") return false;
     const matched = matchRequirement(req, activeRecords, activeCertificates);
@@ -96,20 +92,6 @@ export function Home({ records, assets, rooms, contractors, certificates, respon
 
       <DashboardSection title="Needs doing today" icon={Sparkles} color="#197386" count={today.length} emptyText="Nothing needs attention right now — genuinely clear." onViewAll={() => goToLedger({ category: "all", status: "all", query: "" })}>
         <RecordTable records={today.slice(0, 8)} assets={assets} onView={onEdit} onEdit={onEdit} onDelete={() => {}} onResolve={onResolve} emptyText="" />
-      </DashboardSection>
-
-      <DashboardSection title="Which contractors or suppliers are due?" icon={HardHat} color="#B8862B" count={contractorsDue.length} emptyText="No insurance expiring soon.">
-        <div className="ledger-table">
-          {contractorsDue.slice(0, 8).map((c) => (
-            <div key={c.id} className="ledger-row ledger-row--flat" style={{ cursor: "pointer" }} onClick={() => onOpenContractor(c.id)}>
-              <span className="mono-strong">{c.name}</span>
-              <span className="muted">{c.contactName || "—"}</span>
-              <span className="muted">Insurance</span>
-              <span className="mono">{c.insuranceExpiry ? fmtDate(c.insuranceExpiry) : "Not on file"}</span>
-              <span><Stamp status={insuranceStatus(c)} dense /></span>
-            </div>
-          ))}
-        </div>
       </DashboardSection>
 
       <DashboardSection title="Which certificates expire soon?" icon={Award} color="#B8862B" count={(role === "General Manager" ? certsExpiringMerged : certsExpiringMerged.filter((i) => i.kind !== "Certificate")).length} emptyText="No certificates or staff training expiring soon.">
