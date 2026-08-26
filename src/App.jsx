@@ -58,6 +58,7 @@ import { useLedger } from "./hooks/useLedger";
 import { useResponsiblePerson } from "./hooks/useResponsiblePerson";
 import { useBranding } from "./hooks/useBranding";
 import { useDangerZonePin } from "./hooks/useDangerZonePin";
+import { useVenuePull } from "./hooks/useVenuePull";
 import { useUsers } from "./hooks/useUsers";
 import { storageMode } from "./lib/storage";
 import { apiAdapter } from "./lib/storage/apiAdapter";
@@ -98,6 +99,7 @@ export default function App() {
   const { person: responsiblePerson, savePerson: saveResponsiblePerson } = useResponsiblePerson();
   const { branding, saveBranding } = useBranding();
   const { pin: dangerZonePin, savePin: saveDangerZonePin } = useDangerZonePin();
+  const venuePull = useVenuePull();
   const [wizardStep, setWizardStep] = useState(0);
   const [registersOpen, setRegistersOpen] = useState(true);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -427,7 +429,7 @@ export default function App() {
   if (loading || !usersLoaded || !sessionLoaded) {
     body = <MouseLoader label="Loading ledger…" />;
   } else if (current.page === "home") {
-    body = <Home records={records} assets={assets} rooms={rooms} certificates={certificates} responsiblePerson={responsiblePerson} onEditResponsiblePerson={() => push({ page: "responsible-person-form" })} branding={branding} onEditBranding={() => push({ page: "branding-form" })} onEdit={openRecordView}
+    body = <Home records={records} assets={assets} rooms={rooms} certificates={certificates} venuePull={venuePull} responsiblePerson={responsiblePerson} onEditResponsiblePerson={() => push({ page: "responsible-person-form" })} branding={branding} onEditBranding={() => push({ page: "branding-form" })} onEdit={openRecordView}
       onOpenRoom={(id) => push({ page: "room-detail", roomId: id })}
       onOpenAsset={(id) => push({ page: "asset-detail", assetId: id })}
       onOpenCertificate={(id) => push({ page: "certificate-detail", certificateId: id })}

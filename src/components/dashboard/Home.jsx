@@ -12,10 +12,10 @@ import { RecordTable } from "../records/RecordList";
 import { ResponsiblePersonCard } from "../settings/ResponsiblePerson";
 import { BrandingCard } from "../settings/Branding";
 import { CategoryTag, DashboardSection, Stamp } from "../shared/UI";
-import { REQUIREMENTS, RoleContext } from "../../lib/constants";
-import { assetComplianceStatus, assetUnreliability, belongsToRoom, certificateStatus, findRecurringIssue, findRepeatFailure, fmtDate, getMode, getStatus, hasPendingCorrection, isReviewMode, isScheduleMode, matchRequirement, requirementStatus, roomProblemCounts, timeGreeting, todaysActionItems } from "../../lib/helpers";
+import { PUB_VENUE_NAME, REQUIREMENTS, RoleContext } from "../../lib/constants";
+import { assetComplianceStatus, assetUnreliability, belongsToRoom, certificateStatus, findRecurringIssue, findRepeatFailure, fmtDate, getMode, getStatus, hasPendingCorrection, isOpenIssue, isReviewMode, isScheduleMode, matchRequirement, recordDetailText, requirementStatus, roomProblemCounts, timeGreeting, todaysActionItems } from "../../lib/helpers";
 
-export function Home({ records, assets, rooms, certificates, responsiblePerson, onEditResponsiblePerson, branding, onEditBranding, onEdit, onOpenRoom, onOpenAsset, onOpenCertificate, onOpenLibrary, onResolve, goToLedger }) {
+export function Home({ records, assets, rooms, certificates, venuePull, responsiblePerson, onEditResponsiblePerson, branding, onEditBranding, onEdit, onOpenRoom, onOpenAsset, onOpenCertificate, onOpenLibrary, onResolve, goToLedger }) {
   const { role, currentUser } = useContext(RoleContext);
   const activeRecords = useMemo(() => records.filter((r) => !r.archived), [records]);
   const pendingCorrections = useMemo(() => activeRecords.filter(hasPendingCorrection), [activeRecords]);
@@ -54,6 +54,7 @@ export function Home({ records, assets, rooms, certificates, responsiblePerson, 
   // or the two visibly disagree (review mode uses "reviewed", log modes use "logged" — genuinely
   // distinct status keys — so nothing else can silently sneak into this count).
   const canWaitCount = useMemo(() => activeRecords.filter((r) => getStatus(r) === "compliant").length, [activeRecords]);
+  const openPubIssues = useMemo(() => (venuePull?.available ? venuePull.issues.filter(isOpenIssue) : []), [venuePull]);
 
   return (
     <div className="overview">
@@ -93,6 +94,21 @@ export function Home({ records, assets, rooms, certificates, responsiblePerson, 
       <DashboardSection title="Needs doing today" icon={Sparkles} color="#197386" count={today.length} emptyText="Nothing needs attention right now — genuinely clear." onViewAll={() => goToLedger({ category: "all", status: "all", query: "" })}>
         <RecordTable records={today.slice(0, 8)} assets={assets} onView={onEdit} onEdit={onEdit} onDelete={() => {}} onResolve={onResolve} emptyText="" />
       </DashboardSection>
+
+      {role === "General Manager" && venuePull?.available && (
+        <DashboardSection title={`${PUB_VENUE_NAME} issues`} icon={Package} color="#A8402F" count={openPubIssues.length} emptyText={`No open issues at ${PUB_VENUE_NAME} right now.`}>
+          <div className="ledger-table">
+            {openPubIssues.slice(0, 8).map((r) => (
+              <div key={r.id} className="ledger-row ledger-row--flat">
+                <span><CategoryTag category={r.category} /></span>
+                <span className="mono-strong">{r.title}</span>
+                <span className="muted">{recordDetailText(r, venuePull.assets, venuePull.rooms, venuePull.contractors, venuePull.staff)}</span>
+                <span><Stamp status={getStatus(r)} dense /></span>
+              </div>
+            ))}
+          </div>
+        </DashboardSection>
+      )}
 
       <DashboardSection title="Which certificates expire soon?" icon={Award} color="#B8862B" count={(role === "General Manager" ? certsExpiringMerged : certsExpiringMerged.filter((i) => i.kind !== "Certificate")).length} emptyText="No certificates or staff training expiring soon.">
         <div className="ledger-table">

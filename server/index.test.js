@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
 import request from "supertest";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -146,5 +146,116 @@ describe("auth + storage lifecycle", () => {
     await loginAgent.post("/api/auth/logout");
     const after = await loginAgent.get("/api/auth/session");
     expect(after.status).toBe(401);
+  });
+});
+
+describe("cross-venue sharing (/api/shared/pull, /api/venue-pull)", () => {
+  let agent;
+  const secret = "test-shared-secret";
+
+  beforeAll(async () => {
+    agent = request.agent(app);
+    await agent.post("/api/auth/login").send({ email: "gm@hotel.test", password: "correct horse battery" });
+    // Seed exactly what a real venue would have: an open Maintenance issue and a resolved Pest
+    // issue (both should count), a schedule-mode record that must NOT leak out, the asset/room/
+    // contractor those issues reference, and one whole_building contractor + one venue-only
+    // contractor (only the former should ever be exposed).
+    const records = [
+      { id: "r1", category: "maintenance", title: "Fridge not working", status: "Open", archived: false, assetId: "a1", roomId: "rm1", contractorId: null },
+      { id: "r2", category: "pest", title: "Mice sighting", status: "Resolved", archived: false, roomId: "rm1", resolvedContractorId: "c1" },
+      { id: "r3", category: "equipment", title: "AC filter clean", status: null, archived: false, assetId: "a1" }, // not an issue — must not appear
+      { id: "r4", category: "maintenance", title: "Old, archived issue", status: "Open", archived: true }, // archived — must not appear
+    ];
+    const assets = [{ id: "a1", assetCode: "FRG001", assetType: "fridge", name: "" }];
+    const rooms = [{ id: "rm1", roomNumber: "12" }];
+    const contractors = [
+      { id: "c1", name: "Acme Pest Control", scope: "venue" },
+      { id: "c2", name: "Acme Fire & Electrical", scope: "whole_building", archived: false },
+      { id: "c3", name: "Archived Whole Building Contractor", scope: "whole_building", archived: true },
+    ];
+    const certificates = [
+      { id: "cert1", title: "Fire Alarm Service", scope: "whole_building", archived: false },
+      { id: "cert2", title: "Local Food Hygiene", scope: "venue" },
+    ];
+    for (const [key, value] of [
+      ["ledger-records", records], ["ledger-assets", assets], ["ledger-rooms", rooms],
+      ["ledger-contractors", contractors], ["ledger-certificates", certificates],
+    ]) {
+      await agent.put(`/api/storage/${key}`).send({ value: JSON.stringify(value) });
+    }
+  });
+
+  afterEach(() => { delete process.env.SHARED_SYNC_SECRET; delete process.env.OTHER_VENUE_URL; vi.unstubAllGlobals(); });
+
+  describe("/api/shared/pull (outbound — another venue's server calls in)", () => {
+    it("is unavailable when this deployment has no SHARED_SYNC_SECRET configured", async () => {
+      const res = await request(app).get("/api/shared/pull");
+      expect(res.status).toBe(503);
+    });
+
+    it("rejects a request with the wrong (or missing) secret", async () => {
+      process.env.SHARED_SYNC_SECRET = secret;
+      const wrong = await request(app).get("/api/shared/pull").set("Authorization", "Bearer nope");
+      expect(wrong.status).toBe(401);
+      const missing = await request(app).get("/api/shared/pull");
+      expect(missing.status).toBe(401);
+    });
+
+    it("returns only Maintenance/Pest issues (not archived, not other categories), with just the referenced context", async () => {
+      process.env.SHARED_SYNC_SECRET = secret;
+      const res = await request(app).get("/api/shared/pull").set("Authorization", `Bearer ${secret}`);
+      expect(res.status).toBe(200);
+      expect(res.body.issues.map((r) => r.id).sort()).toEqual(["r1", "r2"]);
+      expect(res.body.assets.map((a) => a.id)).toEqual(["a1"]);
+      expect(res.body.rooms.map((r) => r.id)).toEqual(["rm1"]);
+      expect(res.body.contractors.map((c) => c.id)).toEqual(["c1"]); // referenced by r2.resolvedContractorId
+    });
+
+    it("returns only non-archived whole_building contractors and certificates, never venue-scoped ones", async () => {
+      process.env.SHARED_SYNC_SECRET = secret;
+      const res = await request(app).get("/api/shared/pull").set("Authorization", `Bearer ${secret}`);
+      expect(res.body.wholeBuildingContractors.map((c) => c.id)).toEqual(["c2"]);
+      expect(res.body.wholeBuildingCertificates.map((c) => c.id)).toEqual(["cert1"]);
+    });
+  });
+
+  describe("/api/venue-pull (inbound — this venue's own frontend calls it)", () => {
+    it("requires a signed-in session, same as any other app route", async () => {
+      const res = await request(app).get("/api/venue-pull");
+      expect(res.status).toBe(401);
+    });
+
+    it("reports unavailable when OTHER_VENUE_URL/SHARED_SYNC_SECRET aren't configured", async () => {
+      const res = await agent.get("/api/venue-pull");
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ available: false });
+    });
+
+    it("fetches from the other venue's /api/shared/pull and forwards the result when configured", async () => {
+      process.env.OTHER_VENUE_URL = "https://pub.example.test";
+      process.env.SHARED_SYNC_SECRET = secret;
+      const fetchMock = vi.fn(async (url, opts) => {
+        expect(url).toBe("https://pub.example.test/api/shared/pull");
+        expect(opts.headers.Authorization).toBe(`Bearer ${secret}`);
+        return { ok: true, json: async () => ({ issues: [{ id: "pub-r1", category: "maintenance", title: "Beer line clean overdue" }], assets: [], rooms: [], contractors: [], staff: [], wholeBuildingContractors: [], wholeBuildingCertificates: [] }) };
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const res = await agent.get("/api/venue-pull");
+      expect(res.status).toBe(200);
+      expect(res.body.available).toBe(true);
+      expect(res.body.issues).toEqual([{ id: "pub-r1", category: "maintenance", title: "Beer line clean overdue" }]);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("reports unavailable (not a 500) when the other venue is unreachable", async () => {
+      process.env.OTHER_VENUE_URL = "https://pub.example.test";
+      process.env.SHARED_SYNC_SECRET = secret;
+      vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("ECONNREFUSED"); }));
+
+      const res = await agent.get("/api/venue-pull");
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ available: false });
+    });
   });
 });

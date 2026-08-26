@@ -245,6 +245,74 @@ app.delete("/api/storage/:key", requireAuth, async (req, res) => {
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 // ---------------------------------------------------------------------------
+// CROSS-VENUE SHARING — this same codebase gets deployed once per venue (e.g.
+// the hotel, and separately the pub & kitchen it's also responsible for).
+// /api/shared/pull is the OUTBOUND side: another venue's deployment calls in
+// here, authenticated by a shared secret (not a session cookie — the caller is
+// a server, not a signed-in browser), and gets back this venue's own open
+// Maintenance/Pest issues plus whichever Contractors/Certificates are scoped
+// "whole_building". /api/venue-pull is the INBOUND side: this venue's own
+// frontend calls it, and it fetches from the OTHER venue's /api/shared/pull.
+// Both are no-ops (503 / { available: false }) until SHARED_SYNC_SECRET and
+// OTHER_VENUE_URL are actually configured — nothing here fires until a second
+// venue genuinely exists and both deployments agree on the same secret.
+// ---------------------------------------------------------------------------
+
+function readSharedList(key) {
+  const row = db.prepare("SELECT value FROM kv_store WHERE key = ? AND shared = 1").get(key);
+  if (!row) return [];
+  try { return JSON.parse(row.value) || []; } catch { return []; }
+}
+
+app.get("/api/shared/pull", (req, res) => {
+  const secret = process.env.SHARED_SYNC_SECRET;
+  if (!secret) return res.status(503).json({ error: "cross-venue sharing is not configured on this deployment" });
+  const auth = req.headers.authorization || "";
+  if (auth !== `Bearer ${secret}`) return res.status(401).json({ error: "invalid shared secret" });
+
+  const records = readSharedList("ledger-records");
+  const assets = readSharedList("ledger-assets");
+  const rooms = readSharedList("ledger-rooms");
+  const contractors = readSharedList("ledger-contractors");
+  const staff = readSharedList("ledger-staff");
+  const certificates = readSharedList("ledger-certificates");
+
+  // Everything else about a Maintenance/Pest issue (asset name, room number, who raised/resolved
+  // it) has to travel alongside it, or the other venue would have nothing to resolve those ids
+  // against — it never has (and never will have) its own copy of this venue's assets/rooms/staff.
+  const issues = records.filter((r) => !r.archived && (r.category === "maintenance" || r.category === "pest"));
+  const assetIds = new Set(issues.map((r) => r.assetId).filter(Boolean));
+  const roomIds = new Set(issues.map((r) => r.roomId).filter(Boolean));
+  const contractorIds = new Set(issues.flatMap((r) => [r.contractorId, r.awaitingContractorId, r.resolvedContractorId]).filter(Boolean));
+  const staffIds = new Set(issues.flatMap((r) => [r.staffId, r.awaitingStaffId, r.resolvedStaffId]).filter(Boolean));
+
+  res.json({
+    issues,
+    assets: assets.filter((a) => assetIds.has(a.id)),
+    rooms: rooms.filter((rm) => roomIds.has(rm.id)),
+    contractors: contractors.filter((c) => contractorIds.has(c.id)),
+    staff: staff.filter((s) => staffIds.has(s.id)),
+    wholeBuildingContractors: contractors.filter((c) => c.scope === "whole_building" && !c.archived),
+    wholeBuildingCertificates: certificates.filter((c) => c.scope === "whole_building" && !c.archived),
+  });
+});
+
+app.get("/api/venue-pull", requireAuth, async (req, res) => {
+  const url = process.env.OTHER_VENUE_URL;
+  const secret = process.env.SHARED_SYNC_SECRET;
+  if (!url || !secret) return res.json({ available: false });
+  try {
+    const upstream = await fetch(`${url.replace(/\/$/, "")}/api/shared/pull`, { headers: { Authorization: `Bearer ${secret}` } });
+    if (!upstream.ok) return res.json({ available: false });
+    const data = await upstream.json();
+    res.json({ available: true, ...data });
+  } catch (err) {
+    console.error("venue-pull failed:", err);
+    res.json({ available: false });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // FRONTEND — serves the built Vite app (../dist) so the whole thing is one
 // deployable service instead of two separately-hosted pieces. Only kicks in
 // when a build actually exists (e.g. `npm run build` was run in the project
