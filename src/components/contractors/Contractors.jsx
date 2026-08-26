@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { CategoryTag, ErrorBanner, FormPage, HistoryList, SaveStatusBanner, Stamp, Timeline } from "../shared/UI";
-import { ASSET_TYPES, RoleContext, SCOPE_OPTIONS } from "../../lib/constants";
+import { ASSET_TYPES, PUB_VENUE_NAME, RoleContext, SCOPE_OPTIONS } from "../../lib/constants";
 import { assetComplianceStatus, certificateStatus, contractorHaystack, contractorVisitedRecord, fmtDate, formatBytes, getEventDate, phoneContactLinks, scopeLabel, todayStr, uid, validateContractor } from "../../lib/helpers";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
@@ -146,17 +146,22 @@ export function ContractorDetail({ contractor, records, assets, certificates, on
   );
 }
 
-export function ContractorsList({ contractors, records, onOpen, onAdd, onEdit, onDelete, onRestore, onExportFallback, branding }) {
-  const { canDelete, canEdit } = useContext(RoleContext);
+export function ContractorsList({ contractors, records, venuePull, onOpen, onAdd, onEdit, onDelete, onRestore, onExportFallback, branding }) {
+  const { role, canDelete, canEdit } = useContext(RoleContext);
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  // Whole-building contractors the other venue has shared, merged read-only into this same list —
+  // namespaced id (it isn't in this venue's own storage), no edit/delete/archive, since managing
+  // it happens on whichever venue actually created it.
+  const pulledContractors = useMemo(() => (role === "General Manager" && venuePull?.available ? venuePull.wholeBuildingContractors.map((c) => ({ ...c, id: `pull:${c.id}`, __pulled: true })) : []), [role, venuePull]);
+  const allContractors = useMemo(() => [...contractors, ...pulledContractors], [contractors, pulledContractors]);
   const archivedCount = useMemo(() => contractors.filter((c) => c.archived).length, [contractors]);
-  const filtered = useMemo(() => contractors.filter((c) => (showArchived ? c.archived : !c.archived) && (!query || contractorHaystack(c).includes(query.toLowerCase()))), [contractors, query, showArchived]);
+  const filtered = useMemo(() => allContractors.filter((c) => (showArchived ? c.archived : !c.archived) && (!query || contractorHaystack(c).includes(query.toLowerCase()))), [allContractors, query, showArchived]);
 
   const [saveStatus, setSaveStatus] = useState(null);
   const handleSave = async () => {
     const rows = filtered.map((c) => ({
-      name: c.name, contact: c.contactName || "", phone: c.phone || "", email: c.email || "",
+      name: c.__pulled ? `${c.name} (${PUB_VENUE_NAME})` : c.name, contact: c.contactName || "", phone: c.phone || "", email: c.email || "",
       visits: records.filter((r) => contractorVisitedRecord(r, c.id)).length,
     }));
     const title = "Contractor Register";
@@ -194,17 +199,18 @@ export function ContractorsList({ contractors, records, onOpen, onAdd, onEdit, o
         <div className="ledger-table">
           <div className="ledger-row ledger-row--asset ledger-row--head"><span>Name</span><span>Contact</span><span>Visits</span><span></span><span></span><span></span></div>
           {filtered.map((c) => {
+            const pulled = !!c.__pulled;
             const visits = records.filter((r) => contractorVisitedRecord(r, c.id)).length;
             return (
               <div className="ledger-row ledger-row--asset" key={c.id}>
-                <span className="mono-strong" style={{ cursor: "pointer" }} onClick={() => onOpen(c.id)}>{c.name}{c.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</span>
+                <span className="mono-strong" style={pulled ? undefined : { cursor: "pointer" }} onClick={pulled ? undefined : () => onOpen(c.id)}>{c.name}{c.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</span>
                 <span className="muted">{c.contactName || c.phone || c.email || "—"}</span>
                 <span className="muted">{visits}</span>
-                <span>{c.scope === "whole_building" && <span className="flag-tag" style={{ marginLeft: 0, color: "#2A3A6E", background: "#EEF0FA" }}>{scopeLabel(c.scope)}</span>}</span>
+                <span>{pulled ? <span className="flag-tag" style={{ marginLeft: 0, color: "#2A3A6E", background: "#EEF0FA" }}>{PUB_VENUE_NAME}</span> : c.scope === "whole_building" && <span className="flag-tag" style={{ marginLeft: 0, color: "#2A3A6E", background: "#EEF0FA" }}>{scopeLabel(c.scope)}</span>}</span>
                 <span></span>
                 <span className="row-actions">
-                  {!c.archived && canEdit && <button className="icon-btn" onClick={() => onEdit(c)}><Pencil size={15} /></button>}
-                  {canDelete && (c.archived
+                  {!pulled && !c.archived && canEdit && <button className="icon-btn" onClick={() => onEdit(c)}><Pencil size={15} /></button>}
+                  {!pulled && canDelete && (c.archived
                     ? <button className="icon-btn" onClick={() => onRestore(c.id)}><ArchiveRestore size={15} /></button>
                     : <button className="icon-btn" onClick={() => onDelete(c.id)}><Archive size={15} /></button>)}
                 </span>

@@ -471,7 +471,7 @@ export default function App() {
       onViewRecord={openRecordView} onEditRecord={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onDeleteRecord={handleDeleteRecord} onRestoreRecord={restoreRecord} onResolve={(r) => push({ page: "resolve-form", record: r })}
       onOpenAsset={(id) => push({ page: "asset-detail", assetId: id })} /> : null;
   } else if (current.page === "contractors") {
-    body = <ContractorsList contractors={contractors} records={records} onOpen={(id) => push({ page: "contractor-detail", contractorId: id })} onAdd={() => push({ page: "contractor-form", contractor: null })} onEdit={(c) => push({ page: "contractor-form", contractor: c })} onDelete={handleDeleteContractor} onRestore={restoreContractor} onExportFallback={openReportFallback} branding={branding} />;
+    body = <ContractorsList contractors={contractors} records={records} venuePull={venuePull} onOpen={(id) => push({ page: "contractor-detail", contractorId: id })} onAdd={() => push({ page: "contractor-form", contractor: null })} onEdit={(c) => push({ page: "contractor-form", contractor: c })} onDelete={handleDeleteContractor} onRestore={restoreContractor} onExportFallback={openReportFallback} branding={branding} />;
   } else if (current.page === "contractor-detail") {
     const contractor = contractors.find((c) => c.id === current.contractorId);
     body = contractor ? <ContractorDetail contractor={contractor} records={records} assets={assets} certificates={certificates} onBack={pop}
@@ -488,7 +488,7 @@ export default function App() {
       onViewRecord={openRecordView} onEditRecord={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onResolve={(r) => push({ page: "resolve-form", record: r })} /> : null;
   } else if (current.page === "certificates") {
     body = role === "General Manager"
-      ? <CertificatesList certificates={certificates} assets={assets} contractors={contractors} onOpen={(id) => push({ page: "certificate-detail", certificateId: id })} onAdd={() => push({ page: "certificate-form", cert: null })} onEdit={(c) => push({ page: "certificate-form", cert: c })} onDelete={handleDeleteCertificate} onRestore={restoreCertificate} onExportFallback={openReportFallback} branding={branding} />
+      ? <CertificatesList certificates={certificates} assets={assets} contractors={contractors} venuePull={venuePull} onOpen={(id) => push({ page: "certificate-detail", certificateId: id })} onAdd={() => push({ page: "certificate-form", cert: null })} onEdit={(c) => push({ page: "certificate-form", cert: c })} onDelete={handleDeleteCertificate} onRestore={restoreCertificate} onExportFallback={openReportFallback} branding={branding} />
       : <div className="empty-state">Certificates contain insurance and legal documents — only a General Manager can view this register.</div>;
   } else if (current.page === "certificate-detail") {
     const cert = certificates.find((c) => c.id === current.certificateId);

@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { ErrorBanner, FormPage, HistoryList, SaveStatusBanner, Stamp } from "../shared/UI";
-import { ASSET_TYPES, CERT_TYPES, CERT_DEFAULT_VALIDITY_DAYS, RoleContext, SCOPE_OPTIONS } from "../../lib/constants";
+import { ASSET_TYPES, CERT_TYPES, CERT_DEFAULT_VALIDITY_DAYS, PUB_VENUE_NAME, RoleContext, SCOPE_OPTIONS } from "../../lib/constants";
 import { addDays, certificateHaystack, certificateStatus, fmtDate, formatBytes, scopeLabel, todayStr, uid, validateCertificate } from "../../lib/helpers";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
@@ -117,19 +117,23 @@ export function CertificateDetail({ cert, assets, contractors, onBack, onEdit, o
   );
 }
 
-export function CertificatesList({ certificates, assets, contractors, onOpen, onAdd, onEdit, onDelete, onRestore, onExportFallback, branding }) {
-  const { canDelete, canEdit } = useContext(RoleContext);
+export function CertificatesList({ certificates, assets, contractors, venuePull, onOpen, onAdd, onEdit, onDelete, onRestore, onExportFallback, branding }) {
+  const { role, canDelete, canEdit } = useContext(RoleContext);
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [showArchived, setShowArchived] = useState(false);
+  // Whole-building certificates the other venue has shared, merged read-only into this same
+  // list — namespaced id (it isn't in this venue's own storage), no edit/delete/archive.
+  const pulledCertificates = useMemo(() => (role === "General Manager" && venuePull?.available ? venuePull.wholeBuildingCertificates.map((c) => ({ ...c, id: `pull:${c.id}`, __pulled: true })) : []), [role, venuePull]);
+  const allCertificates = useMemo(() => [...certificates, ...pulledCertificates], [certificates, pulledCertificates]);
   const archivedCount = useMemo(() => certificates.filter((c) => c.archived).length, [certificates]);
-  const filtered = useMemo(() => certificates.filter((c) =>
+  const filtered = useMemo(() => allCertificates.filter((c) =>
     (showArchived ? c.archived : !c.archived) && (typeFilter === "all" || c.certType === typeFilter) && (!query || certificateHaystack(c).includes(query.toLowerCase()))
-  ).sort((a, b) => (a.expiryDate || "").localeCompare(b.expiryDate || "")), [certificates, query, typeFilter, showArchived]);
+  ).sort((a, b) => (a.expiryDate || "").localeCompare(b.expiryDate || "")), [allCertificates, query, typeFilter, showArchived]);
 
   const [saveStatus, setSaveStatus] = useState(null);
   const handleSave = async () => {
-    const rows = filtered.map((c) => ({ title: c.title, type: c.certType, issuer: c.issuer || "", expires: fmtDate(c.expiryDate), status: certificateStatus(c) }));
+    const rows = filtered.map((c) => ({ title: c.__pulled ? `${c.title} (${PUB_VENUE_NAME})` : c.title, type: c.certType, issuer: c.issuer || "", expires: fmtDate(c.expiryDate), status: certificateStatus(c) }));
     const title = "Certificate Register";
     const columns = [
       { key: "title", label: "Title", width: 0.28 },
@@ -168,21 +172,24 @@ export function CertificatesList({ certificates, assets, contractors, onOpen, on
       ) : (
         <div className="ledger-table">
           <div className="ledger-row ledger-row--asset ledger-row--head"><span>Title</span><span>Type</span><span>Expires</span><span>Status</span><span></span><span></span></div>
-          {filtered.map((c) => (
+          {filtered.map((c) => {
+            const pulled = !!c.__pulled;
+            return (
             <div className="ledger-row ledger-row--asset" key={c.id}>
-              <span className="mono-strong" style={{ cursor: "pointer" }} onClick={() => onOpen(c.id)}>{c.title}{c.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</span>
+              <span className="mono-strong" style={pulled ? undefined : { cursor: "pointer" }} onClick={pulled ? undefined : () => onOpen(c.id)}>{c.title}{c.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</span>
               <span className="muted">{c.certType}</span>
               <span className="mono">{fmtDate(c.expiryDate)}</span>
               <span><Stamp status={certificateStatus(c)} dense /></span>
-              <span>{c.scope === "whole_building" && <span className="flag-tag" style={{ marginLeft: 0, color: "#2A3A6E", background: "#EEF0FA" }}>{scopeLabel(c.scope)}</span>}</span>
+              <span>{pulled ? <span className="flag-tag" style={{ marginLeft: 0, color: "#2A3A6E", background: "#EEF0FA" }}>{PUB_VENUE_NAME}</span> : c.scope === "whole_building" && <span className="flag-tag" style={{ marginLeft: 0, color: "#2A3A6E", background: "#EEF0FA" }}>{scopeLabel(c.scope)}</span>}</span>
               <span className="row-actions">
-                {!c.archived && canEdit && <button className="icon-btn" onClick={() => onEdit(c)}><Pencil size={15} /></button>}
-                {canDelete && (c.archived
+                {!pulled && !c.archived && canEdit && <button className="icon-btn" onClick={() => onEdit(c)}><Pencil size={15} /></button>}
+                {!pulled && canDelete && (c.archived
                   ? <button className="icon-btn" onClick={() => onRestore(c.id)}><ArchiveRestore size={15} /></button>
                   : <button className="icon-btn" onClick={() => onDelete(c.id)}><Archive size={15} /></button>)}
               </span>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
