@@ -98,7 +98,12 @@ Nothing here is active until you do this.
    VITE_PUB_VENUE_NAME=<whatever you want the hotel called here — the default "TKDH Pub" is wrong on this side>
    OTHER_VENUE_URL=<the hotel service's URL>
    SHARED_SYNC_SECRET=<make up a long random string>
+   SHARE_ISSUES_WITH_OTHER_VENUE=true
    ```
+   That last one is the important one for privacy: it means *this* (the pub's)
+   open Maintenance/Pest issues are what gets shared — **do not** set it on the
+   hotel's service in step 7, or the pub would be able to read the hotel's
+   issues back too.
 6. Deploy, then open its URL and bootstrap the pub's own first General Manager
    account — same flow as the hotel, entirely separate database.
 7. Go back to the **existing hotel service**'s Environment tab and add:
@@ -107,6 +112,9 @@ Nothing here is active until you do this.
    OTHER_VENUE_URL=<the pub service's URL>
    SHARED_SYNC_SECRET=<the exact same string you made up in step 5>
    ```
+   **Do not** add `SHARE_ISSUES_WITH_OTHER_VENUE` here — leaving it unset on
+   the hotel's service is what stops the pub from reading the hotel's own
+   issues back, even though it holds the same secret.
    Trigger a deploy (adding an env var normally does this automatically) —
    `VITE_PUB_URL` is baked into the frontend at build time, so it needs a real
    rebuild to take effect, not just a restart.
