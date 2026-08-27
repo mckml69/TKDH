@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Home as HomeIcon,
   Search,
@@ -99,6 +99,20 @@ export default function App() {
   const { branding, saveBranding } = useBranding();
   const { pin: dangerZonePin, savePin: saveDangerZonePin } = useDangerZonePin();
   const venuePull = useVenuePull();
+  // Whole-building contractors are meant to be genuinely usable here, not just visible — assigning a
+  // job to one, or recording that they're the ones who actually resolved it, is exactly why marking a
+  // contractor "whole building" exists in the first place. Not role-gated (unlike the read-only
+  // browsing list and dashboard sections elsewhere): the backend already serves this to any signed-in
+  // session regardless of role, and restricting assignment to General Manager only would stop ordinary
+  // staff from picking the right contractor while logging or resolving day-to-day jobs. Ids are left
+  // unprefixed (unlike the register's own browsing list) — a job's contractorId needs to match this
+  // exact same raw id everywhere "who" gets resolved, and two independent deployments' randomly
+  // generated ids won't collide in practice, same assumption already relied on for pulled records'
+  // own asset/room/contractor/staff context elsewhere in this feature.
+  const allContractors = useMemo(
+    () => [...contractors, ...(venuePull?.available ? venuePull.wholeBuildingContractors.map((c) => ({ ...c, __pulled: true })) : [])],
+    [contractors, venuePull]
+  );
   const [wizardStep, setWizardStep] = useState(0);
   const [registersOpen, setRegistersOpen] = useState(true);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -315,7 +329,7 @@ export default function App() {
   };
   const handleResolve = ({ notes, date, resolvedContractorId, resolvedStaffId }) => {
     const record = current.record;
-    const resolver = resolvedContractorId ? contractors.find((c) => c.id === resolvedContractorId)?.name : resolvedStaffId ? staff.find((s) => s.id === resolvedStaffId)?.name : null;
+    const resolver = resolvedContractorId ? allContractors.find((c) => c.id === resolvedContractorId)?.name : resolvedStaffId ? staff.find((s) => s.id === resolvedStaffId)?.name : null;
     const resolved = { ...record, status: "Resolved", resolvedNotes: notes, resolvedDate: date, resolvedContractorId: resolvedContractorId || null, resolvedStaffId: resolvedStaffId || null };
     let next = upsertRecord(resolved, records);
     if (record.linkedRecordId) {
@@ -436,12 +450,12 @@ export default function App() {
       onResolve={(r) => push({ page: "resolve-form", record: r })}
       goToLedger={goToLedger} />;
   } else if (current.page === "ledger") {
-    body = <Ledger records={records} assets={assets} rooms={rooms} contractors={contractors} staff={staff} venuePull={venuePull} filters={ledgerFilters} setFilters={setLedgerFilters} onView={openRecordView} onEdit={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onDelete={handleDeleteRecord} onRestore={restoreRecord} onResolve={(r) => push({ page: "resolve-form", record: r })} onRequestCorrection={handleRequestCorrection} onAdd={() => ledgerFilters.category !== "all" ? openRecordForm(TEMPLATES[ledgerFilters.category], null, null) : openTemplatePicker(TEMPLATE_LIST)} onExportFallback={openReportFallback} branding={branding} />;
+    body = <Ledger records={records} assets={assets} rooms={rooms} contractors={allContractors} staff={staff} venuePull={venuePull} filters={ledgerFilters} setFilters={setLedgerFilters} onView={openRecordView} onEdit={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onDelete={handleDeleteRecord} onRestore={restoreRecord} onResolve={(r) => push({ page: "resolve-form", record: r })} onRequestCorrection={handleRequestCorrection} onAdd={() => ledgerFilters.category !== "all" ? openRecordForm(TEMPLATES[ledgerFilters.category], null, null) : openTemplatePicker(TEMPLATE_LIST)} onExportFallback={openReportFallback} branding={branding} />;
   } else if (current.page === "assets") {
     body = <AssetsList assets={assets} records={records} onOpen={(id) => push({ page: "asset-detail", assetId: id })} onAdd={() => push({ page: "asset-form", asset: null })} onEdit={(a) => push({ page: "asset-form", asset: a })} onDelete={handleDeleteAsset} onRestore={restoreAsset} onExportFallback={openReportFallback} branding={branding} />;
   } else if (current.page === "asset-detail") {
     const asset = assets.find((a) => a.id === current.assetId);
-    body = asset ? <AssetDetail asset={asset} assets={assets} records={records} rooms={rooms} checkpoints={checkpoints} certificates={certificates} contractors={contractors} onBack={pop}
+    body = asset ? <AssetDetail asset={asset} assets={assets} records={records} rooms={rooms} checkpoints={checkpoints} certificates={certificates} contractors={allContractors} onBack={pop}
       onEditAsset={(a) => push({ page: "asset-form", asset: a })}
       onReplaceAsset={(a) => push({ page: "replace-asset", asset: a })}
       onLogForAsset={(a) => openTemplatePicker(TEMPLATE_LIST.filter((t) => t.assetEligible && (t.key === "maintenance" || (a.eligibleFor || [a.category]).includes(t.key))), { assetId: a.id, location: a.location })}
@@ -472,7 +486,15 @@ export default function App() {
   } else if (current.page === "contractors") {
     body = <ContractorsList contractors={contractors} records={records} venuePull={venuePull} onOpen={(id) => push({ page: "contractor-detail", contractorId: id })} onAdd={() => push({ page: "contractor-form", contractor: null })} onEdit={(c) => push({ page: "contractor-form", contractor: c })} onDelete={handleDeleteContractor} onRestore={restoreContractor} onExportFallback={openReportFallback} branding={branding} />;
   } else if (current.page === "contractor-detail") {
-    const contractor = contractors.find((c) => c.id === current.contractorId);
+    const localContractor = contractors.find((c) => c.id === current.contractorId);
+    // The register's own list prefixes a pulled contractor's id as "pull:<raw id>" (see
+    // ContractorsList) purely so its rows can tell a foreign entity apart from a local one — but the
+    // contractor object handed to ContractorDetail keeps the RAW id, since that's what a local job's
+    // contractorId actually gets set to when someone assigns this contractor (see allContractors
+    // above), and Visit history needs contractor.id to match that exactly.
+    const rawPulledId = !localContractor && typeof current.contractorId === "string" && current.contractorId.startsWith("pull:") ? current.contractorId.slice(5) : null;
+    const pulledContractor = rawPulledId && venuePull?.available ? venuePull.wholeBuildingContractors.find((c) => c.id === rawPulledId) : null;
+    const contractor = localContractor || (pulledContractor ? { ...pulledContractor, __pulled: true } : null);
     body = contractor ? <ContractorDetail contractor={contractor} records={records} assets={assets} certificates={certificates} onBack={pop}
       onEdit={(c) => push({ page: "contractor-form", contractor: c })}
       onViewRecord={openRecordView} onEditRecord={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onDeleteRecord={handleDeleteRecord} onResolve={(r) => push({ page: "resolve-form", record: r })}
@@ -503,7 +525,7 @@ export default function App() {
   } else if (current.page === "template-picker") {
     body = <TemplatePickerPage templates={current.templates} onPick={(t) => replaceTop({ page: "record-form", template: t, record: null, prefill: current.prefill })} onClose={pop} />;
   } else if (current.page === "record-form") {
-    body = <RecordFormPage key={current.record?.id ?? current.formKey ?? "record-form"} template={current.template} record={current.record} assets={assets} rooms={rooms} contractors={contractors} staff={staff} prefill={current.prefill} initialViewOnly={current.viewOnly} onSave={handleSaveRecord} onClose={pop} onRequestCorrection={handleRequestCorrection} onDismissCorrection={handleDismissCorrection} />;
+    body = <RecordFormPage key={current.record?.id ?? current.formKey ?? "record-form"} template={current.template} record={current.record} assets={assets} rooms={rooms} contractors={allContractors} staff={staff} prefill={current.prefill} initialViewOnly={current.viewOnly} onSave={handleSaveRecord} onClose={pop} onRequestCorrection={handleRequestCorrection} onDismissCorrection={handleDismissCorrection} />;
   } else if (current.page === "correction-form") {
     body = <CorrectionRequestFormPage record={current.record} onSubmit={handleSubmitCorrection} onClose={pop} />;
   } else if (current.page === "asset-form") {
@@ -525,7 +547,7 @@ export default function App() {
   } else if (current.page === "room-link-review") {
     body = <RoomLinkReview room={current.room} candidates={current.candidates} onLink={(ids) => handleLinkRecords(current.room, ids)} onSkip={() => replaceTop({ page: "room-detail", roomId: current.room.id })} />;
   } else if (current.page === "resolve-form") {
-    body = <ResolveFormPage record={current.record} contractors={contractors} staff={staff} onClose={pop} onSubmit={handleResolve} />;
+    body = <ResolveFormPage record={current.record} contractors={allContractors} staff={staff} onClose={pop} onSubmit={handleResolve} />;
   } else if (current.page === "checkpoints") {
     body = <CheckpointsList checkpoints={checkpoints} assets={assets} onOpen={(id) => push({ page: "checkpoint-detail", checkpointId: id })} onAdd={() => push({ page: "checkpoint-form", checkpoint: null })} onEdit={(cp) => push({ page: "checkpoint-form", checkpoint: cp })} onDelete={(id) => { if (role !== "General Manager") return; push({ page: "confirm-delete", type: "checkpoint", id, message: "Archive this checkpoint? Its history is kept, and you can restore it anytime." }); }} onRestore={restoreCheckpoint} onBulkImportFixtures={() => push({ page: "checkpoint-fixtures-import" })} />;
   } else if (current.page === "checkpoint-fixtures-import") {
@@ -666,7 +688,7 @@ export default function App() {
   } else if (current.page === "report-fallback") {
     body = <ReportFallback title={current.title} pdfBytes={current.pdfBytes} onBack={pop} />;
   } else if (current.page === "search-results") {
-    body = <SearchResults query={searchQuery} records={records} assets={assets} rooms={rooms} contractors={contractors} staff={staff} certificates={certificates} visits={visits} venuePull={venuePull}
+    body = <SearchResults query={searchQuery} records={records} assets={assets} rooms={rooms} contractors={allContractors} staff={staff} certificates={certificates} visits={visits} venuePull={venuePull}
       onView={openRecordView} onEditRecord={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onDeleteRecord={handleDeleteRecord} onResolve={(r) => push({ page: "resolve-form", record: r })}
       onOpenAsset={(id) => push({ page: "asset-detail", assetId: id })}
       onOpenRoom={(id) => push({ page: "room-detail", roomId: id })}

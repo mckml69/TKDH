@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { CategoryTag, ErrorBanner, FormPage, HistoryList } from "../shared/UI";
-import { ASSET_TYPES, FREQUENCY_PRESETS, PRESET_DEFAULT_FREQUENCY, TRAINING_DEFAULT_VALIDITY_DAYS, REQUIREMENTS, RoleContext, BASIS_LABELS } from "../../lib/constants";
+import { ASSET_TYPES, FREQUENCY_PRESETS, PRESET_DEFAULT_FREQUENCY, PUB_VENUE_NAME, TRAINING_DEFAULT_VALIDITY_DAYS, REQUIREMENTS, RoleContext, BASIS_LABELS } from "../../lib/constants";
 import { addDays, fmtDate, getMode, hasPendingCorrection, roomLabelText, todayStr, uid, validateRecord } from "../../lib/helpers";
 
 const REVIEW_REASONS = ["Routine review", "Significant change (refit, new furniture, change of use)", "New equipment affecting risk", "Occupancy change", "Incident or near miss", "Failure or deterioration of a precaution", "Other"];
@@ -131,7 +131,7 @@ export function RecordFormPage({ template, record, assets, rooms, contractors, s
               <option value="">Not specified</option>
               {contractors.length > 0 && (
                 <optgroup label="Contractors">
-                  {contractors.map((c) => <option key={c.id} value={`contractor:${c.id}`}>{c.name}</option>)}
+                  {contractors.map((c) => <option key={c.id} value={`contractor:${c.id}`}>{c.__pulled ? `${c.name} (${PUB_VENUE_NAME})` : c.name}</option>)}
                 </optgroup>
               )}
               {staff.length > 0 && (
@@ -300,7 +300,7 @@ export function RecordFormPage({ template, record, assets, rooms, contractors, s
                   setForm((f) => ({ ...f, awaitingContractorId: kind === "contractor" ? id : null, awaitingStaffId: kind === "staff" ? id : null, awaitingContactName: name || null }));
                 }}>
                 <option value="">Not specified</option>
-                {contractors.length > 0 && <optgroup label="Contractors">{contractors.map((c) => <option key={c.id} value={`contractor:${c.id}`}>{c.name}</option>)}</optgroup>}
+                {contractors.length > 0 && <optgroup label="Contractors">{contractors.map((c) => <option key={c.id} value={`contractor:${c.id}`}>{c.__pulled ? `${c.name} (${PUB_VENUE_NAME})` : c.name}</option>)}</optgroup>}
                 {staff.length > 0 && <optgroup label="Staff">{staff.map((s) => <option key={s.id} value={`staff:${s.id}`}>{s.name}{s.role ? ` — ${s.role}` : ""}</option>)}</optgroup>}
               </select>
             </label>
@@ -371,7 +371,7 @@ export function ResolveFormPage({ record, contractors, staff, onClose, onSubmit 
                 setResolvedStaffId(kind === "staff" ? id : null);
               }}>
               <option value="">Select who did the work</option>
-              {contractors.length > 0 && <optgroup label="Contractors">{contractors.map((c) => <option key={c.id} value={`contractor:${c.id}`}>{c.name}</option>)}</optgroup>}
+              {contractors.length > 0 && <optgroup label="Contractors">{contractors.map((c) => <option key={c.id} value={`contractor:${c.id}`}>{c.__pulled ? `${c.name} (${PUB_VENUE_NAME})` : c.name}</option>)}</optgroup>}
               {staff.length > 0 && <optgroup label="Staff">{staff.map((s) => <option key={s.id} value={`staff:${s.id}`}>{s.name}{s.role ? ` — ${s.role}` : ""}</option>)}</optgroup>}
             </select>
           </label>

@@ -73,8 +73,8 @@ export function ContractorDetail({ contractor, records, assets, certificates, on
     <div className="module-view">
       <button className="btn btn-ghost" style={{ padding: "4px 0", marginBottom: 10 }} onClick={onBack}><ArrowLeft size={15} /> Back to contractors &amp; suppliers</button>
       <div className="module-header">
-        <div className="module-title"><HardHat size={22} color="#197386" /><h2>{contractor.name}{contractor.scope === "whole_building" && <span className="flag-tag" style={{ color: "#2A3A6E", background: "#EEF0FA" }}>{scopeLabel(contractor.scope)}</span>}{contractor.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
-        {!contractor.archived && canEdit && <button className="btn btn-ghost" onClick={() => onEdit(contractor)}><Pencil size={15} /> Edit contractor</button>}
+        <div className="module-title"><HardHat size={22} color="#197386" /><h2>{contractor.name}{contractor.__pulled ? <span className="flag-tag" style={{ color: "#2A3A6E", background: "#EEF0FA" }}>{PUB_VENUE_NAME}</span> : contractor.scope === "whole_building" && <span className="flag-tag" style={{ color: "#2A3A6E", background: "#EEF0FA" }}>{scopeLabel(contractor.scope)}</span>}{contractor.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
+        {!contractor.__pulled && !contractor.archived && canEdit && <button className="btn btn-ghost" onClick={() => onEdit(contractor)}><Pencil size={15} /> Edit contractor</button>}
       </div>
       <div className="asset-info-grid" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
         <div><span className="field-label">Contact</span><p>{contractor.contactName || "—"}</p></div>
@@ -101,7 +101,7 @@ export function ContractorDetail({ contractor, records, assets, certificates, on
               <div className="attach-item" key={a.fileId}><Paperclip size={13} /><span className="attach-name">{a.name}</span><span className="muted">{formatBytes(a.size)}</span></div>
             ))}
           </div>
-          <p className="muted" style={{ marginTop: 6 }}>Open "Edit contractor" to download any of these.</p>
+          {!contractor.__pulled && <p className="muted" style={{ marginTop: 6 }}>Open "Edit contractor" to download any of these.</p>}
         </div>
       )}
       {issuedCerts.length > 0 && canViewSensitive && (
@@ -203,7 +203,7 @@ export function ContractorsList({ contractors, records, venuePull, onOpen, onAdd
             const visits = records.filter((r) => contractorVisitedRecord(r, c.id)).length;
             return (
               <div className="ledger-row ledger-row--asset" key={c.id}>
-                <span className="mono-strong" style={pulled ? undefined : { cursor: "pointer" }} onClick={pulled ? undefined : () => onOpen(c.id)}>{c.name}{c.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</span>
+                <span className="mono-strong" style={{ cursor: "pointer" }} onClick={() => onOpen(c.id)}>{c.name}{c.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</span>
                 <span className="muted">{c.contactName || c.phone || c.email || "—"}</span>
                 <span className="muted">{visits}</span>
                 <span>{pulled ? <span className="flag-tag" style={{ marginLeft: 0, color: "#2A3A6E", background: "#EEF0FA" }}>{PUB_VENUE_NAME}</span> : c.scope === "whole_building" && <span className="flag-tag" style={{ marginLeft: 0, color: "#2A3A6E", background: "#EEF0FA" }}>{scopeLabel(c.scope)}</span>}</span>
