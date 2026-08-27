@@ -24,6 +24,11 @@ export const SCOPE_OPTIONS = [
     tied to any single name if the linked venue ever changes. */
 export const PUB_URL = import.meta.env.VITE_PUB_URL || null;
 export const PUB_VENUE_NAME = import.meta.env.VITE_PUB_VENUE_NAME || "TKDH Pub";
+/** The sidebar header and sign-in screen logo — a plain static file path, not an uploaded setting
+    (unlike Report Branding's letterhead logo, which is per-venue data set through the app itself).
+    Defaults to the hotel's own logo; a second venue ships its own image under public/ and points
+    VITE_LOGO_PATH at it, e.g. "/tkdh-pub-logo.png". */
+export const LOGO_PATH = import.meta.env.VITE_LOGO_PATH || "/tkdh-logo.png";
 /** The Room register's entity (roomNumber, roomType, roomId linkage into Maintenance/Pest/
     Inspections/Photos/Deep Clean/recurring checks) is generic — a named physical place things get
     logged against — nothing about the data model is hotel-specific. VITE_ROOM_LABEL lets a venue

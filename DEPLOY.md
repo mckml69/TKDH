@@ -102,13 +102,20 @@ Nothing here is active until you do this.
    VITE_ROOM_LABEL=Area
    VITE_ROOM_TYPES=Kitchen,Cellar,Bar,Toilets,Garden,Storage,Outdoor,Other
    VITE_SHOW_ROOM_ASSET_KIT=false
+   VITE_LOGO_PATH=/tkdh-pub-logo.png
    ```
    `SHARE_ISSUES_WITH_OTHER_VENUE` is the important one for privacy: it means
    *this* (the pub's) open Maintenance/Pest issues are what gets shared —
    **do not** set it on the hotel's service in step 7, or the pub would be
    able to read the hotel's issues back too.
 
-   The last three are cosmetic, not required for the pull/sync feature to
+   `VITE_LOGO_PATH` swaps the sidebar/sign-in logo — the pub's own logo file
+   already ships in this repo at `public/tkdh-pub-logo.png`, so this just
+   needs to be set, nothing to upload. Point it at any other file the same
+   way if that image ever changes; it doesn't touch the hotel's own logo
+   (`public/tkdh-logo.png`), which stays the default when this is unset.
+
+   The other three are cosmetic, not required for the pull/sync feature to
    work — they just relabel the Room register as "Areas" for a venue with a
    kitchen, cellar, bar, toilets and garden instead of numbered guest rooms
    (same underlying data, same linkage to Maintenance/Pest/Inspections —

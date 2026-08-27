@@ -61,7 +61,7 @@ import { useVenuePull } from "./hooks/useVenuePull";
 import { useUsers } from "./hooks/useUsers";
 import { storageMode } from "./lib/storage";
 import { apiAdapter } from "./lib/storage/apiAdapter";
-import { AUDIT_CATEGORIES, LOCATION_PRESETS, REQUIREMENTS, ROOM_ICON, ROOM_LABEL_PLURAL, RoleContext, TEMPLATES, TEMPLATE_LIST, FIRE_LOG_ITEMS, LEGIONELLA_CHECK_ITEMS, PUB_URL, PUB_VENUE_NAME } from "./lib/constants";
+import { AUDIT_CATEGORIES, LOCATION_PRESETS, LOGO_PATH, REQUIREMENTS, ROOM_ICON, ROOM_LABEL_PLURAL, RoleContext, TEMPLATES, TEMPLATE_LIST, FIRE_LOG_ITEMS, LEGIONELLA_CHECK_ITEMS, PUB_URL, PUB_VENUE_NAME } from "./lib/constants";
 import {
   certificateStatus, checkpointCheckEnsureSnapshot, checkpointCheckPeriodKey, findRoomMentions, fmtDate,
   hasPendingCorrection, isCheckpointCheckLocked, isOverdue, roomLabelText, staffTrainingStatus, todayStr, uid, visitStatus,
@@ -755,7 +755,7 @@ export default function App() {
           onClick={() => setLogoClicks((n) => { const next = n + 1; if (next >= 5) { setShowGorilla(true); return 0; } return next; })}
           aria-label="TKDH logo"
         >
-          <img src="/tkdh-logo.png" alt="TKDH" className="brand-logo" />
+          <img src={LOGO_PATH} alt="TKDH" className="brand-logo" />
         </button>
         <div className="brand-sub">Compliance Ledger</div>
         <button className="new-record-btn" onClick={() => openTemplatePicker(TEMPLATE_LIST)}><Plus size={16} /> <span>New record</span></button>

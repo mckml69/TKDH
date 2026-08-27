@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Ledger } from "../records/RecordList";
 import { ErrorBanner, FormPage } from "../shared/UI";
-import { ROLES } from "../../lib/constants";
+import { LOGO_PATH, ROLES } from "../../lib/constants";
 import { uid, validateUser } from "../../lib/helpers";
 import { storageMode } from "../../lib/storage";
 import { API_BASE } from "../../lib/storage/apiAdapter";
@@ -278,12 +278,12 @@ function ApiSignIn({ onLogin, onBootstrap }) {
     }
   };
 
-  if (needsBootstrap === null) return <div className="signin-screen"><div className="signin-card"><img src="/tkdh-logo.png" alt="TKDH" className="signin-logo" /><p className="signin-product">Compliance Ledger</p></div></div>;
+  if (needsBootstrap === null) return <div className="signin-screen"><div className="signin-card"><img src={LOGO_PATH} alt="TKDH" className="signin-logo" /><p className="signin-product">Compliance Ledger</p></div></div>;
 
   return (
     <div className="signin-screen">
       <div className="signin-card">
-        <img src="/tkdh-logo.png" alt="TKDH" className="signin-logo" />
+        <img src={LOGO_PATH} alt="TKDH" className="signin-logo" />
         <p className="signin-product">Compliance Ledger</p>
         {needsBootstrap ? (
           <>
@@ -330,7 +330,7 @@ export function SignInScreen({ users, onSignIn, onCreateUser, onLogin, onBootstr
   return (
     <div className="signin-screen">
       <div className="signin-card">
-        <img src="/tkdh-logo.png" alt="TKDH" className="signin-logo" />
+        <img src={LOGO_PATH} alt="TKDH" className="signin-logo" />
         <p className="signin-product">Compliance Ledger</p>
         {isFirstUser ? (
           <>
