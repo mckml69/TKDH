@@ -7,7 +7,6 @@ import {
   Loader2,
   ListFilter,
   Package,
-  BedDouble,
   BookOpen,
   ListChecks,
   HardHat,
@@ -62,10 +61,10 @@ import { useVenuePull } from "./hooks/useVenuePull";
 import { useUsers } from "./hooks/useUsers";
 import { storageMode } from "./lib/storage";
 import { apiAdapter } from "./lib/storage/apiAdapter";
-import { AUDIT_CATEGORIES, LOCATION_PRESETS, REQUIREMENTS, RoleContext, TEMPLATES, TEMPLATE_LIST, FIRE_LOG_ITEMS, LEGIONELLA_CHECK_ITEMS, PUB_URL, PUB_VENUE_NAME } from "./lib/constants";
+import { AUDIT_CATEGORIES, LOCATION_PRESETS, REQUIREMENTS, ROOM_ICON, ROOM_LABEL_PLURAL, RoleContext, TEMPLATES, TEMPLATE_LIST, FIRE_LOG_ITEMS, LEGIONELLA_CHECK_ITEMS, PUB_URL, PUB_VENUE_NAME } from "./lib/constants";
 import {
   certificateStatus, checkpointCheckEnsureSnapshot, checkpointCheckPeriodKey, findRoomMentions, fmtDate,
-  hasPendingCorrection, isCheckpointCheckLocked, isOverdue, staffTrainingStatus, todayStr, uid, visitStatus,
+  hasPendingCorrection, isCheckpointCheckLocked, isOverdue, roomLabelText, staffTrainingStatus, todayStr, uid, visitStatus,
   fireLogCurrentPeriodKey, fireLogEnsureSnapshot, fireLogPeriodLabel, isFireLogLocked,
   legionellaCheckEnsureSnapshot, legionellaCheckPeriodKey, isLegionellaCheckLocked,
   legionellaTempCheckEnsureSnapshot, resolveOriginRecord, findOpenLinkedIssue, hasOpenLinkedIssue,
@@ -467,7 +466,7 @@ export default function App() {
     const room = rooms.find((r) => r.id === current.roomId);
     body = room ? <RoomDetail room={room} records={records} assets={assets} onBack={pop}
       onEditRoom={(r) => push({ page: "room-form", room: r })}
-      onLogForRoom={(r) => openTemplatePicker(TEMPLATE_LIST.filter((t) => t.roomEligible), { roomId: r.id, location: `Room ${r.roomNumber}` })}
+      onLogForRoom={(r) => openTemplatePicker(TEMPLATE_LIST.filter((t) => t.roomEligible), { roomId: r.id, location: roomLabelText(r.roomNumber) })}
       onViewRecord={openRecordView} onEditRecord={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onDeleteRecord={handleDeleteRecord} onRestoreRecord={restoreRecord} onResolve={(r) => push({ page: "resolve-form", record: r })}
       onOpenAsset={(id) => push({ page: "asset-detail", assetId: id })} /> : null;
   } else if (current.page === "contractors") {
@@ -777,7 +776,7 @@ export default function App() {
               {expanded && (
                 <div className="nav-subgroup">
                   <button className={"nav-item" + (current.page === "assets" || current.page === "asset-detail" ? " active" : "")} onClick={() => resetTo({ page: "assets" })}><Package size={16} /> Assets</button>
-                  <button className={"nav-item" + (current.page === "rooms" || current.page === "room-detail" ? " active" : "")} onClick={() => resetTo({ page: "rooms" })}><BedDouble size={16} /> Rooms</button>
+                  <button className={"nav-item" + (current.page === "rooms" || current.page === "room-detail" ? " active" : "")} onClick={() => resetTo({ page: "rooms" })}><ROOM_ICON size={16} /> {ROOM_LABEL_PLURAL}</button>
                   <button className={"nav-item" + (current.page === "checkpoints" || current.page === "checkpoint-detail" ? " active" : "")} onClick={() => resetTo({ page: "checkpoints" })}><MapPin size={16} /> Checkpoints</button>
                   <button className={"nav-item" + (current.page === "meters" || current.page === "meter-detail" ? " active" : "")} onClick={() => resetTo({ page: "meters" })}><Gauge size={16} /> Meters</button>
                   <button className={"nav-item" + (current.page === "contractors" || current.page === "contractor-detail" ? " active" : "")} onClick={() => resetTo({ page: "contractors" })}><HardHat size={16} /> Contractors &amp; Suppliers</button>
@@ -824,7 +823,7 @@ export default function App() {
           </div>
           <div className="search-box search-box--wide">
             <Search size={14} color="#6E6A61" />
-            <input placeholder="Search rooms, assets, contractors, certificates, pest reports, dates, tags…" value={searchQuery} autoComplete="off" name="ledger-global-search"
+            <input placeholder={`Search ${ROOM_LABEL_PLURAL.toLowerCase()}, assets, contractors, certificates, pest reports, dates, tags…`} value={searchQuery} autoComplete="off" name="ledger-global-search"
               onChange={(e) => { setSearchQuery(e.target.value); if (e.target.value) resetTo({ page: "search-results" }); }} />
             {searchQuery && <button className="icon-btn" style={{ padding: 3 }} onClick={() => { setSearchQuery(""); resetTo({ page: "home" }); }}><X size={14} /></button>}
           </div>

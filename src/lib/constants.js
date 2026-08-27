@@ -1,7 +1,7 @@
 import React, { createContext } from "react";
 import {
   Flame, Droplet, GraduationCap, Wrench, ShieldAlert, Bug, Hammer, Brush, Camera,
-  ClipboardCheck, Phone, Blinds, MapPin,
+  ClipboardCheck, Phone, Blinds, MapPin, BedDouble,
 } from "lucide-react";
 
 export const DUE_SOON_WINDOW = 30;
@@ -24,6 +24,26 @@ export const SCOPE_OPTIONS = [
     tied to any single name if the linked venue ever changes. */
 export const PUB_URL = import.meta.env.VITE_PUB_URL || null;
 export const PUB_VENUE_NAME = import.meta.env.VITE_PUB_VENUE_NAME || "TKDH Pub";
+/** The Room register's entity (roomNumber, roomType, roomId linkage into Maintenance/Pest/
+    Inspections/Photos/Deep Clean/recurring checks) is generic — a named physical place things get
+    logged against — nothing about the data model is hotel-specific. VITE_ROOM_LABEL lets a venue
+    like the pub call it "Area" instead (kitchen, cellar, bar, toilets, garden) without a single
+    stored field changing name. Plural is just LABEL + "s" — both "Room"/"Rooms" and "Area"/"Areas"
+    pluralize regularly, so no separate override is needed. */
+export const ROOM_LABEL = import.meta.env.VITE_ROOM_LABEL || "Room";
+export const ROOM_LABEL_PLURAL = `${ROOM_LABEL}s`;
+/** BedDouble reads fine for a guest room; for anything relabeled away from "Room" (the pub's areas),
+    a generic pin is the honest icon — nothing in this app's icon set is specific to a kitchen or a
+    cellar. */
+export const ROOM_ICON = ROOM_LABEL === "Room" ? BedDouble : MapPin;
+/** Shown as the placeholder in the "new room/area" form — "e.g. 302" makes sense for a numbered
+    guest room, not for a uniquely-named pub area. */
+export const ROOM_NUMBER_PLACEHOLDER = import.meta.env.VITE_ROOM_NUMBER_PLACEHOLDER || "e.g. 302";
+/** The Bulk Import Room Asset Kit only makes sense where many rooms genuinely share the same
+    fixed kit (every hotel guest room gets a kettle, a TV, an AC unit…) — a pub's kitchen, cellar,
+    bar, toilets and garden each have entirely different equipment, so there's no shared kit to
+    import. Hidden entirely (not just discouraged) when this is "false". */
+export const SHOW_ROOM_ASSET_KIT = import.meta.env.VITE_SHOW_ROOM_ASSET_KIT !== "false";
 
 export const TEMPLATES = {
   fire: { key: "fire", label: "Fire Safety", short: "Fire", icon: Flame, mode: "recurring", accent: "#A8402F", assetEligible: true, roomEligible: true, contractorEligible: true,
@@ -185,7 +205,14 @@ export const ROOM_ASSET_KIT = [
   { typeKey: "bedside_lamp", sides: ["L", "R"] },
   { typeKey: "desk_lamp" },
 ];
-export const ROOM_TYPES = ["Superior Double Lower Ground", "Classic Double", "Deluxe Double/Twin", "Superior Double", "Superior Twin", "Junior Suite", "Superior Triple", "Other"];
+/** Hotel guest rooms genuinely cluster into a handful of repeated types — meaningless for a pub,
+    where every area is already uniquely named and none of them repeat. VITE_ROOM_TYPES (comma-
+    separated) lets a deployment replace this list entirely; the field itself stays optional either
+    way (validateRoom never requires it), so a pub that doesn't care about area "type" at all can
+    just set this to a single value, or leave every area as "Other". */
+export const ROOM_TYPES = import.meta.env.VITE_ROOM_TYPES
+  ? import.meta.env.VITE_ROOM_TYPES.split(",").map((s) => s.trim()).filter(Boolean)
+  : ["Superior Double Lower Ground", "Classic Double", "Deluxe Double/Twin", "Superior Double", "Superior Twin", "Junior Suite", "Superior Triple", "Other"];
 
 /* ---------------------------------------------------------
    COMPLIANCE LIBRARY — reference content, not records.
@@ -605,7 +632,7 @@ export const RECORD_HISTORY_FIELDS = {
   awaitingContactName: "Awaiting", resolvedContactName: "Resolved by",
 };
 export const ASSET_HISTORY_FIELDS = { assetType: "Asset type", category: "Category", eligibleFor: "Eligible for", assetCode: "Asset code", name: "Name", location: "Location", manufacturer: "Manufacturer", model: "Model", serialNumber: "Serial number", installDate: "Installed on", status: "Status", notes: "Notes" };
-export const ROOM_HISTORY_FIELDS = { roomNumber: "Room number", floor: "Floor", roomType: "Room type", notes: "Notes" };
+export const ROOM_HISTORY_FIELDS = { roomNumber: `${ROOM_LABEL} name`, floor: "Floor", roomType: `${ROOM_LABEL} type`, notes: "Notes" };
 export const CONTRACTOR_HISTORY_FIELDS = { name: "Name", contactName: "Contact person", phone: "Phone", email: "Email", scope: "Visibility", notes: "Notes" };
 export const CHECKPOINT_HISTORY_FIELDS = { name: "Name", notes: "Notes" };
 /** Water/gas/electricity meters — a freestanding recording tool, deliberately not linked to any

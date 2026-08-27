@@ -1,4 +1,8 @@
-import { TEMPLATES, DUE_SOON_WINDOW, RECENT_WINDOW, ASSET_TYPES, REQUIREMENTS, LEGIONELLA_CHECK_ITEMS, VENUE_NAME, PUB_VENUE_NAME } from "./constants";
+import { TEMPLATES, DUE_SOON_WINDOW, RECENT_WINDOW, ASSET_TYPES, REQUIREMENTS, LEGIONELLA_CHECK_ITEMS, VENUE_NAME, PUB_VENUE_NAME, ROOM_LABEL } from "./constants";
+
+/** Every "Room 302"-style string in the app goes through here, so relabeling to "Area" (or
+    anything else, via VITE_ROOM_LABEL) only ever needs changing in one place. */
+export const roomLabelText = (roomNumber) => `${ROOM_LABEL} ${roomNumber}`;
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 export const fmtDate = (d) => {
@@ -608,9 +612,9 @@ export function recordDetailText(record, assets, rooms, contractors, staff) {
   // the thing actually is, so an export handed to head office or an inspector reads on its own.
   const assetLabel = linkedAsset ? (linkedAsset.name || ASSET_TYPES.find((t) => t.key === linkedAsset.assetType)?.label || linkedAsset.assetCode) : null;
   let text = getMode(record) === "expiry" ? (record.detail || "")
-    : linkedAsset ? `${assetLabel} (${linkedAsset.assetCode}) · ${record.location || linkedAsset.location || (linkedRoom ? `Room ${linkedRoom.roomNumber}` : "")}`
+    : linkedAsset ? `${assetLabel} (${linkedAsset.assetCode}) · ${record.location || linkedAsset.location || (linkedRoom ? roomLabelText(linkedRoom.roomNumber) : "")}`
     : record.location ? record.location
-    : linkedRoom ? `Room ${linkedRoom.roomNumber}`
+    : linkedRoom ? roomLabelText(linkedRoom.roomNumber)
     : (record.actionTaken || "—");
   if (record.category === "legionella" && record.temperatureC != null) text += ` · ${record.temperatureC}°C (${record.readingType})`;
   if (record.category === "maintenance" && record.status === "Awaiting") {
@@ -730,19 +734,19 @@ export function recordHaystack(r, rooms, contractors) {
   // A pulled-in record is visibly tagged with the other venue's name in every list it appears in
   // (see RecordRow's flag-tag) — so searching that name (or a plain "pub"-style word inside it)
   // should surface it here too, even when nothing in the record's own text mentions the venue.
-  return [r.title, r.location, r.people, r.notes, r.detail, r.actionTaken, TEMPLATES[r.category]?.label, tagBlob(r.tags), attachmentBlob(r.attachments), dateSearchBlob(dates), room ? `Room ${room.roomNumber}` : "", contractor?.name, r.__pulled ? PUB_VENUE_NAME : ""]
+  return [r.title, r.location, r.people, r.notes, r.detail, r.actionTaken, TEMPLATES[r.category]?.label, tagBlob(r.tags), attachmentBlob(r.attachments), dateSearchBlob(dates), room ? roomLabelText(room.roomNumber) : "", contractor?.name, r.__pulled ? PUB_VENUE_NAME : ""]
     .filter(Boolean).join(" ").toLowerCase();
 }
 export function assetHaystack(a, rooms) {
   const dates = [a.installDate, a.createdAt, a.updatedAt];
   const type = ASSET_TYPES.find((t) => t.key === a.assetType);
   const room = rooms?.find((rm) => rm.id === a.roomId);
-  return [a.assetCode, a.name, a.location, a.manufacturer, a.model, a.serialNumber, a.notes, type?.label, TEMPLATES[a.category]?.label, tagBlob(a.tags), attachmentBlob(a.attachments), dateSearchBlob(dates), room ? `Room ${room.roomNumber}` : ""]
+  return [a.assetCode, a.name, a.location, a.manufacturer, a.model, a.serialNumber, a.notes, type?.label, TEMPLATES[a.category]?.label, tagBlob(a.tags), attachmentBlob(a.attachments), dateSearchBlob(dates), room ? roomLabelText(room.roomNumber) : ""]
     .filter(Boolean).join(" ").toLowerCase();
 }
 export function roomHaystack(r) {
   const dates = [r.createdAt, r.updatedAt];
-  return [`Room ${r.roomNumber}`, r.roomNumber, r.floor, r.roomType, r.notes, tagBlob(r.tags), attachmentBlob(r.attachments), dateSearchBlob(dates)]
+  return [roomLabelText(r.roomNumber), r.roomNumber, r.floor, r.roomType, r.notes, tagBlob(r.tags), attachmentBlob(r.attachments), dateSearchBlob(dates)]
     .filter(Boolean).join(" ").toLowerCase();
 }
 export function requirementHaystack(req) {
@@ -922,7 +926,7 @@ export function validateAsset(form) {
 }
 export function validateRoom(form) {
   const errors = [];
-  if (!form.roomNumber.trim()) errors.push("Room number is required.");
+  if (!form.roomNumber.trim()) errors.push(`${ROOM_LABEL} name is required.`);
   return errors;
 }
 export function validateContractor(form) {

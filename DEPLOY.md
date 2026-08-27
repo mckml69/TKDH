@@ -99,11 +99,26 @@ Nothing here is active until you do this.
    OTHER_VENUE_URL=<the hotel service's URL>
    SHARED_SYNC_SECRET=<make up a long random string>
    SHARE_ISSUES_WITH_OTHER_VENUE=true
+   VITE_ROOM_LABEL=Area
+   VITE_ROOM_TYPES=Kitchen,Cellar,Bar,Toilets,Garden,Storage,Outdoor,Other
+   VITE_SHOW_ROOM_ASSET_KIT=false
    ```
-   That last one is the important one for privacy: it means *this* (the pub's)
-   open Maintenance/Pest issues are what gets shared — **do not** set it on the
-   hotel's service in step 7, or the pub would be able to read the hotel's
-   issues back too.
+   `SHARE_ISSUES_WITH_OTHER_VENUE` is the important one for privacy: it means
+   *this* (the pub's) open Maintenance/Pest issues are what gets shared —
+   **do not** set it on the hotel's service in step 7, or the pub would be
+   able to read the hotel's issues back too.
+
+   The last three are cosmetic, not required for the pull/sync feature to
+   work — they just relabel the Room register as "Areas" for a venue with a
+   kitchen, cellar, bar, toilets and garden instead of numbered guest rooms
+   (same underlying data, same linkage to Maintenance/Pest/Inspections —
+   nothing about the register itself changed, only what it's called and
+   which "type" options it offers). `VITE_ROOM_TYPES` is a plain
+   comma-separated list — edit it freely to match your own areas.
+   `VITE_SHOW_ROOM_ASSET_KIT=false` hides the "Import room asset kit" button,
+   since that's a hotel-specific bulk-add tool (every guest room gets the
+   same kettle/TV/AC kit) that doesn't apply where every area has its own,
+   different equipment.
 6. Deploy, then open its URL and bootstrap the pub's own first General Manager
    account — same flow as the hotel, entirely separate database.
 7. Go back to the **existing hotel service**'s Environment tab and add:

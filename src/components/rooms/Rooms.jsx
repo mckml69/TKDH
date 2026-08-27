@@ -11,7 +11,6 @@ import {
   ArrowLeft,
   Camera,
   ClipboardCheck,
-  BedDouble,
   Share2,
   Archive,
   ArchiveRestore,
@@ -20,8 +19,8 @@ import {
 import { RecordTable } from "../records/RecordList";
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { CategoryTag, ErrorBanner, FormPage, HistoryList, PatternCallout, SaveStatusBanner, Stamp, Timeline } from "../shared/UI";
-import { ASSET_TYPES, ROOM_ASSET_KIT, ROOM_TYPES, RoleContext, TEMPLATES } from "../../lib/constants";
-import { assetComplianceStatus, belongsToRoom, daysUntil, findRecurringIssue, fmtDate, getDueDate, getEventDate, getStatus, isOpenIssue, isScheduleMode, todayStr, uid, validateRoom } from "../../lib/helpers";
+import { ASSET_TYPES, ROOM_ASSET_KIT, ROOM_ICON, ROOM_LABEL, ROOM_LABEL_PLURAL, ROOM_NUMBER_PLACEHOLDER, ROOM_TYPES, RoleContext, SHOW_ROOM_ASSET_KIT, TEMPLATES } from "../../lib/constants";
+import { assetComplianceStatus, belongsToRoom, daysUntil, findRecurringIssue, fmtDate, getDueDate, getEventDate, getStatus, isOpenIssue, isScheduleMode, roomLabelText, todayStr, uid, validateRoom } from "../../lib/helpers";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
@@ -40,17 +39,17 @@ export function RoomFormPage({ room, prefill, onSave, onClose }) {
   };
   return (
     <>
-      <FormPage title={room ? "Edit room" : "New room"} onClose={onClose} footer={
+      <FormPage title={room ? `Edit ${ROOM_LABEL.toLowerCase()}` : `New ${ROOM_LABEL.toLowerCase()}`} onClose={onClose} footer={
         isNew
-          ? <><button type="button" className="btn btn-ghost" onClick={() => handleSubmit(true)}>Save &amp; add another</button><button type="button" className="btn btn-primary" onClick={() => handleSubmit(false)}>Add room</button></>
+          ? <><button type="button" className="btn btn-ghost" onClick={() => handleSubmit(true)}>Save &amp; add another</button><button type="button" className="btn btn-primary" onClick={() => handleSubmit(false)}>Add {ROOM_LABEL.toLowerCase()}</button></>
           : <button type="button" className="btn btn-primary" onClick={() => handleSubmit(false)}>Save changes</button>
       }>
         <ErrorBanner errors={errors} />
         <div className="row-2">
-          <label>Room number<input value={form.roomNumber} onChange={(e) => set("roomNumber", e.target.value)} placeholder="e.g. 302" /></label>
+          <label>{ROOM_LABEL} name<input value={form.roomNumber} onChange={(e) => set("roomNumber", e.target.value)} placeholder={ROOM_NUMBER_PLACEHOLDER} /></label>
           <label>Floor <span className="muted">(optional)</span><input value={form.floor} onChange={(e) => set("floor", e.target.value)} placeholder="e.g. 3" /></label>
         </div>
-        <label>Room type<select value={form.roomType} onChange={(e) => set("roomType", e.target.value)}>{ROOM_TYPES.map((t) => <option key={t}>{t}</option>)}</select></label>
+        <label>{ROOM_LABEL} type<select value={form.roomType} onChange={(e) => set("roomType", e.target.value)}>{ROOM_TYPES.map((t) => <option key={t}>{t}</option>)}</select></label>
         <label>Tags <span className="muted">(comma-separated)</span><input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="e.g. accessible, sea-view" /></label>
         <label>Notes<textarea rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)} /></label>
         <AttachmentsField recordId={form.id} attachments={attachments} setAttachments={setAttachments} />
@@ -82,21 +81,21 @@ export function RoomDetail({ room, records, assets, onBack, onEditRoom, onLogFor
 
   return (
     <div className="module-view">
-      <button className="btn btn-ghost" style={{ padding: "4px 0", marginBottom: 10 }} onClick={onBack}><ArrowLeft size={15} /> Back to room register</button>
+      <button className="btn btn-ghost" style={{ padding: "4px 0", marginBottom: 10 }} onClick={onBack}><ArrowLeft size={15} /> Back to {ROOM_LABEL.toLowerCase()} register</button>
       <div className="module-header">
-        <div className="module-title"><BedDouble size={22} color="#197386" /><h2>Room {room.roomNumber}{room.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
+        <div className="module-title"><ROOM_ICON size={22} color="#197386" /><h2>{roomLabelText(room.roomNumber)}{room.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</h2></div>
         <div style={{ display: "flex", gap: 8 }}>
-          {!room.archived && canEdit && <button className="btn btn-ghost" onClick={() => onEditRoom(room)}><Pencil size={15} /> Edit room</button>}
-          {!room.archived && <button className="btn btn-primary" onClick={() => onLogForRoom(room)}><Plus size={16} /> Log for this room</button>}
+          {!room.archived && canEdit && <button className="btn btn-ghost" onClick={() => onEditRoom(room)}><Pencil size={15} /> Edit {ROOM_LABEL.toLowerCase()}</button>}
+          {!room.archived && <button className="btn btn-primary" onClick={() => onLogForRoom(room)}><Plus size={16} /> Log for this {ROOM_LABEL.toLowerCase()}</button>}
         </div>
       </div>
       {recurringIssue && (
-        <PatternCallout icon={Repeat}>"{recurringIssue.title}" has been logged {recurringIssue.count} times for this room — worth checking whether the underlying cause has actually been fixed.</PatternCallout>
+        <PatternCallout icon={Repeat}>"{recurringIssue.title}" has been logged {recurringIssue.count} times for this {ROOM_LABEL.toLowerCase()} — worth checking whether the underlying cause has actually been fixed.</PatternCallout>
       )}
       <div className="asset-info-grid" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
         <div><span className="field-label">Floor</span><p>{room.floor || "—"}</p></div>
         <div><span className="field-label">Type</span><p>{room.roomType}</p></div>
-        <div><span className="field-label">Assets in this room</span><p>{roomAssets.length === 0 ? "None" : roomAssets.map((a) => a.assetCode).join(", ")}</p></div>
+        <div><span className="field-label">Assets in this {ROOM_LABEL.toLowerCase()}</span><p>{roomAssets.length === 0 ? "None" : roomAssets.map((a) => a.assetCode).join(", ")}</p></div>
       </div>
       {room.notes && <p className="muted" style={{ marginBottom: 10 }}>{room.notes}</p>}
 
@@ -107,7 +106,7 @@ export function RoomDetail({ room, records, assets, onBack, onEditRoom, onLogFor
 
       {roomAssets.length > 0 && (
         <div className="feed-section">
-          <div className="feed-section-head"><h3><Package size={16} color="#8A6D1F" /> Assets in this room <span className="feed-count">{roomAssets.length}</span></h3></div>
+          <div className="feed-section-head"><h3><Package size={16} color="#8A6D1F" /> Assets in this {ROOM_LABEL.toLowerCase()} <span className="feed-count">{roomAssets.length}</span></h3></div>
           <div className="ledger-table">
             {roomAssets.map((a) => (
               <div key={a.id} className="ledger-row ledger-row--flat" style={{ cursor: "pointer" }} onClick={() => onOpenAsset(a.id)}>
@@ -124,10 +123,10 @@ export function RoomDetail({ room, records, assets, onBack, onEditRoom, onLogFor
 
       <RoomSection title="Open maintenance" icon={Hammer} color="#A8402F" records={openMaintenance} assets={assets} onView={onViewRecord} onEdit={onEditRecord} onDelete={onDeleteRecord} onRestore={onRestoreRecord} onResolve={onResolve} emptyText="Nothing open right now." />
       <RoomSection title="Previous issues" icon={CheckCircle2} color="#2F6B4C" records={previousIssues} assets={assets} onView={onViewRecord} onEdit={onEditRecord} onDelete={onDeleteRecord} onRestore={onRestoreRecord} onResolve={onResolve} emptyText="No resolved maintenance history yet." />
-      <RoomSection title="Pest reports" icon={Bug} color="#7A4B26" records={pestReports} assets={assets} onView={onViewRecord} onEdit={onEditRecord} onDelete={onDeleteRecord} onRestore={onRestoreRecord} onResolve={onResolve} emptyText="No pest reports for this room." />
+      <RoomSection title="Pest reports" icon={Bug} color="#7A4B26" records={pestReports} assets={assets} onView={onViewRecord} onEdit={onEditRecord} onDelete={onDeleteRecord} onRestore={onRestoreRecord} onResolve={onResolve} emptyText={`No pest reports for this ${ROOM_LABEL.toLowerCase()}.`} />
       <RoomSection title="Inspections" icon={ClipboardCheck} color="#4A5A8A" records={inspections} assets={assets} onView={onViewRecord} onEdit={onEditRecord} onDelete={onDeleteRecord} onRestore={onRestoreRecord} onResolve={onResolve} emptyText="No inspections logged yet." />
       <RoomSection title="Photographs" icon={Camera} color="#8A4A6E" records={photos} assets={assets} onView={onViewRecord} onEdit={onEditRecord} onDelete={onDeleteRecord} onRestore={onRestoreRecord} onResolve={onResolve} emptyText="No photos logged yet." />
-      <RoomSection title="Recurring compliance tasks" icon={Clock} color="#2A6F97" records={compliance} assets={assets} onView={onViewRecord} onEdit={onEditRecord} onDelete={onDeleteRecord} onRestore={onRestoreRecord} onResolve={onResolve} emptyText="No fire, water, or equipment checks linked to this room yet." />
+      <RoomSection title="Recurring compliance tasks" icon={Clock} color="#2A6F97" records={compliance} assets={assets} onView={onViewRecord} onEdit={onEditRecord} onDelete={onDeleteRecord} onRestore={onRestoreRecord} onResolve={onResolve} emptyText={`No fire, water, or equipment checks linked to this ${ROOM_LABEL.toLowerCase()} yet.`} />
       <HistoryList history={room.history} />
     </div>
   );
@@ -145,15 +144,15 @@ export function RoomsList({ rooms, records, onOpen, onAdd, onEdit, onDelete, onR
 
   const [saveStatus, setSaveStatus] = useState(null);
   const handleSave = async () => {
-    const rows = filtered.map((r) => ({ room: `Room ${r.roomNumber}`, floor: r.floor || "—", type: r.roomType, open: openCount(r.id) }));
-    const title = "Room Register";
+    const rows = filtered.map((r) => ({ room: roomLabelText(r.roomNumber), floor: r.floor || "—", type: r.roomType, open: openCount(r.id) }));
+    const title = `${ROOM_LABEL} Register`;
     const columns = [
-      { key: "room", label: "Room", width: 0.25 },
+      { key: "room", label: ROOM_LABEL, width: 0.25 },
       { key: "floor", label: "Floor", width: 0.25 },
       { key: "type", label: "Type", width: 0.25 },
       { key: "open", label: "Open issues", width: 0.25 },
     ];
-    const subtitle = `Saved ${fmtDate(todayStr())} · ${filtered.length} room${filtered.length === 1 ? "" : "s"}`;
+    const subtitle = `Saved ${fmtDate(todayStr())} · ${filtered.length} ${filtered.length === 1 ? ROOM_LABEL.toLowerCase() : ROOM_LABEL_PLURAL.toLowerCase()}`;
     const sections = [{ type: "table", columns, rows }];
 
     // The summary table only ever showed a count — an inspector (or you) reading "1 open issue"
@@ -166,7 +165,7 @@ export function RoomsList({ rooms, records, onOpen, onAdd, onEdit, onDelete, onR
       sections.push({
         type: "table",
         columns: [
-          { key: "room", label: "Room", width: 0.12 },
+          { key: "room", label: ROOM_LABEL, width: 0.12 },
           { key: "type", label: "Type", width: 0.13 },
           { key: "issueTitle", label: "Issue", width: 0.2 },
           { key: "raised", label: "Raised", width: 0.13 },
@@ -177,7 +176,7 @@ export function RoomsList({ rooms, records, onOpen, onAdd, onEdit, onDelete, onR
         // dateRaised/priority) — getEventDate picks the right date per category; priority just
         // falls back to "—" for pest, same as every other mode that lacks the field.
         rows: openIssues.map(({ room, rec }) => ({
-          room: `Room ${room.roomNumber}`, type: TEMPLATES[rec.category]?.short || "", issueTitle: rec.title,
+          room: roomLabelText(room.roomNumber), type: TEMPLATES[rec.category]?.short || "", issueTitle: rec.title,
           raised: fmtDate(getEventDate(rec)), priority: rec.priority || "—", notes: rec.notes || "—",
         })),
       });
@@ -192,26 +191,26 @@ export function RoomsList({ rooms, records, onOpen, onAdd, onEdit, onDelete, onR
   return (
     <div className="module-view">
       <div className="module-header">
-        <div className="module-title"><BedDouble size={22} color="#197386" /><h2>Room register</h2></div>
+        <div className="module-title"><ROOM_ICON size={22} color="#197386" /><h2>{ROOM_LABEL} register</h2></div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-ghost" onClick={handleSave}><Share2 size={15} /> Save report</button>
-          {canDelete && <button className="btn btn-ghost" onClick={onBulkImport}><Package size={15} /> Import room asset kit</button>}
-          <button className="btn btn-primary" onClick={onAdd}><Plus size={16} /> New room</button>
+          {canDelete && SHOW_ROOM_ASSET_KIT && <button className="btn btn-ghost" onClick={onBulkImport}><Package size={15} /> Import room asset kit</button>}
+          <button className="btn btn-primary" onClick={onAdd}><Plus size={16} /> New {ROOM_LABEL.toLowerCase()}</button>
         </div>
       </div>
       <SaveStatusBanner status={saveStatus} />
       <div className="filter-rail"><div className="chip-row">
-        <input className="search-inline" placeholder="Search room number…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input className="search-inline" placeholder={`Search ${ROOM_LABEL.toLowerCase()} name…`} value={query} onChange={(e) => setQuery(e.target.value)} />
         {(archivedCount > 0 || showArchived) && <button className={"chip" + (showArchived ? " chip--active" : "")} onClick={() => setShowArchived((s) => !s)}><Archive size={12} style={{ verticalAlign: -2, marginRight: 3 }} />{showArchived ? "Hide" : "Show"} archived ({archivedCount})</button>}
       </div></div>
       {filtered.length === 0 ? (
-        <div className="empty-state">{showArchived ? "No archived rooms." : "No rooms registered yet. Add Room 302 to get started."}</div>
+        <div className="empty-state">{showArchived ? `No archived ${ROOM_LABEL_PLURAL.toLowerCase()}.` : `No ${ROOM_LABEL_PLURAL.toLowerCase()} registered yet. Add your first ${ROOM_LABEL.toLowerCase()} to get started.`}</div>
       ) : (
         <div className="ledger-table">
-          <div className="ledger-row ledger-row--asset ledger-row--head"><span>Room</span><span>Floor</span><span>Type</span><span>Open issues</span><span></span><span></span></div>
+          <div className="ledger-row ledger-row--asset ledger-row--head"><span>{ROOM_LABEL}</span><span>Floor</span><span>Type</span><span>Open issues</span><span></span><span></span></div>
           {filtered.map((r) => (
             <div className="ledger-row ledger-row--asset" key={r.id}>
-              <span className="mono-strong" style={{ cursor: "pointer" }} onClick={() => onOpen(r.id)}>Room {r.roomNumber}{r.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</span>
+              <span className="mono-strong" style={{ cursor: "pointer" }} onClick={() => onOpen(r.id)}>{roomLabelText(r.roomNumber)}{r.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</span>
               <span className="muted">{r.floor || "—"}</span>
               <span className="muted">{r.roomType}</span>
               <span>{openCount(r.id) > 0 ? <span className="flag-tag" style={{ marginLeft: 0 }}>{openCount(r.id)} open</span> : <span className="muted">None</span>}</span>

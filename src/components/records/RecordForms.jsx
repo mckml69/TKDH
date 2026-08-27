@@ -9,7 +9,7 @@ import {
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { CategoryTag, ErrorBanner, FormPage, HistoryList } from "../shared/UI";
 import { ASSET_TYPES, FREQUENCY_PRESETS, PRESET_DEFAULT_FREQUENCY, TRAINING_DEFAULT_VALIDITY_DAYS, REQUIREMENTS, RoleContext, BASIS_LABELS } from "../../lib/constants";
-import { addDays, fmtDate, getMode, hasPendingCorrection, todayStr, uid, validateRecord } from "../../lib/helpers";
+import { addDays, fmtDate, getMode, hasPendingCorrection, roomLabelText, todayStr, uid, validateRecord } from "../../lib/helpers";
 
 const REVIEW_REASONS = ["Routine review", "Significant change (refit, new furniture, change of use)", "New equipment affecting risk", "Occupancy change", "Incident or near miss", "Failure or deterioration of a precaution", "Other"];
 
@@ -104,7 +104,7 @@ export function RecordFormPage({ template, record, assets, rooms, contractors, s
                   });
                 }}>
                   <option value="">Not linked</option>
-                  {rooms.map((r) => <option key={r.id} value={r.id}>Room {r.roomNumber}</option>)}
+                  {rooms.map((r) => <option key={r.id} value={r.id}>{roomLabelText(r.roomNumber)}</option>)}
                 </select>
               </label>
             )}
@@ -403,7 +403,7 @@ export function RoomLinkReview({ room, candidates, onLink, onSkip }) {
   const toggle = (id) => setChecked((c) => ({ ...c, [id]: !c[id] }));
   return (
     <FormPage
-      title={`Link existing records to Room ${room.roomNumber}?`}
+      title={`Link existing records to ${roomLabelText(room.roomNumber)}?`}
       onClose={onSkip}
       closeLabel="Skip"
       footer={<button type="button" className="btn btn-primary" onClick={() => onLink(candidates.filter((c) => checked[c.id]).map((c) => c.id))}><Link2 size={15} /> Link selected</button>}

@@ -6,7 +6,7 @@ import { RoleContext, TEMPLATES, ASSET_TYPES, ASSET_STATUSES, DECOMMISSION_REASO
 import {
   uid, todayStr, fmtDate, generateAssetCode, copyLifecycleFields, validateAsset, getEventDate, getStatus,
   assetComplianceStatus, isIssueMode, isOpenIssue, findRecurringIssue, findRepeatContractor, findRepeatFailure,
-  certificateStatus,
+  certificateStatus, roomLabelText,
 } from "../../lib/helpers";
 import { AttachChip, CategoryTag, ErrorBanner, FormPage, HistoryList, PatternCallout, SaveStatusBanner, Stamp } from "../shared/UI";
 import { AttachmentsField } from "../shared/AttachmentsField";
@@ -63,7 +63,7 @@ export function AssetFormPage({ asset, assets, rooms, checkpoints, prefill, onSa
             <label>Room <span className="muted">(if inside a bedroom)</span>
               <select value={form.roomId || ""} onChange={(e) => set("roomId", e.target.value || null)}>
                 <option value="">Not in a room</option>
-                {rooms.map((r) => <option key={r.id} value={r.id}>Room {r.roomNumber}</option>)}
+                {rooms.map((r) => <option key={r.id} value={r.id}>{roomLabelText(r.roomNumber)}</option>)}
               </select>
             </label>
           )}
@@ -344,7 +344,7 @@ export function AssetDetail({ asset, assets, records, rooms, checkpoints, certif
       <div className="asset-info-grid">
         <div><span className="field-label">Type</span><p>{type?.label}{(asset.eligibleFor || [asset.category]).length > 1 && <span className="muted" style={{ fontWeight: 400 }}> — also linkable under {(asset.eligibleFor || []).filter((c) => c !== asset.category).map((c) => TEMPLATES[c]?.short || c).join(", ")}</span>}</p></div>
         <div><span className="field-label">Status</span><p>{asset.status}</p></div>
-        <div><span className="field-label">Location</span><p><MapPin size={12} style={{ verticalAlign: -1 }} /> {room ? <span style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => onOpenRoom(room.id)}>Room {room.roomNumber}</span> : (asset.location || "—")}</p></div>
+        <div><span className="field-label">Location</span><p><MapPin size={12} style={{ verticalAlign: -1 }} /> {room ? <span style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => onOpenRoom(room.id)}>{roomLabelText(room.roomNumber)}</span> : (asset.location || "—")}</p></div>
         <div><span className="field-label">Compliance</span><p><Stamp status={compliance} dense /></p></div>
         <div><span className="field-label">Manufacturer / model</span><p>{[asset.manufacturer, asset.model].filter(Boolean).join(" · ") || "—"}</p></div>
         <div><span className="field-label">Serial</span><p>{asset.serialNumber || "—"}</p></div>

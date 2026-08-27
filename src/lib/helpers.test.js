@@ -229,7 +229,7 @@ describe("form validators", () => {
   it("validateAsset / validateRoom / validateContractor / validateStaff / validateCertificate / validateVisit", () => {
     expect(validateAsset({ assetCode: "" })).toEqual(["Asset code is required."]);
     expect(validateAsset({ assetCode: "FE-001" })).toEqual([]);
-    expect(validateRoom({ roomNumber: "" })).toEqual(["Room number is required."]);
+    expect(validateRoom({ roomNumber: "" })).toEqual(["Room name is required."]);
     expect(validateContractor({ name: "" })).toEqual(["Contractor / company name is required."]);
     expect(validateStaff({ name: "" })).toEqual(["Staff member name is required."]);
     expect(validateCertificate({ title: "" })).toEqual(["Certificate title is required."]);

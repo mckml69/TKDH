@@ -3,7 +3,6 @@ import {
   Search,
   ListFilter,
   Package,
-  BedDouble,
   BookOpen,
   HardHat,
   Users,
@@ -12,8 +11,8 @@ import {
 } from "lucide-react";
 import { RecordTable } from "../records/RecordList";
 import { CategoryTag, ReqCategoryTag, Stamp } from "../shared/UI";
-import { ASSET_TYPES, RoleContext } from "../../lib/constants";
-import { assetComplianceStatus, certificateStatus, contractorVisitedRecord, fmtDate, matchRequirement, requirementStatus, staffTrainingStatus, universalSearch, visitStatus } from "../../lib/helpers";
+import { ASSET_TYPES, ROOM_ICON, ROOM_LABEL, ROOM_LABEL_PLURAL, RoleContext } from "../../lib/constants";
+import { assetComplianceStatus, certificateStatus, contractorVisitedRecord, fmtDate, matchRequirement, requirementStatus, roomLabelText, staffTrainingStatus, universalSearch, visitStatus } from "../../lib/helpers";
 
 export function SearchSection({ title, icon: Icon, count, children }) {
   if (count === 0) return null;
@@ -43,7 +42,7 @@ export function SearchResults({ query, records, assets, rooms, contractors, staf
     return (
       <div className="module-view">
         <div className="module-header"><div className="module-title"><Search size={22} color="#197386" /><h2>Search everything</h2></div></div>
-        <div className="empty-state">Search by room, asset code, contractor or supplier name, staff member, certificate, maintenance issue, pest report, inspection, notes, attachment filename, a date, or a tag — it searches records, assets, rooms, contractors, staff, certificates, regulatory visits, and the Compliance Library all at once.</div>
+        <div className="empty-state">Search by {ROOM_LABEL.toLowerCase()}, asset code, contractor or supplier name, staff member, certificate, maintenance issue, pest report, inspection, notes, attachment filename, a date, or a tag — it searches records, assets, {ROOM_LABEL_PLURAL.toLowerCase()}, contractors, staff, certificates, regulatory visits, and the Compliance Library all at once.</div>
       </div>
     );
   }
@@ -56,7 +55,7 @@ export function SearchResults({ query, records, assets, rooms, contractors, staf
       </div>
 
       {total === 0 ? (
-        <div className="empty-state">No matches anywhere — try a different room number, name, tag, or date format.</div>
+        <div className="empty-state">No matches anywhere — try a different {ROOM_LABEL.toLowerCase()} name, tag, or date format.</div>
       ) : (
         <>
           <SearchSection title="Records" icon={ListFilter} count={results.records.length}>
@@ -77,11 +76,11 @@ export function SearchResults({ query, records, assets, rooms, contractors, staf
             </div>
           </SearchSection>
 
-          <SearchSection title="Rooms" icon={BedDouble} count={results.rooms.length}>
+          <SearchSection title={ROOM_LABEL_PLURAL} icon={ROOM_ICON} count={results.rooms.length}>
             <div className="ledger-table">
               {results.rooms.map((r) => (
                 <div key={r.id} className="ledger-row ledger-row--flat" style={{ cursor: "pointer" }} onClick={() => onOpenRoom(r.id)}>
-                  <span className="mono-strong">Room {r.roomNumber}{(r.tags || []).map((t) => <span key={t} className="tag-pill">{t}</span>)}</span>
+                  <span className="mono-strong">{roomLabelText(r.roomNumber)}{(r.tags || []).map((t) => <span key={t} className="tag-pill">{t}</span>)}</span>
                   <span className="muted">{r.roomType}</span>
                   <span className="muted">Floor {r.floor || "—"}</span>
                   <span className="muted">{r.notes ? r.notes.slice(0, 60) : "—"}</span>

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { AttachChip, CategoryTag, SaveStatusBanner, Stamp } from "../shared/UI";
 import { PUB_VENUE_NAME, RoleContext, STATUS_META, TEMPLATES, TEMPLATE_LIST, categoryFilterMatches } from "../../lib/constants";
-import { checkResult, daysUntil, fmtDate, getDueDate, getEventDate, getStatus, hasPendingCorrection, isOpenIssue, isScheduleMode, matchesQuery, recordDetailText, recordWhoText, todayStr } from "../../lib/helpers";
+import { checkResult, daysUntil, fmtDate, getDueDate, getEventDate, getStatus, hasPendingCorrection, isOpenIssue, isScheduleMode, matchesQuery, recordDetailText, recordWhoText, roomLabelText, todayStr } from "../../lib/helpers";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
@@ -122,7 +122,7 @@ export function Ledger({ records, assets, rooms, contractors, staff, venuePull, 
     for (const r of filtered) {
       const room = r.roomId ? allRooms.find((rm) => rm.id === r.roomId) : null;
       const key = room ? `room:${room.id}` : `title:${r.title || "Untitled"}`;
-      if (!groups.has(key)) groups.set(key, { heading: room ? `Room ${room.roomNumber}` : (r.title || "Untitled"), isRoomGroup: !!room, records: [] });
+      if (!groups.has(key)) groups.set(key, { heading: room ? roomLabelText(room.roomNumber) : (r.title || "Untitled"), isRoomGroup: !!room, records: [] });
       groups.get(key).records.push(r);
     }
     const sortedKeys = Array.from(groups.keys()).sort((a, b) => groups.get(a).heading.localeCompare(groups.get(b).heading, undefined, { numeric: true }));

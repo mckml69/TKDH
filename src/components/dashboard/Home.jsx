@@ -3,7 +3,6 @@ import {
   GraduationCap,
   Sparkles,
   Package,
-  BedDouble,
   Award,
   Repeat,
   MessageSquareWarning,
@@ -12,8 +11,8 @@ import { RecordTable } from "../records/RecordList";
 import { ResponsiblePersonCard } from "../settings/ResponsiblePerson";
 import { BrandingCard } from "../settings/Branding";
 import { CategoryTag, DashboardSection, Stamp } from "../shared/UI";
-import { PUB_VENUE_NAME, REQUIREMENTS, RoleContext } from "../../lib/constants";
-import { assetComplianceStatus, assetUnreliability, belongsToRoom, certificateStatus, findRecurringIssue, findRepeatFailure, fmtDate, getMode, getStatus, hasPendingCorrection, isOpenIssue, isReviewMode, isScheduleMode, matchRequirement, recordDetailText, requirementStatus, roomProblemCounts, timeGreeting, todaysActionItems } from "../../lib/helpers";
+import { PUB_VENUE_NAME, REQUIREMENTS, ROOM_ICON, ROOM_LABEL, ROOM_LABEL_PLURAL, RoleContext } from "../../lib/constants";
+import { assetComplianceStatus, assetUnreliability, belongsToRoom, certificateStatus, findRecurringIssue, findRepeatFailure, fmtDate, getMode, getStatus, hasPendingCorrection, isOpenIssue, isReviewMode, isScheduleMode, matchRequirement, recordDetailText, requirementStatus, roomLabelText, roomProblemCounts, timeGreeting, todaysActionItems } from "../../lib/helpers";
 
 export function Home({ records, assets, rooms, certificates, venuePull, responsiblePerson, onEditResponsiblePerson, branding, onEditBranding, onEdit, onOpenRoom, onOpenAsset, onOpenCertificate, onOpenLibrary, onResolve, goToLedger }) {
   const { role, currentUser } = useContext(RoleContext);
@@ -137,13 +136,13 @@ export function Home({ records, assets, rooms, certificates, venuePull, responsi
         </div>
       </DashboardSection>
 
-      <DashboardSection title="Which rooms have repeated problems?" icon={BedDouble} color="#A8402F" count={roomProblems.length} emptyText="No room has 2 or more maintenance or pest issues.">
+      <DashboardSection title={`Which ${ROOM_LABEL_PLURAL.toLowerCase()} have repeated problems?`} icon={ROOM_ICON} color="#A8402F" count={roomProblems.length} emptyText={`No ${ROOM_LABEL.toLowerCase()} has 2 or more maintenance or pest issues.`}>
         <div className="ledger-table">
           {roomProblems.slice(0, 8).map(({ room, count }) => {
             const recurring = findRecurringIssue(activeRecords.filter((r) => belongsToRoom(r, room.id, activeAssets)));
             return (
               <div key={room.id} className="ledger-row ledger-row--flat" style={{ cursor: "pointer" }} onClick={() => onOpenRoom(room.id)}>
-                <span className="mono-strong">Room {room.roomNumber}</span>
+                <span className="mono-strong">{roomLabelText(room.roomNumber)}</span>
                 <span className="muted">{room.roomType}</span>
                 <span className="muted">{recurring ? `"${recurring.title}" × ${recurring.count}` : `${count} issue${count === 1 ? "" : "s"} logged`}</span>
                 <span className="flag-tag" style={{ marginLeft: 0 }}>Repeat</span>
