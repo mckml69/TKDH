@@ -667,7 +667,7 @@ export default function App() {
   } else if (current.page === "report-fallback") {
     body = <ReportFallback title={current.title} pdfBytes={current.pdfBytes} onBack={pop} />;
   } else if (current.page === "search-results") {
-    body = <SearchResults query={searchQuery} records={records} assets={assets} rooms={rooms} contractors={contractors} staff={staff} certificates={certificates} visits={visits}
+    body = <SearchResults query={searchQuery} records={records} assets={assets} rooms={rooms} contractors={contractors} staff={staff} certificates={certificates} visits={visits} venuePull={venuePull}
       onView={openRecordView} onEditRecord={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onDeleteRecord={handleDeleteRecord} onResolve={(r) => push({ page: "resolve-form", record: r })}
       onOpenAsset={(id) => push({ page: "asset-detail", assetId: id })}
       onOpenRoom={(id) => push({ page: "room-detail", roomId: id })}

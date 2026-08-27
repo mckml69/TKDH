@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useContext, useMemo } from "react";
 import {
   Search,
   ListFilter,
@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { RecordTable } from "../records/RecordList";
 import { CategoryTag, ReqCategoryTag, Stamp } from "../shared/UI";
-import { ASSET_TYPES } from "../../lib/constants";
+import { ASSET_TYPES, RoleContext } from "../../lib/constants";
 import { assetComplianceStatus, certificateStatus, contractorVisitedRecord, fmtDate, matchRequirement, requirementStatus, staffTrainingStatus, universalSearch, visitStatus } from "../../lib/helpers";
 
 export function SearchSection({ title, icon: Icon, count, children }) {
@@ -25,8 +25,18 @@ export function SearchSection({ title, icon: Icon, count, children }) {
   );
 }
 
-export function SearchResults({ query, records, assets, rooms, contractors, staff, certificates, visits, onView, onEditRecord, onDeleteRecord, onResolve, onOpenAsset, onOpenRoom, onOpenContractor, onOpenStaff, onOpenCertificate, onOpenVisit, onOpenRequirement }) {
-  const results = useMemo(() => universalSearch(query, records, assets, rooms, contractors, staff, certificates, visits), [query, records, assets, rooms, contractors, staff, certificates, visits]);
+export function SearchResults({ query, records, assets, rooms, contractors, staff, certificates, visits, venuePull, onView, onEditRecord, onDeleteRecord, onResolve, onOpenAsset, onOpenRoom, onOpenContractor, onOpenStaff, onOpenCertificate, onOpenVisit, onOpenRequirement }) {
+  const { role } = useContext(RoleContext);
+  // Same merge as the Ledger and Home dashboard's "pub issues" section — General Manager only,
+  // and the pulled records carry their own asset/room/contractor/staff context along with them so
+  // recordHaystack can still resolve "Room X" / contractor name text for a room that only exists
+  // in the other venue's own storage.
+  const pubActive = role === "General Manager" && !!venuePull?.available;
+  const pulledRecords = useMemo(() => (pubActive ? venuePull.issues.map((r) => ({ ...r, id: `pull:${r.id}`, __pulled: true })) : []), [pubActive, venuePull]);
+  const allRecords = useMemo(() => [...records, ...pulledRecords], [records, pulledRecords]);
+  const allRooms = useMemo(() => [...rooms, ...(pubActive ? venuePull.rooms : [])], [rooms, pubActive, venuePull]);
+  const allContractors = useMemo(() => [...contractors, ...(pubActive ? venuePull.contractors : [])], [contractors, pubActive, venuePull]);
+  const results = useMemo(() => universalSearch(query, allRecords, assets, allRooms, allContractors, staff, certificates, visits), [query, allRecords, assets, allRooms, allContractors, staff, certificates, visits]);
   const total = results.records.length + results.assets.length + results.rooms.length + results.requirements.length + results.contractors.length + results.staff.length + results.certificates.length + results.visits.length;
 
   if (!query.trim()) {
@@ -50,7 +60,7 @@ export function SearchResults({ query, records, assets, rooms, contractors, staf
       ) : (
         <>
           <SearchSection title="Records" icon={ListFilter} count={results.records.length}>
-            <RecordTable records={results.records} assets={assets} onEdit={onEditRecord} onDelete={onDeleteRecord} onResolve={onResolve} emptyText="" />
+            <RecordTable records={results.records} assets={assets} rooms={allRooms} contractors={allContractors} staff={staff} onView={onView} onEdit={onEditRecord} onDelete={onDeleteRecord} onResolve={onResolve} emptyText="" />
           </SearchSection>
 
           <SearchSection title="Assets" icon={Package} count={results.assets.length}>

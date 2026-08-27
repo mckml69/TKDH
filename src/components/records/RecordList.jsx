@@ -34,12 +34,13 @@ export function RecordRow({ record, assets, rooms, contractors = [], staff = [],
   return (
     <div className="ledger-row">
       <span><CategoryTag category={record.category} /></span>
-      <span className="mono-strong" style={pulled ? undefined : { cursor: "pointer" }} onClick={pulled ? undefined : () => onView(record)}>{record.title} <AttachChip count={record.attachments?.length} />{(record.tags || []).map((t) => <span key={t} className="tag-pill">{t}</span>)}{pulled && <span className="flag-tag" style={{ color: "#2A3A6E", background: "#EEF0FA" }}>{PUB_VENUE_NAME}</span>}</span>
+      <span className="mono-strong" style={pulled ? undefined : { cursor: "pointer" }} onClick={pulled ? undefined : () => onView(record)}>{record.title} <AttachChip count={record.attachments?.length} />{(record.tags || []).map((t) => <span key={t} className="tag-pill">{t}</span>)}</span>
       <span className="muted">{secondary}</span>
       <span className="muted">{who}</span>
       <span className="mono">{dateCol}{showDue && <span className="days-hint">{d < 0 ? ` · ${Math.abs(d)}d overdue` : ` · in ${d}d`}</span>}</span>
       <span><Stamp status={status} dense />{record.flagged && !record.flagResolved && <span className="flag-tag">Flagged</span>}{record.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}{pending && <span className="flag-tag" style={{ color: "#2A3A6E", background: "#EEF0FA" }}>Correction requested</span>}</span>
       <span className="row-actions">
+        {pulled && <span className="flag-tag" style={{ color: "#2A3A6E", background: "#EEF0FA", fontSize: 12.5, padding: "5px 10px", fontWeight: 600, margin: 0 }}>{PUB_VENUE_NAME}</span>}
         {!pulled && !record.archived && isOpenIssue(record) && <button className="btn btn-ghost" style={{ padding: "5px 10px", fontSize: 12.5 }} onClick={() => onResolve(record)}>Resolve</button>}
         {!pulled && <button className="icon-btn" onClick={() => onView(record)}><Eye size={15} /></button>}
         {!pulled && !record.archived && canEdit && <button className="icon-btn" onClick={() => onEdit(record)}><Pencil size={15} /></button>}

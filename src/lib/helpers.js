@@ -1,4 +1,4 @@
-import { TEMPLATES, DUE_SOON_WINDOW, RECENT_WINDOW, ASSET_TYPES, REQUIREMENTS, LEGIONELLA_CHECK_ITEMS, VENUE_NAME } from "./constants";
+import { TEMPLATES, DUE_SOON_WINDOW, RECENT_WINDOW, ASSET_TYPES, REQUIREMENTS, LEGIONELLA_CHECK_ITEMS, VENUE_NAME, PUB_VENUE_NAME } from "./constants";
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 export const fmtDate = (d) => {
@@ -727,7 +727,10 @@ export function recordHaystack(r, rooms, contractors) {
   const dates = [r.lastCompleted, r.completedDate, r.expiryDate, r.dateReported, r.dateRaised, r.dateLogged, r.resolvedDate, r.createdAt, r.updatedAt];
   const room = rooms?.find((rm) => rm.id === r.roomId);
   const contractor = contractors?.find((c) => c.id === r.contractorId);
-  return [r.title, r.location, r.people, r.notes, r.detail, r.actionTaken, TEMPLATES[r.category]?.label, tagBlob(r.tags), attachmentBlob(r.attachments), dateSearchBlob(dates), room ? `Room ${room.roomNumber}` : "", contractor?.name]
+  // A pulled-in record is visibly tagged with the other venue's name in every list it appears in
+  // (see RecordRow's flag-tag) — so searching that name (or a plain "pub"-style word inside it)
+  // should surface it here too, even when nothing in the record's own text mentions the venue.
+  return [r.title, r.location, r.people, r.notes, r.detail, r.actionTaken, TEMPLATES[r.category]?.label, tagBlob(r.tags), attachmentBlob(r.attachments), dateSearchBlob(dates), room ? `Room ${room.roomNumber}` : "", contractor?.name, r.__pulled ? PUB_VENUE_NAME : ""]
     .filter(Boolean).join(" ").toLowerCase();
 }
 export function assetHaystack(a, rooms) {
