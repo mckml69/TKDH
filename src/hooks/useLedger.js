@@ -5,7 +5,7 @@ import {
   ROOM_HISTORY_FIELDS, STAFF_HISTORY_FIELDS, VISIT_HISTORY_FIELDS, CHECKPOINT_HISTORY_FIELDS, METER_HISTORY_FIELDS,
   ASSET_TYPES, ROOM_TYPES, ROOM_ASSET_KIT,
 } from "../lib/constants";
-import { fireLogRepairWeeklyKeys, isFireLogLocked, fireLogEnsureSnapshot, copyLifecycleFields, generateAssetCode, uid } from "../lib/helpers";
+import { fireLogRepairWeeklyKeys, isFireLogLocked, fireLogEnsureSnapshot, copyLifecycleFields, generateAssetCode, todayStr, uid } from "../lib/helpers";
 
 export function useLedger(actorName) {
   const [records, setRecords] = useState([]);

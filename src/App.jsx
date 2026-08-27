@@ -24,7 +24,7 @@ import {
   Menu,
   ExternalLink,
 } from "lucide-react";
-import { AssetDetail, AssetFormPage, AssetsList } from "./components/assets/Assets";
+import { AssetDetail, AssetFormPage, AssetsList, ReplaceAssetPage } from "./components/assets/Assets";
 import { AuditIntro, AuditReport, AuditWizardStep } from "./components/audit/Audit";
 import { CertificateDetail, CertificateFormPage, CertificatesList } from "./components/certificates/Certificates";
 import { CheckpointDetail, CheckpointFormPage, CheckpointsList, BulkImportCheckpointFixturesPage } from "./components/checkpoints/Checkpoints";
