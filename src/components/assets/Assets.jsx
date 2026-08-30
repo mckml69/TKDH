@@ -4,9 +4,9 @@ import {
 } from "lucide-react";
 import { RoleContext, TEMPLATES, ASSET_TYPES, ASSET_STATUSES, DECOMMISSION_REASONS, STATUS_META } from "../../lib/constants";
 import {
-  uid, todayStr, fmtDate, generateAssetCode, copyLifecycleFields, validateAsset, getEventDate, getStatus,
-  assetComplianceStatus, isIssueMode, isOpenIssue, findRecurringIssue, findRepeatContractor, findRepeatFailure,
-  certificateStatus, roomLabelText,
+  uid, todayStr, fmtDate, generateAssetCode, copyLifecycleFields, validateAsset, getEventDate, getStatus, getDueDate,
+  assetComplianceStatus, isIssueMode, isOpenIssue, isScheduleMode, findRecurringIssue, findRepeatContractor, findRepeatFailure,
+  certificateStatus, checkResult, roomLabelText,
 } from "../../lib/helpers";
 import { AttachChip, CategoryTag, ErrorBanner, FormPage, HistoryList, PatternCallout, SaveStatusBanner, Stamp } from "../shared/UI";
 import { AttachmentsField } from "../shared/AttachmentsField";
@@ -175,7 +175,47 @@ export function AssetsList({ assets, records, onOpen, onAdd, onEdit, onDelete, o
       { key: "compliance", label: "Compliance", width: 0.18, chip: true },
     ];
     const subtitle = `Saved ${fmtDate(todayStr())} · ${filtered.length} asset${filtered.length === 1 ? "" : "s"}`;
-    const pdfBytes = await buildRegisterPdf({ title, subtitle, branding, sections: [{ type: "table", columns, rows }] });
+    const sections = [{ type: "table", columns, rows }];
+
+    // A compliance chip alone ("Overdue"/"Compliant") doesn't answer "show me every time this was
+    // actually checked" — the thing an inspector (or you, checking a specific piece of kit like a
+    // ladder or a cot) actually wants. Only added when narrowed to one type, not the whole register,
+    // since a full building's worth of check history in one export would be unreadable either way.
+    if (typeFilter !== "all") {
+      const assetIds = new Set(filtered.map((a) => a.id));
+      const checkRows = records
+        .filter((r) => r.assetId && assetIds.has(r.assetId) && !r.archived && isScheduleMode(r))
+        .sort((a, b) => {
+          const codeA = filtered.find((x) => x.id === a.assetId)?.assetCode || "";
+          const codeB = filtered.find((x) => x.id === b.assetId)?.assetCode || "";
+          return codeA.localeCompare(codeB, undefined, { numeric: true }) || (getEventDate(b) || "").localeCompare(getEventDate(a) || "");
+        })
+        .map((r) => ({
+          asset: filtered.find((a) => a.id === r.assetId)?.assetCode || "—",
+          date: fmtDate(getEventDate(r)),
+          nextDue: fmtDate(getDueDate(r)),
+          result: checkResult(r),
+          by: r.people || "—",
+          notes: r.notes || (r.flagged ? r.flagDescription : "") || "—",
+        }));
+      if (checkRows.length > 0) {
+        sections.push({ type: "heading", text: "Check history" });
+        sections.push({
+          type: "table",
+          columns: [
+            { key: "asset", label: "Asset", width: 0.13 },
+            { key: "date", label: "Date", width: 0.13 },
+            { key: "nextDue", label: "Next due", width: 0.13 },
+            { key: "result", label: "Result", width: 0.11 },
+            { key: "by", label: "Checked by", width: 0.16 },
+            { key: "notes", label: "Notes", width: 0.34 },
+          ],
+          rows: checkRows,
+        });
+      }
+    }
+
+    const pdfBytes = await buildRegisterPdf({ title, subtitle, branding, sections });
     const result = await exportPdfReport(`asset-register-${todayStr()}.pdf`, title, pdfBytes);
     if (result.status === "fallback") onExportFallback(result);
     else setSaveStatus(result.status);

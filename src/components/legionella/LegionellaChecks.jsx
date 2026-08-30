@@ -377,7 +377,11 @@ export function LegionellaTempChecksExportPage({ checkpoints, assets, records, o
     () => (validRange ? legionellaTempCheckFindMissing(checkpoints, assets, records, startDate, endDate) : []),
     [checkpoints, assets, records, startDate, endDate, validRange]
   );
-  const canExport = validRange && eligible.length > 0 && periods.length > 0 && missing.length === 0;
+  // Recorded, not "every eligible checkpoint × every month" — water temperature monitoring is done
+  // by rotation (a few taps a month, not the whole hotel every time), so requiring full coverage
+  // before export would make it impossible to ever export a normal, honestly-rotated log.
+  const recordedCount = eligible.length * periods.length - missing.length;
+  const canExport = validRange && eligible.length > 0 && periods.length > 0 && recordedCount > 0;
 
   const handleExport = async () => {
     if (!canExport) return;
@@ -386,13 +390,14 @@ export function LegionellaTempChecksExportPage({ checkpoints, assets, records, o
     for (const periodKey of periods) {
       for (const cp of eligible) {
         const rec = records.find((r) => r.category === "legionella_temp_check" && r.checkpointId === cp.id && r.periodKey === periodKey && !r.archived);
+        if (!rec) continue; // not tested this rotation — leave it off the report rather than padding it with "Not logged" rows
         const source = legionellaTempCheckExportSource(rec);
         rows.push({
           checkpoint: cp.name,
           period: checkpointCheckPeriodLabel(periodKey),
           hot: source?.hotTempC != null ? `${source.hotTempC}°C` : "—",
           cold: source?.coldTempC != null ? `${source.coldTempC}°C` : "—",
-          status: !source ? "Not logged" : source.status === "ok" ? "OK" : "Not OK",
+          status: source.status === "ok" ? "OK" : "Not OK",
           note: source?.note || "",
           by: source?.by || "",
         });
@@ -427,12 +432,14 @@ export function LegionellaTempChecksExportPage({ checkpoints, assets, records, o
       </div>
       {!validRange && <p className="muted">Pick a start and end date to continue.</p>}
       {validRange && eligible.length === 0 && <p className="muted">No checkpoints have a tap or shower head assigned yet — nothing to export.</p>}
+      {validRange && eligible.length > 0 && recordedCount === 0 && (
+        <p className="muted">No readings logged for any checkpoint in this range yet — nothing to export.</p>
+      )}
       {validRange && eligible.length > 0 && missing.length > 0 && (
-        <div className="form-error-banner">
+        <div className="feed-section" style={{ background: "#FAF8F2", padding: "10px 12px", borderRadius: 8 }}>
           <div style={{ fontWeight: 700, marginBottom: 4 }}>
-            Can't export — {missing.length} checkpoint check{missing.length === 1 ? "" : "s"} {missing.length === 1 ? "is" : "are"} missing in this range.
+            {missing.length} checkpoint check{missing.length === 1 ? "" : "s"} {missing.length === 1 ? "wasn't" : "weren't"} tested in this range — that's expected with rotational testing, and they won't appear in the export. Not tested:
           </div>
-          <div>Log {missing.length === 1 ? "it" : "them"} first — an inspector should never see a gap nobody caught. Missing:</div>
           <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
             {missing.slice(0, 20).map((m) => (
               <button key={m.checkpointId + m.periodKey} type="button" className="btn btn-ghost" style={{ padding: "3px 10px", fontSize: 12, background: "#fff" }}
@@ -446,8 +453,7 @@ export function LegionellaTempChecksExportPage({ checkpoints, assets, records, o
       )}
       {canExport && (
         <p className="muted">
-          {periods.length} month{periods.length === 1 ? "" : "s"} × {eligible.length} checkpoint{eligible.length === 1 ? "" : "s"} —
-          every one has a record for every month in this range.
+          {recordedCount} reading{recordedCount === 1 ? "" : "s"} logged across {periods.length} month{periods.length === 1 ? "" : "s"} — the export will only include checkpoints that were actually tested.
         </p>
       )}
     </FormPage>

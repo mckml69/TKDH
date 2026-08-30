@@ -415,8 +415,13 @@ export function legionellaTempCheckEligibleCheckpoints(checkpoints, assets) {
   return checkpoints.filter((cp) => !cp.archived &&
     assets.some((a) => a.checkpointId === cp.id && !a.archived && (a.assetType === "tap" || a.assetType === "shower_head")));
 }
-/** Same golden rule as checkpointCheckFindMissing: every (eligible checkpoint, month) combination in
-    range with no record at all is a hard block on exporting. */
+/** Unlike checkpointCheckFindMissing (Window Restriction), this is informational only, not a hard
+    block on exporting — water temperature monitoring is legitimately done by rotation (HSG274
+    doesn't require testing every single outlet every month), so an eligible checkpoint having no
+    reading yet for a given month is normal, expected, and shouldn't stop the rest of what actually
+    was logged from being exported. The export itself only includes checkpoint/month pairs that DO
+    have a record — this list exists so the export page can still surface what wasn't tested this
+    rotation, in case that's useful, without gating the button on it. */
 export function legionellaTempCheckFindMissing(checkpoints, assets, records, startDate, endDate) {
   const eligible = legionellaTempCheckEligibleCheckpoints(checkpoints, assets);
   const periods = checkpointCheckPeriodsInRange(startDate, endDate);
