@@ -914,7 +914,12 @@ export function requirementStatus(req, matched) {
   const total = matched.records.length + matched.certificates.length;
   if (total === 0) return "missing";
   if (req.matchMode === "category") return "tracked";
-  const rank = { "review-overdue": 0, overdue: 0, "review-due": 1, "due-soon": 1, reviewed: 2, compliant: 2 };
+  // "open"/"in-progress" only started actually appearing here once water-temp and window-restrictor
+  // started recognising their checkpoint-check records (previously nothing ever matched them, so a
+  // failed check silently sorting behind a compliant one never surfaced) — a checkpoint that's
+  // failed (not_ok) is real, live information and must outrank one that's merely compliant, exactly
+  // like an overdue record already does.
+  const rank = { "review-overdue": 0, overdue: 0, open: 0, "review-due": 1, "due-soon": 1, "in-progress": 1, reviewed: 2, compliant: 2, logged: 2 };
   const statuses = [...matched.records.map(getStatus), ...matched.certificates.map(certificateStatus)];
   return statuses.sort((a, b) => (rank[a] ?? 3) - (rank[b] ?? 3))[0];
 }
