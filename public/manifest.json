@@ -1,0 +1,11 @@
+{
+  "name": "Compliance Ledger",
+  "short_name": "Compliance Ledger",
+  "icons": [
+    { "src": "/tkdh-logo.png", "sizes": "1254x1254", "type": "image/png" }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#197386"
+}
