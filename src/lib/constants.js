@@ -164,6 +164,7 @@ export const CERT_DEFAULT_VALIDITY_DAYS = {
   "Employers' Liability Insurance": 365,
   "Public Liability Insurance": 365,
   "Lift LOLER Report": 182, // 6 months for passenger lifts — used to silently disagree at 365
+  "Emergency Lighting Test Certificate": 365, // annual full-duration discharge test — see REQUIREMENTS.emergency-lighting
   // Food Hygiene Rating and Other deliberately have no default — neither has a fixed real-world interval
 };
 
@@ -247,7 +248,7 @@ export const REQUIREMENTS = [
     evidence: "The written assessment itself, identified actions with target dates, and evidence actions were completed.",
     retention: "Keep the current version plus prior versions for as long as you're the responsible person — you're legally required to hand records to an incoming responsible person if management changes.",
     legislation: "Regulatory Reform (Fire Safety) Order 2005, Article 9 (review duty, no fixed interval); Building Safety Act 2022, section 156 (written-record duty since 1 Oct 2023, regardless of size)." },
-  { id: "fire-alarm-weekly", category: "fire", matchMode: "preset", matchValues: ["Fire alarm test"], title: "Fire Alarm Weekly Test",
+  { id: "fire-alarm-weekly", category: "fire", matchMode: "preset", matchValues: ["Fire alarm test"], fireLogMatch: { category: "fire_weekly", itemKey: "fireAlarmTest" }, title: "Fire Alarm Weekly Test",
     basis: ["guidance"], sourceConfidence: "unverified",
     whatToKeep: "A log of the weekly manual call point test.",
     why: "The Fire Safety Order requires fire detection and alarm systems to be kept in effective working order at all times.",
@@ -263,7 +264,7 @@ export const REQUIREMENTS = [
     evidence: "Engineer's service report/certificate, listing any defects and remedial action.",
     retention: "Keep for the life of the system.",
     legislation: "RRFSO 2005 (general duty); BS 5839-1 (guidance, not statute)." },
-  { id: "extinguisher", category: "fire", matchMode: "preset", matchValues: ["Fire extinguisher check"], title: "Fire Extinguisher Check",
+  { id: "extinguisher", category: "fire", matchMode: "preset", matchValues: ["Fire extinguisher check"], fireLogMatch: { category: "fire_monthly", itemKey: "fireFightingEquipment" }, title: "Fire Extinguisher Check",
     basis: ["guidance"], sourceConfidence: "unverified",
     whatToKeep: "Monthly visual checks plus an annual service record for every extinguisher.",
     why: "Extinguishers are general fire precautions under the Fire Safety Order and must be maintained and available for use.",
@@ -271,7 +272,7 @@ export const REQUIREMENTS = [
     evidence: "Visual check log and annual service tag/certificate per extinguisher.",
     retention: "Current plus previous annual service record.",
     legislation: "RRFSO 2005 (general duty); BS 5306-3 (guidance, not statute)." },
-  { id: "emergency-lighting", category: "fire", matchMode: "preset", matchValues: ["Emergency lighting test"], title: "Emergency Lighting Test",
+  { id: "emergency-lighting", category: "fire", matchMode: "preset", matchValues: ["Emergency lighting test"], fireLogMatch: { category: "fire_monthly", itemKey: "emergencyLighting" }, certTypes: ["Emergency Lighting Test Certificate"], title: "Emergency Lighting Test",
     basis: ["guidance"], sourceConfidence: "unverified",
     whatToKeep: "A monthly brief function test and an annual full-duration discharge test.",
     why: "Escape routes must remain visible if mains power fails — a legal requirement under general fire precautions.",
@@ -287,7 +288,7 @@ export const REQUIREMENTS = [
     evidence: "Inspection checklist per door with date and any remedial action.",
     retention: "Keep to support your Fire Risk Assessment review.",
     legislation: "RRFSO 2005 (general duty); Fire Safety (England) Regulations 2022 (statutory, only if the building qualifies); industry 'Check It Out' guidance otherwise." },
-  { id: "fire-drill", category: "fire", matchMode: "preset", matchValues: ["Fire drill"], title: "Fire Drill",
+  { id: "fire-drill", category: "fire", matchMode: "preset", matchValues: ["Fire drill"], fireLogMatch: { category: "fire_periodic", itemKey: "fireDrill" }, title: "Fire Drill",
     basis: ["guidance"], sourceConfidence: "unverified",
     whatToKeep: "A record of each evacuation drill, including timing and any issues found.",
     why: "Staff need to actually practise evacuation procedures, not just read about them, and the Order requires appropriate fire safety training.",
@@ -592,7 +593,7 @@ export const RoleContext = createContext({ role: "Employee", currentUser: null, 
     REQUIREMENTS.legionella-ra), so it belongs to a proper risk-category record where the real review
     fields apply, not this register's plain expiry-date model. Existing certificates of that type
     (if any) stay exactly as they are; this just stops offering the type for new entries. */
-export const CERT_TYPES = ["Gas Safety Certificate (CP12)", "EICR", "PAT Testing Summary", "Fire Alarm Service Certificate", "Employers' Liability Insurance", "Public Liability Insurance", "Lift LOLER Report", "Food Hygiene Rating", "Other"];
+export const CERT_TYPES = ["Gas Safety Certificate (CP12)", "EICR", "PAT Testing Summary", "Fire Alarm Service Certificate", "Emergency Lighting Test Certificate", "Employers' Liability Insurance", "Public Liability Insurance", "Lift LOLER Report", "Food Hygiene Rating", "Other"];
 export const CERTIFICATE_HISTORY_FIELDS = { title: "Title", certType: "Type", issuer: "Issuer", issueDate: "Issue date", expiryDate: "Expiry date", coverage: "Coverage", scope: "Visibility", notes: "Notes" };
 export const VISIT_TYPES = ["Environmental Health Inspection", "Fire Officer Inspection", "Food Safety Inspection", "Health & Safety Executive Visit", "Licensing Visit", "Insurance Assessor Visit", "Other"];
 export const VISIT_OUTCOMES = ["No issues found", "Advice given", "Improvement notice issued", "Prohibition notice issued", "Enforcement action", "Follow-up required", "Other"];

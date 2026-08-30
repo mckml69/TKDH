@@ -1,4 +1,4 @@
-import { TEMPLATES, DUE_SOON_WINDOW, RECENT_WINDOW, ASSET_TYPES, REQUIREMENTS, LEGIONELLA_CHECK_ITEMS, VENUE_NAME, PUB_VENUE_NAME, ROOM_LABEL } from "./constants";
+import { TEMPLATES, DUE_SOON_WINDOW, RECENT_WINDOW, ASSET_TYPES, REQUIREMENTS, LEGIONELLA_CHECK_ITEMS, FIRE_LOG_ITEMS, VENUE_NAME, PUB_VENUE_NAME, ROOM_LABEL } from "./constants";
 
 /** Every "Room 302"-style string in the app goes through here, so relabeling to "Area" (or
     anything else, via VITE_ROOM_LABEL) only ever needs changing in one place. */
@@ -881,11 +881,31 @@ export function getMatchKey(record) {
 function categoryMatches(req, record) {
   return req.matchCategories ? req.matchCategories.includes(record.category) : record.category === req.category;
 }
+/** Fire Log records (fire_daily/fire_weekly/fire_monthly/fire_periodic) don't have a title/preset
+    the way other records do — they're one record per period with a fixed checks: { itemKey: {...} }
+    object (see FIRE_LOG_ITEMS). Whether a specific checklist item was actually completed that
+    period lives in there, keyed the same way the hasNA/plain-checkbox items render in the form. */
+function isFireLogItemDone(record, itemKey) {
+  const itemDef = FIRE_LOG_ITEMS[record.category]?.find((i) => i.key === itemKey);
+  const v = record.checks?.[itemKey];
+  if (!v) return false;
+  return itemDef?.hasNA ? (v.status === "completed" || v.status === "na") : !!v.done;
+}
 export function matchRequirement(req, records, certificates) {
   if (req.matchMode === "none") return { records: [], certificates: [] };
-  const matchedRecords = req.matchMode === "category"
+  let matchedRecords = req.matchMode === "category"
     ? records.filter((r) => !r.archived && categoryMatches(req, r))
     : records.filter((r) => !r.archived && categoryMatches(req, r) && req.matchValues.includes(getMatchKey(r)));
+  // A handful of requirements (weekly fire alarm test, monthly extinguisher/fire-fighting-equipment
+  // check, fire drill) are actually satisfied day-to-day through the dedicated Fire Log feature, not
+  // the free-standing "New record" preset above — without this, logging them the correct way still
+  // shows as "Never logged" here, which is wrong, not just incomplete. Additive: a legacy free-standing
+  // record still counts too, on top of whatever this finds.
+  if (req.fireLogMatch) {
+    const { category, itemKey } = req.fireLogMatch;
+    const fireLogRecords = records.filter((r) => !r.archived && r.category === category && isFireLogItemDone(r, itemKey));
+    matchedRecords = [...matchedRecords, ...fireLogRecords];
+  }
   const matchedCerts = (req.certTypes && certificates) ? certificates.filter((c) => !c.archived && req.certTypes.includes(c.certType)) : [];
   return { records: matchedRecords, certificates: matchedCerts };
 }
