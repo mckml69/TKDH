@@ -645,6 +645,7 @@ export const RECORD_HISTORY_FIELDS = {
   temperatureC: "Temperature reading", readingType: "Reading type", checks: "Checklist", note: "Check note",
   hotTempC: "Hot reading (°C)", coldTempC: "Cold reading (°C)",
   awaitingContactName: "Awaiting", resolvedContactName: "Resolved by",
+  openedBy: "Opened by", closedBy: "Closed by",
 };
 export const ASSET_HISTORY_FIELDS = { assetType: "Asset type", category: "Category", eligibleFor: "Eligible for", assetCode: "Asset code", name: "Name", location: "Location", manufacturer: "Manufacturer", model: "Model", serialNumber: "Serial number", installDate: "Installed on", status: "Status", notes: "Notes" };
 export const ROOM_HISTORY_FIELDS = { roomNumber: `${ROOM_LABEL} name`, floor: "Floor", roomType: `${ROOM_LABEL} type`, notes: "Notes" };

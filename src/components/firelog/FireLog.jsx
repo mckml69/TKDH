@@ -76,6 +76,9 @@ export function FireLogEntryPage({ category, record, periodKeyOverride, canEdit,
       {pending && !readOnlyView && (
         <p className="muted" style={{ margin: 0, fontStyle: "italic" }}>A correction has been requested on this entry — see its history below.</p>
       )}
+      {category === "fire_daily" && !readOnlyView && (
+        <p className="muted" style={{ margin: 0 }}>Opening and closing are usually done by two different people — whoever's signed in gets recorded as "Opened by" the moment the first two boxes are both ticked and saved, and "Closed by" the same way for the last two. No separate sign-off needed.</p>
+      )}
       {items.map((item) => {
         const v = checks[item.key] || {};
         return (

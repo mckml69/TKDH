@@ -115,9 +115,16 @@ export function fireLogExportSource(record) {
     for (const key of new Set([...Object.keys(snapChecks), ...Object.keys(liveChecks)])) {
       mergedChecks[key] = fireLogMergeItemForExport(snapChecks[key], liveChecks[key]);
     }
-    return { checks: mergedChecks, by: record.lockedSnapshot.by };
+    // Same late-filed-vs-corrected principle as the checks themselves: genuinely blank at lock time
+    // (an older record, from before openedBy/closedBy existed) falls back to whatever's on the live
+    // record now, rather than just showing nothing.
+    return {
+      checks: mergedChecks, by: record.lockedSnapshot.by,
+      openedBy: record.lockedSnapshot.openedBy ?? record.openedBy,
+      closedBy: record.lockedSnapshot.closedBy ?? record.closedBy,
+    };
   }
-  return { checks: record.checks, by: fireLogLastEditor(record) };
+  return { checks: record.checks, by: fireLogLastEditor(record), openedBy: record.openedBy, closedBy: record.closedBy };
 }
 /** Assembles everything one weekly page needs: the 7 daily records for that week, that week's own
     weekly record, the monthly record for whichever month the week falls in (repeated across every
@@ -188,7 +195,7 @@ export const fireLogLastEditor = lastEditor;
     before editing it, so this is a narrow edge case, not a routine one — but it is a real one. */
 export function fireLogEnsureSnapshot(record) {
   if (!isFireLogLocked(record) || record.lockedSnapshot) return record;
-  return { ...record, lockedSnapshot: { checks: record.checks, by: fireLogLastEditor(record), at: new Date().toISOString() } };
+  return { ...record, lockedSnapshot: { checks: record.checks, by: fireLogLastEditor(record), openedBy: record.openedBy, closedBy: record.closedBy, at: new Date().toISOString() } };
 }
 /** One-time repair for weekly Fire Log records saved before the date-arithmetic timezone fix.
     A weekly periodKey should always be the Monday of its week — the app has no path that lets anyone

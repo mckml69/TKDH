@@ -228,7 +228,19 @@ export default function App() {
       location: "", people: "", notes: "", attachments: [], tags: [],
     };
     if (existingRecord && isFireLogLocked(existingRecord)) base = fireLogEnsureSnapshot(base);
-    upsertRecord({ ...base, checks }, records);
+    let next = { ...base, checks };
+    // The daily log is realistically completed in two separate sittings by two different people —
+    // whoever opens ticks the first pair and signs off, whoever closes does the same at the other
+    // end of the day. Stamped from whoever's actually signed in when each pair first becomes fully
+    // done, not typed in by hand — same auto-attribution the rest of the app already uses. Only set
+    // once each, so a later edit (fixing a comment, say) doesn't reassign credit to whoever happened
+    // to touch the record last.
+    if (category === "fire_daily") {
+      const bothDone = (a, b) => !!(checks[a]?.done && checks[b]?.done);
+      if (!base.openedBy && bothDone("exitDoorsOpen", "openingProcedure")) next.openedBy = currentUser?.name || null;
+      if (!base.closedBy && bothDone("exitDoorsClosed", "closingProcedure")) next.closedBy = currentUser?.name || null;
+    }
+    upsertRecord(next, records);
     pop();
   };
   const handleSaveFireLogPeriodic = (itemKey, existingRecord, checkValue, dateLogged) => {

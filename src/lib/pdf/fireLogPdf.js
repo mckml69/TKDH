@@ -13,10 +13,14 @@ function centerText(kit, text, x, width, y, opts) {
   kit.textAt(text, x + Math.max(0, (width - w) / 2), y, opts);
 }
 
-/** The 7-day, 4-item bordered grid matching the paper Fire Weekly Compliance Sheet, plus the
-    Initials row — the one part of the export with no equivalent in registerPdf.js's generic
+/** The 7-day, 4-item bordered grid matching the paper Fire Weekly Compliance Sheet, plus two
+    Initials rows — the one part of the export with no equivalent in registerPdf.js's generic
     table renderer, since it's a fixed shape (label col + 7 day cols) with two-line headers and
-    glyph+comment cells, not a flowing list of rows. */
+    glyph+comment cells, not a flowing list of rows.
+    Two Initials rows, not one: the opening pair (exit doors open, opening procedure) and the
+    closing pair (exit doors closed, closing procedure) are realistically done by two different
+    people at opposite ends of the day — a single shared row at the bottom only ever showed
+    whoever saved the record last, silently losing whoever actually did the opening half. */
 function drawDailyGrid(kit, days) {
   const labelColWidth = 95;
   const dayColWidth = (CONTENT_WIDTH - labelColWidth) / 7;
@@ -24,7 +28,8 @@ function drawDailyGrid(kit, days) {
   const itemRowHeight = 26;
   const initialsRowHeight = 16;
   const items = FIRE_LOG_ITEMS.fire_daily;
-  const totalHeight = headerHeight + items.length * itemRowHeight + initialsRowHeight;
+  const openingItemIndex = items.findIndex((i) => i.key === "openingProcedure");
+  const totalHeight = headerHeight + items.length * itemRowHeight + initialsRowHeight * 2;
 
   kit.ensureSpace(totalHeight);
   const top = kit.y;
@@ -40,9 +45,23 @@ function drawDailyGrid(kit, days) {
     centerText(kit, fmtDate(d.date), x, dayColWidth, top - 22, { size: 7, color: COLORS.muted });
   });
 
-  // One row per fixed daily checklist item, one cell per day.
+  const rowYs = [top, top - headerHeight];
   let rowTop = top - headerHeight;
-  for (const item of items) {
+
+  const drawInitialsRow = (pick) => {
+    kit.textAt("Initials", left + 4, rowTop - 11, { size: 7.5, font: kit.bold });
+    days.forEach((d, i) => {
+      const x = left + labelColWidth + i * dayColWidth;
+      const name = pick(d.source);
+      centerText(kit, name ? initialsOf(name) : "", x, dayColWidth, rowTop - 11, { size: 7.5 });
+    });
+    rowTop -= initialsRowHeight;
+    rowYs.push(rowTop);
+  };
+
+  // One row per fixed daily checklist item, one cell per day — with the opening initials row
+  // inserted right after "Opening procedure", before "Exit doors close check".
+  items.forEach((item, idx) => {
     kit.textAt(item.label, left + 4, rowTop - 16, { size: 7.5, font: kit.bold });
     days.forEach((d, i) => {
       const x = left + labelColWidth + i * dayColWidth;
@@ -56,21 +75,13 @@ function drawDailyGrid(kit, days) {
       }
     });
     rowTop -= itemRowHeight;
-  }
-
-  // Initials row.
-  kit.textAt("Initials", left + 4, rowTop - 11, { size: 7.5, font: kit.bold });
-  days.forEach((d, i) => {
-    const x = left + labelColWidth + i * dayColWidth;
-    const initials = d.source?.by ? initialsOf(d.source.by) : "";
-    centerText(kit, initials, x, dayColWidth, rowTop - 11, { size: 7.5 });
+    rowYs.push(rowTop);
+    if (idx === openingItemIndex) drawInitialsRow((source) => source?.openedBy);
   });
-  rowTop -= initialsRowHeight;
+
+  drawInitialsRow((source) => source?.closedBy);
 
   // Grid lines: one horizontal per row boundary, one vertical per column boundary.
-  const rowYs = [top, top - headerHeight];
-  for (let i = 1; i <= items.length; i++) rowYs.push(top - headerHeight - i * itemRowHeight);
-  rowYs.push(rowTop);
   for (const y of rowYs) {
     kit.page.drawLine({ start: { x: left, y }, end: { x: left + CONTENT_WIDTH, y }, thickness: 1, color: COLORS.navy });
   }
