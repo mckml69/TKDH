@@ -117,14 +117,19 @@ export function fireLogExportSource(record) {
     }
     // Same late-filed-vs-corrected principle as the checks themselves: genuinely blank at lock time
     // (an older record, from before openedBy/closedBy existed) falls back to whatever's on the live
-    // record now, rather than just showing nothing.
+    // record now, rather than just showing nothing. And a record with NEITHER — logged before this
+    // feature existed at all — falls back further still, to the old shared "by" (last editor) that
+    // used to be the only name shown here: better than a blank row that never used to be blank,
+    // even though it can't tell you which half of the day that person actually did.
+    const by = record.lockedSnapshot.by;
     return {
-      checks: mergedChecks, by: record.lockedSnapshot.by,
-      openedBy: record.lockedSnapshot.openedBy ?? record.openedBy,
-      closedBy: record.lockedSnapshot.closedBy ?? record.closedBy,
+      checks: mergedChecks, by,
+      openedBy: record.lockedSnapshot.openedBy ?? record.openedBy ?? null,
+      closedBy: record.lockedSnapshot.closedBy ?? record.closedBy ?? by,
     };
   }
-  return { checks: record.checks, by: fireLogLastEditor(record), openedBy: record.openedBy, closedBy: record.closedBy };
+  const by = fireLogLastEditor(record);
+  return { checks: record.checks, by, openedBy: record.openedBy ?? null, closedBy: record.closedBy ?? by };
 }
 /** Assembles everything one weekly page needs: the 7 daily records for that week, that week's own
     weekly record, the monthly record for whichever month the week falls in (repeated across every

@@ -175,7 +175,7 @@ describe("fireLogExportSource", () => {
       checks: { x: { done: false } },
       history: [{ by: "Bob" }],
     };
-    expect(fireLogExportSource(record)).toEqual({ checks: { x: { done: false } }, by: "Bob" });
+    expect(fireLogExportSource(record)).toEqual({ checks: { x: { done: false } }, by: "Bob", openedBy: null, closedBy: "Bob" });
   });
 
   it("a locked record with a snapshot merges frozen + late-filled fields, credited to the snapshot's editor", () => {
@@ -197,6 +197,22 @@ describe("fireLogExportSource", () => {
         b: { done: true, comments: "added after lock" },
       },
       by: "Alice",
+      openedBy: null,
+      closedBy: "Alice",
+    });
+  });
+
+  it("openedBy/closedBy pass through when the record actually has them, no fallback needed", () => {
+    const record = {
+      category: "fire_daily",
+      periodKey: "2026-01-20", // in the future -> not locked
+      checks: { x: { done: true } },
+      history: [{ by: "Bob" }],
+      openedBy: "Morning Sam",
+      closedBy: "Evening Jamie",
+    };
+    expect(fireLogExportSource(record)).toEqual({
+      checks: { x: { done: true } }, by: "Bob", openedBy: "Morning Sam", closedBy: "Evening Jamie",
     });
   });
 });
