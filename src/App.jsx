@@ -125,7 +125,11 @@ export default function App() {
   const push = (v) => setStack((s) => [...s, v]);
   const pop = () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : [{ page: "home" }]));
   const replaceTop = (v) => setStack((s) => [...s.slice(0, -1), v]);
-  const resetTo = (v) => setStack([v]);
+  // resetTo means "start fresh at this top-level section" for every sidebar/nav destination except
+  // search itself (the search box's own onChange navigates via resetTo too, to search-results) — a
+  // leftover query sitting in the search box after you've gone off to look at something else entirely
+  // reads as stale, so clear it here rather than only ever on the explicit X button.
+  const resetTo = (v) => { if (v.page !== "search-results") setSearchQuery(""); setStack([v]); };
   useEffect(() => {
     if (["fire-log-menu", "fire-log-type-menu", "fire-log-periodic-menu"].includes(current.page)) sweepFireLogSnapshots();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -393,7 +397,12 @@ export default function App() {
   const handleSaveBranding = (form) => { saveBranding(form); pop(); };
 
   const handleSaveUser = async (form, password) => {
-    upsertUser(form, users);
+    // Must actually wait for the server to see this user before setting a password for them — a new
+    // employee's account and their initial password used to be two independent requests fired back
+    // to back, and if set-password's request landed first, the server legitimately didn't know this
+    // user existed yet and rejected it with "user not found" (retrying worked purely by accident,
+    // once the first request had caught up in the background).
+    await upsertUser(form, users);
     if (password) await changePassword(form.id, password, null);
     pop();
   };

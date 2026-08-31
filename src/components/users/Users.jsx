@@ -62,8 +62,8 @@ export function UserFormPage({ user, users, onSave, onClose }) {
         )}
         {needsPassword && (
           <>
-            <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" /></label>
-            <label>Confirm password<input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /></label>
+            <label>Password<input type="password" autoComplete="new-password" name="new-user-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" /></label>
+            <label>Confirm password<input type="password" autoComplete="new-password" name="new-user-password-confirm" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /></label>
           </>
         )}
       </FormPage>
@@ -96,9 +96,9 @@ export function ResetPasswordPage({ targetUser, requireCurrentPassword, onSubmit
   return (
     <FormPage title={requireCurrentPassword ? "Change my password" : `Reset password — ${targetUser?.name}`} onClose={onClose} footer={<button type="button" className="btn btn-primary" disabled={busy} onClick={handleSubmit}>Save</button>}>
       <ErrorBanner errors={errors} />
-      {requireCurrentPassword && <label>Current password<input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} /></label>}
-      <label>New password<input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 8 characters" /></label>
-      <label>Confirm new password<input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /></label>
+      {requireCurrentPassword && <label>Current password<input type="password" autoComplete="current-password" name="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} /></label>}
+      <label>New password<input type="password" autoComplete="new-password" name="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 8 characters" /></label>
+      <label>Confirm new password<input type="password" autoComplete="new-password" name="new-password-confirm" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /></label>
     </FormPage>
   );
 }
@@ -289,18 +289,18 @@ function ApiSignIn({ onLogin, onBootstrap }) {
           <>
             <p>Nobody's set up yet. Create the first account — it becomes the General Manager account, with full access.</p>
             <ErrorBanner errors={error ? [error] : []} />
-            <label>Name<input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sam Taylor" /></label>
-            <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="sam@yourhotel.com" /></label>
-            <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" /></label>
-            <label>Confirm password<input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /></label>
+            <label>Name<input autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sam Taylor" /></label>
+            <label>Email<input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="sam@yourhotel.com" /></label>
+            <label>Password<input type="password" autoComplete="new-password" name="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" /></label>
+            <label>Confirm password<input type="password" autoComplete="new-password" name="new-password-confirm" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /></label>
             <button className="btn btn-primary" disabled={busy} onClick={handleBootstrap}>Create GM account</button>
           </>
         ) : (
           <>
             <p>Sign in to continue.</p>
             <ErrorBanner errors={error ? [error] : []} />
-            <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@yourhotel.com" /></label>
-            <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+            <label>Email<input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@yourhotel.com" /></label>
+            <label>Password<input type="password" autoComplete="current-password" name="current-password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>
             <button className="btn btn-primary" disabled={busy} onClick={handleLogin}>Sign in</button>
             <p className="muted" style={{ fontSize: 12.5, margin: "2px 0 0" }}>Forgot your password? Ask your General Manager to reset it from Users &amp; Permissions.</p>
           </>

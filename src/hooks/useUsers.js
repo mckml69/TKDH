@@ -23,15 +23,18 @@ export function useUsers() {
     })();
     return () => { cancelled = true; };
   }, []);
+  // Returns the storage write's own promise (still swallowing its error, same as before) rather than
+  // firing it and moving on — a caller that needs the server to have actually seen this user before
+  // doing anything else (e.g. setting a brand-new user's password, which the server rejects with
+  // "user not found" if it hasn't processed this write yet) needs something to await.
   const persistUsers = useCallback((next) => {
     setUsers(next);
-    window.storage.set("ledger-users", JSON.stringify(next), true).catch(() => {});
+    return window.storage.set("ledger-users", JSON.stringify(next), true).catch(() => {});
   }, []);
   const upsertUser = useCallback((user, currentUsers) => {
     const base = currentUsers || users;
     const next = computeUpsert(base, user, USER_HISTORY_FIELDS);
-    persistUsers(next);
-    return next;
+    return persistUsers(next);
   }, [users, persistUsers]);
   const archiveUser = useCallback((id) => persistUsers(computeArchive(users, id)), [users, persistUsers]);
   const restoreUser = useCallback((id) => persistUsers(computeRestore(users, id)), [users, persistUsers]);
