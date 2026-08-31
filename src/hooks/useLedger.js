@@ -7,6 +7,17 @@ import {
 } from "../lib/constants";
 import { fireLogRepairWeeklyKeys, isFireLogLocked, fireLogEnsureSnapshot, copyLifecycleFields, generateAssetCode, todayStr, uid } from "../lib/helpers";
 
+/** Every upsert function below takes an optional "current list" override so a handler can chain
+    several upserts in a row without waiting for state to catch up between them (see e.g. App.jsx's
+    handleLinkRecords). That override used to be trusted outright via "override or else fallback" —
+    but an empty array is truthy in JS, so a caller holding a stale, wrongly-empty list (the exact
+    failure mode fixed by useLedger's new reload()) would silently overwrite everything real with
+    just whatever this one call added. Only trust a non-empty override; a genuinely empty one falls
+    back to the hook's own current state instead of being taken at face value. */
+function freshest(override, fallback) {
+  return override && override.length ? override : fallback;
+}
+
 export function useLedger(actorName) {
   const [records, setRecords] = useState([]);
   const [assets, setAssets] = useState([]);
@@ -20,10 +31,36 @@ export function useLedger(actorName) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Every register lives under its own key, fetched together. The mount effect below runs this once
+  // automatically; reload() re-runs it on demand — critically, right after a successful login (see
+  // App.jsx), because the mount effect fires immediately on page load, before anyone's necessarily
+  // signed in yet. If it fires pre-login, every fetch below gets a 401 and quietly falls back to an
+  // empty array — indistinguishable, from the app's point of view, from "this venue genuinely has no
+  // records yet". Nothing here ever re-fetched after login actually completed, so that empty state
+  // stuck around for the rest of the session; the first save after that then wrote real emptiness
+  // back to the server (see the currentX?.length guards below — the second, compounding half of the
+  // same bug).
+  const registerSetters = [
+    ["ledger-records", setRecords], ["ledger-assets", setAssets], ["ledger-rooms", setRooms],
+    ["ledger-contractors", setContractors], ["ledger-checkpoints", setCheckpoints], ["ledger-meters", setMeters],
+    ["ledger-staff", setStaff], ["ledger-certificates", setCertificates], ["ledger-visits", setVisits],
+  ];
+  const reload = useCallback(async () => {
+    setLoading(true);
+    for (const [key, setter] of registerSetters) {
+      try {
+        const res = await window.storage.get(key, true);
+        setter(res ? JSON.parse(res.value) : []);
+      } catch { setter([]); }
+    }
+    setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      for (const [key, setter] of [["ledger-records", setRecords], ["ledger-assets", setAssets], ["ledger-rooms", setRooms], ["ledger-contractors", setContractors], ["ledger-checkpoints", setCheckpoints], ["ledger-meters", setMeters], ["ledger-staff", setStaff], ["ledger-certificates", setCertificates], ["ledger-visits", setVisits]]) {
+      for (const [key, setter] of registerSetters) {
         try {
           const res = await window.storage.get(key, true);
           if (!cancelled) setter(res ? JSON.parse(res.value) : []);
@@ -32,6 +69,7 @@ export function useLedger(actorName) {
       if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const makePersist = (key, setter) => useCallback(async (next) => {
@@ -55,7 +93,7 @@ export function useLedger(actorName) {
   const persistVisits = makePersist("ledger-visits", setVisits);
 
   const upsertRecord = useCallback((record, currentRecords) => {
-    const base = currentRecords || records;
+    const base = freshest(currentRecords, records);
     const next = computeUpsert(base, record, RECORD_HISTORY_FIELDS, actorName);
     persistRecords(next);
     return next;
@@ -83,7 +121,7 @@ export function useLedger(actorName) {
     persistRecords(records.map((r) => r.id === id ? { ...r, history: [...(r.history || []), { at: now, action: "correction-dismissed", by: actorName, note }] } : r));
   }, [records, persistRecords, actorName]);
   const resolveRecordCorrection = useCallback((id, currentRecords) => {
-    const base = currentRecords || records;
+    const base = freshest(currentRecords, records);
     const now = new Date().toISOString();
     const next = base.map((r) => r.id === id ? { ...r, history: [...(r.history || []), { at: now, action: "correction-resolved", by: actorName }] } : r);
     persistRecords(next);
@@ -91,7 +129,7 @@ export function useLedger(actorName) {
   }, [records, persistRecords, actorName]);
 
   const upsertAsset = useCallback((asset, currentAssets) => {
-    const base = currentAssets || assets;
+    const base = freshest(currentAssets, assets);
     const next = computeUpsert(base, asset, ASSET_HISTORY_FIELDS, actorName);
     persistAssets(next);
     return next;
@@ -132,7 +170,7 @@ export function useLedger(actorName) {
   }, [assets, persistAssets, actorName]);
 
   const upsertRoom = useCallback((room, currentRooms) => {
-    const base = currentRooms || rooms;
+    const base = freshest(currentRooms, rooms);
     const next = computeUpsert(base, room, ROOM_HISTORY_FIELDS, actorName);
     persistRooms(next);
     return next;
@@ -220,7 +258,7 @@ export function useLedger(actorName) {
   }, [assets, checkpoints, persistAssets, actorName]);
 
   const upsertContractor = useCallback((contractor, currentContractors) => {
-    const base = currentContractors || contractors;
+    const base = freshest(currentContractors, contractors);
     const next = computeUpsert(base, contractor, CONTRACTOR_HISTORY_FIELDS, actorName);
     persistContractors(next);
     return next;
@@ -229,7 +267,7 @@ export function useLedger(actorName) {
   const restoreContractor = useCallback((id) => persistContractors(computeRestore(contractors, id, actorName)), [contractors, persistContractors, actorName]);
 
   const upsertCheckpoint = useCallback((checkpoint, currentCheckpoints) => {
-    const base = currentCheckpoints || checkpoints;
+    const base = freshest(currentCheckpoints, checkpoints);
     const next = computeUpsert(base, checkpoint, CHECKPOINT_HISTORY_FIELDS, actorName);
     persistCheckpoints(next);
     return next;
@@ -251,7 +289,7 @@ export function useLedger(actorName) {
   }, [persistRecords, persistAssets, persistCheckpoints, persistMeters, persistVisits]);
 
   const upsertMeter = useCallback((meter, currentMeters) => {
-    const base = currentMeters || meters;
+    const base = freshest(currentMeters, meters);
     const next = computeUpsert(base, meter, METER_HISTORY_FIELDS, actorName);
     persistMeters(next);
     return next;
@@ -293,7 +331,7 @@ export function useLedger(actorName) {
   }, [meters, persistMeters, actorName]);
 
   const upsertStaff = useCallback((member, currentStaff) => {
-    const base = currentStaff || staff;
+    const base = freshest(currentStaff, staff);
     const next = computeUpsert(base, member, STAFF_HISTORY_FIELDS, actorName);
     persistStaff(next);
     return next;
@@ -302,7 +340,7 @@ export function useLedger(actorName) {
   const restoreStaff = useCallback((id) => persistStaff(computeRestore(staff, id, actorName)), [staff, persistStaff, actorName]);
 
   const upsertCertificate = useCallback((cert, currentCertificates) => {
-    const base = currentCertificates || certificates;
+    const base = freshest(currentCertificates, certificates);
     const next = computeUpsert(base, cert, CERTIFICATE_HISTORY_FIELDS, actorName);
     persistCertificates(next);
     return next;
@@ -311,7 +349,7 @@ export function useLedger(actorName) {
   const restoreCertificate = useCallback((id) => persistCertificates(computeRestore(certificates, id, actorName)), [certificates, persistCertificates, actorName]);
 
   const upsertVisit = useCallback((visit, currentVisits) => {
-    const base = currentVisits || visits;
+    const base = freshest(currentVisits, visits);
     const next = computeUpsert(base, visit, VISIT_HISTORY_FIELDS, actorName);
     persistVisits(next);
     return next;
@@ -320,7 +358,7 @@ export function useLedger(actorName) {
   const restoreVisit = useCallback((id) => persistVisits(computeRestore(visits, id, actorName)), [visits, persistVisits, actorName]);
 
   return {
-    records, assets, rooms, contractors, checkpoints, meters, staff, certificates, visits, loading, error,
+    records, assets, rooms, contractors, checkpoints, meters, staff, certificates, visits, loading, error, reload,
     upsertRecord, archiveRecord, restoreRecord, requestRecordCorrection, dismissRecordCorrection, resolveRecordCorrection, sweepFireLogSnapshots,
     upsertAsset, archiveAsset, restoreAsset, replaceAsset,
     upsertRoom, archiveRoom, restoreRoom, bulkImportRoomAssets,

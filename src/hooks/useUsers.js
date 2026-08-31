@@ -32,7 +32,10 @@ export function useUsers() {
     return window.storage.set("ledger-users", JSON.stringify(next), true).catch(() => {});
   }, []);
   const upsertUser = useCallback((user, currentUsers) => {
-    const base = currentUsers || users;
+    // An empty array is truthy in JS — trusting a passed-in list outright would let a stale, wrongly-
+    // empty currentUsers silently overwrite every real user with just this one (same bug class fixed
+    // across useLedger.js's upsert functions).
+    const base = currentUsers && currentUsers.length ? currentUsers : users;
     const next = computeUpsert(base, user, USER_HISTORY_FIELDS);
     return persistUsers(next);
   }, [users, persistUsers]);

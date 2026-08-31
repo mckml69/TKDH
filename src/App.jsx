@@ -83,7 +83,7 @@ export default function App() {
   // General Manager (which would also give them edit/delete/user-management/sensitive-data access).
   const canExport = role === "General Manager" || !!currentUser?.canExport;
   const {
-    records, assets, rooms, contractors, checkpoints, meters, staff, certificates, visits, loading, error,
+    records, assets, rooms, contractors, checkpoints, meters, staff, certificates, visits, loading, error, reload: reloadLedger,
     upsertRecord, archiveRecord, restoreRecord, requestRecordCorrection, dismissRecordCorrection, resolveRecordCorrection, sweepFireLogSnapshots,
     upsertAsset, archiveAsset, restoreAsset, replaceAsset,
     upsertRoom, archiveRoom, restoreRoom, bulkImportRoomAssets,
@@ -765,8 +765,8 @@ export default function App() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", gap: 10, color: "#6E6A61", padding: "80px 0" }}><Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Loading…</div>
       ) : !currentUser ? (
         <SignInScreen users={users} onSignIn={setCurrentUserId} onCreateUser={(u) => { upsertUser(u, users); setCurrentUserId(u.id); }}
-          onLogin={async (email, password) => { await login(email, password); await reloadUsers(); }}
-          onBootstrap={async (form) => { await bootstrap(form); await reloadUsers(); }} />
+          onLogin={async (email, password) => { await login(email, password); await Promise.all([reloadUsers(), reloadLedger()]); }}
+          onBootstrap={async (form) => { await bootstrap(form); await Promise.all([reloadUsers(), reloadLedger()]); }} />
       ) : (
       <>
       {mobileNavOpen && <div className="sidebar-backdrop" onClick={() => setMobileNavOpen(false)} />}
