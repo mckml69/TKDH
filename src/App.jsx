@@ -113,6 +113,15 @@ export default function App() {
     () => [...contractors, ...(venuePull?.available ? venuePull.wholeBuildingContractors.map((c) => ({ ...c, __pulled: true })) : [])],
     [contractors, venuePull]
   );
+  // Separately: viewing a pulled record's own detail page needs to resolve ITS assetId/roomId/
+  // staffId, which point at the other venue's own entities, not these local ones — venuePull.assets/
+  // rooms/staff (unprefixed context, not the opt-in "whole building" registers above) is exactly
+  // what already resolves this same thing for the Home dashboard's pub-issues list and the Ledger's
+  // own merge. Always including it here is harmless for a purely local record (its own ids just
+  // won't match anything in the extra entries) and correct for a pulled one.
+  const allAssetsForRecordView = useMemo(() => [...assets, ...(venuePull?.available ? venuePull.assets : [])], [assets, venuePull]);
+  const allRoomsForRecordView = useMemo(() => [...rooms, ...(venuePull?.available ? venuePull.rooms : [])], [rooms, venuePull]);
+  const allStaffForRecordView = useMemo(() => [...staff, ...(venuePull?.available ? venuePull.staff : [])], [staff, venuePull]);
   const [wizardStep, setWizardStep] = useState(0);
   const [registersOpen, setRegistersOpen] = useState(true);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -166,7 +175,10 @@ export default function App() {
       push({ page: "legionella-temp-check-detail", checkpoint: cp, periodKey: record.periodKey, record });
       return;
     }
-    push({ page: "record-form", template, record, prefill, viewOnly: !!viewOnly });
+    // A pulled record has no id in this venue's own storage — Save would either 404 or silently write
+    // a foreign record into local data, so it's always forced read-only regardless of what the caller
+    // asked for, same boundary already applied to pulled contractors/certificates.
+    push({ page: "record-form", template, record, prefill, viewOnly: !!viewOnly || !!record?.__pulled, readOnly: !!record?.__pulled });
   };
   const openRecordView = (r) => openRecordForm(TEMPLATES[r.category], r, null, true);
   const openReportFallback = (result) => push({ page: "report-fallback", title: result.title, pdfBytes: result.pdfBytes });
@@ -546,7 +558,14 @@ export default function App() {
   } else if (current.page === "template-picker") {
     body = <TemplatePickerPage templates={current.templates} onPick={(t) => replaceTop({ page: "record-form", template: t, record: null, prefill: current.prefill })} onClose={pop} />;
   } else if (current.page === "record-form") {
-    body = <RecordFormPage key={current.record?.id ?? current.formKey ?? "record-form"} template={current.template} record={current.record} assets={assets} rooms={rooms} contractors={allContractors} staff={staff} prefill={current.prefill} initialViewOnly={current.viewOnly} onSave={handleSaveRecord} onClose={pop} onRequestCorrection={handleRequestCorrection} onDismissCorrection={handleDismissCorrection} />;
+    // The wider assets/rooms/staff (including the other venue's own) are only pulled in for viewing a
+    // pulled record itself — offering them as pickable options while creating or editing a genuinely
+    // local record would let someone link a hotel job to one of the pub's own rooms, a dangling
+    // reference neither side's register actually has.
+    body = <RecordFormPage key={current.record?.id ?? current.formKey ?? "record-form"} template={current.template} record={current.record}
+      assets={current.readOnly ? allAssetsForRecordView : assets} rooms={current.readOnly ? allRoomsForRecordView : rooms}
+      contractors={allContractors} staff={current.readOnly ? allStaffForRecordView : staff}
+      prefill={current.prefill} initialViewOnly={current.viewOnly} readOnly={current.readOnly} onSave={handleSaveRecord} onClose={pop} onRequestCorrection={handleRequestCorrection} onDismissCorrection={handleDismissCorrection} />;
   } else if (current.page === "correction-form") {
     body = <CorrectionRequestFormPage record={current.record} onSubmit={handleSubmitCorrection} onClose={pop} />;
   } else if (current.page === "asset-form") {

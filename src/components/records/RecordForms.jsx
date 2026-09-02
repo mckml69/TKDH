@@ -30,7 +30,7 @@ function BasisNote({ categoryKey, presetValue }) {
   );
 }
 
-export function RecordFormPage({ template, record, assets, rooms, contractors, staff, prefill, initialViewOnly, onSave, onClose, onRequestCorrection, onDismissCorrection }) {
+export function RecordFormPage({ template, record, assets, rooms, contractors, staff, prefill, initialViewOnly, readOnly, onSave, onClose, onRequestCorrection, onDismissCorrection }) {
   const { canEdit } = useContext(RoleContext);
   const [viewOnly, setViewOnly] = useState(!!initialViewOnly);
   const [form, setForm] = useState(record || (() => {
@@ -78,18 +78,23 @@ export function RecordFormPage({ template, record, assets, rooms, contractors, s
         title={viewOnly ? `View record · ${template.label}` : `${record ? "Edit" : "New"} record · ${template.label}`}
         onClose={onClose}
         footer={viewOnly
-          ? (canEdit
-              ? <>
-                  {record && hasPendingCorrection(record) && onDismissCorrection && <button type="button" className="btn btn-ghost" onClick={() => onDismissCorrection(record.id)}>Dismiss request</button>}
-                  <button type="button" className="btn btn-primary" style={{ backgroundColor: template.accent, color: "#fff" }} onClick={() => setViewOnly(false)}><Pencil size={15} /> Edit</button>
-                </>
-              : (record && !record.archived && onRequestCorrection ? <button type="button" className="btn btn-primary" style={{ backgroundColor: template.accent, color: "#fff" }} onClick={() => onRequestCorrection(record)}><MessageSquareWarning size={15} /> Request correction</button> : null))
+          ? (readOnly
+              ? null
+              : (canEdit
+                  ? <>
+                      {record && hasPendingCorrection(record) && onDismissCorrection && <button type="button" className="btn btn-ghost" onClick={() => onDismissCorrection(record.id)}>Dismiss request</button>}
+                      <button type="button" className="btn btn-primary" style={{ backgroundColor: template.accent, color: "#fff" }} onClick={() => setViewOnly(false)}><Pencil size={15} /> Edit</button>
+                    </>
+                  : (record && !record.archived && onRequestCorrection ? <button type="button" className="btn btn-primary" style={{ backgroundColor: template.accent, color: "#fff" }} onClick={() => onRequestCorrection(record)}><MessageSquareWarning size={15} /> Request correction</button> : null)))
           : <>
               {!record && <button type="button" className="btn btn-ghost" onClick={() => handleSubmit(true)}>Save &amp; log another</button>}
               <button type="button" className="btn btn-primary" style={{ backgroundColor: template.accent, color: "#fff" }} onClick={() => handleSubmit(false)}>{record ? "Save changes" : "Add record"}</button>
             </>}
       >
         <ErrorBanner errors={errors} />
+        {readOnly && (
+          <p className="muted" style={{ margin: "-4px 0 0" }}>Read-only — this record belongs to {PUB_VENUE_NAME}'s own system. Resolving or editing it happens there.</p>
+        )}
         <fieldset disabled={viewOnly} className="view-fieldset">
 
         {(template.roomEligible || template.assetEligible) && (
