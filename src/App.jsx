@@ -223,16 +223,23 @@ export default function App() {
   };
   const handleSaveWindowCheckOk = (checkpointId, periodKey, existingRecord) => {
     if (existingRecord && isCheckpointCheckLocked(existingRecord) && role !== "General Manager") return;
+    const wasPending = existingRecord && hasPendingCorrection(existingRecord);
     if (existingRecord?.status === "not_ok") {
       const { next, resolvedInfo } = autoResolveLinkedIssue(existingRecord.id, records);
-      if (resolvedInfo) { upsertRecord(resolveOriginRecord(existingRecord, null, resolvedInfo.maintenanceRecordId, resolvedInfo), next); return; }
+      if (resolvedInfo) {
+        const saved = upsertRecord(resolveOriginRecord(existingRecord, null, resolvedInfo.maintenanceRecordId, resolvedInfo), next);
+        if (wasPending) resolveRecordCorrection(existingRecord.id, saved);
+        return;
+      }
     }
     let base = existingRecord || { id: uid(), category: "window_restriction_check", checkpointId, periodKey, title: "Window Restriction Check", location: "", people: "", notes: "", attachments: [], tags: [] };
     if (existingRecord && isCheckpointCheckLocked(existingRecord)) base = checkpointCheckEnsureSnapshot(base);
-    upsertRecord({ ...base, status: "ok", note: "" }, records);
+    const saved = upsertRecord({ ...base, status: "ok", note: "" }, records);
+    if (wasPending) resolveRecordCorrection(existingRecord.id, saved);
   };
   const handleSaveFireLog = (category, existingRecord, checks, explicitPeriodKey) => {
     if (existingRecord && isFireLogLocked(existingRecord) && role !== "General Manager") return;
+    const wasPending = existingRecord && hasPendingCorrection(existingRecord);
     const periodKey = existingRecord?.periodKey || explicitPeriodKey || fireLogCurrentPeriodKey(category);
     let base = existingRecord || {
       id: uid(), category, periodKey,
@@ -252,33 +259,43 @@ export default function App() {
       if (!base.openedBy && bothDone("exitDoorsOpen", "openingProcedure")) next.openedBy = currentUser?.name || null;
       if (!base.closedBy && bothDone("exitDoorsClosed", "closingProcedure")) next.closedBy = currentUser?.name || null;
     }
-    upsertRecord(next, records);
+    let saved = upsertRecord(next, records);
+    if (wasPending) saved = resolveRecordCorrection(existingRecord.id, saved);
     pop();
   };
   const handleSaveFireLogPeriodic = (itemKey, existingRecord, checkValue, dateLogged) => {
     if (existingRecord && isFireLogLocked(existingRecord) && role !== "General Manager") return;
+    const wasPending = existingRecord && hasPendingCorrection(existingRecord);
     const itemDef = FIRE_LOG_ITEMS.fire_periodic.find((i) => i.key === itemKey);
     let base = existingRecord || {
       id: uid(), category: "fire_periodic", periodicItemKey: itemKey,
       title: itemDef.label, location: "", people: "", notes: "", attachments: [], tags: [],
     };
     if (existingRecord && isFireLogLocked(existingRecord)) base = fireLogEnsureSnapshot(base);
-    upsertRecord({ ...base, dateLogged, checks: { ...(base.checks || {}), [itemKey]: checkValue } }, records);
+    let saved = upsertRecord({ ...base, dateLogged, checks: { ...(base.checks || {}), [itemKey]: checkValue } }, records);
+    if (wasPending) saved = resolveRecordCorrection(existingRecord.id, saved);
     pop();
   };
   const handleSaveLegionellaCheckOk = (checkpointId, periodKey, existingRecord, itemKey) => {
     if (existingRecord && isLegionellaCheckLocked(existingRecord) && role !== "General Manager") return;
+    const wasPending = existingRecord && hasPendingCorrection(existingRecord);
     if (existingRecord?.checks?.[itemKey]?.status === "not_ok") {
       const compositeId = `${existingRecord.id}:${itemKey}`;
       const { next, resolvedInfo } = autoResolveLinkedIssue(compositeId, records);
-      if (resolvedInfo) { upsertRecord(resolveOriginRecord(existingRecord, itemKey, resolvedInfo.maintenanceRecordId, resolvedInfo), next); return; }
+      if (resolvedInfo) {
+        const saved = upsertRecord(resolveOriginRecord(existingRecord, itemKey, resolvedInfo.maintenanceRecordId, resolvedInfo), next);
+        if (wasPending) resolveRecordCorrection(existingRecord.id, saved);
+        return;
+      }
     }
     let base = existingRecord || { id: uid(), category: "legionella_check", checkpointId, periodKey, title: "Legionella Check", location: "", people: "", notes: "", attachments: [], tags: [] };
     if (existingRecord && isLegionellaCheckLocked(existingRecord)) base = legionellaCheckEnsureSnapshot(base);
-    upsertRecord({ ...base, checks: { ...(base.checks || {}), [itemKey]: { status: "ok", note: "" } } }, records);
+    const saved = upsertRecord({ ...base, checks: { ...(base.checks || {}), [itemKey]: { status: "ok", note: "" } } }, records);
+    if (wasPending) resolveRecordCorrection(existingRecord.id, saved);
   };
   const handleSaveLegionellaCheck = (checkpointId, periodKey, existingRecord, checks, forceNewIssueKeys = []) => {
     if (existingRecord && isLegionellaCheckLocked(existingRecord) && role !== "General Manager") return;
+    const wasPending = existingRecord && hasPendingCorrection(existingRecord);
     let base = existingRecord || { id: uid(), category: "legionella_check", checkpointId, periodKey, title: "Legionella Check", location: "", people: "", notes: "", attachments: [], tags: [] };
     if (existingRecord && isLegionellaCheckLocked(existingRecord)) base = legionellaCheckEnsureSnapshot(base);
     let updated = { ...base, checks: { ...(base.checks || {}), ...checks } };
@@ -306,15 +323,18 @@ export default function App() {
         }
       }
     }
+    if (wasPending) resolveRecordCorrection(base.id, next);
     pop();
   };
   const handleSaveLegionellaTempCheck = (checkpointId, periodKey, existingRecord, hotTempC, coldTempC, status, note, options = {}) => {
     if (existingRecord && isCheckpointCheckLocked(existingRecord) && role !== "General Manager") return;
+    const wasPending = existingRecord && hasPendingCorrection(existingRecord);
     if (status === "ok" && existingRecord?.status === "not_ok") {
       const { next, resolvedInfo } = autoResolveLinkedIssue(existingRecord.id, records);
       if (resolvedInfo) {
         const updatedOrigin = { ...resolveOriginRecord(existingRecord, null, resolvedInfo.maintenanceRecordId, resolvedInfo), hotTempC, coldTempC };
-        upsertRecord(updatedOrigin, next);
+        const saved = upsertRecord(updatedOrigin, next);
+        if (wasPending) resolveRecordCorrection(existingRecord.id, saved);
         pop();
         return;
       }
@@ -323,6 +343,7 @@ export default function App() {
     if (existingRecord && isCheckpointCheckLocked(existingRecord)) base = legionellaTempCheckEnsureSnapshot(base);
     const updated = { ...base, hotTempC, coldTempC, status, note: status === "not_ok" ? note : "" };
     let next = upsertRecord(updated, records);
+    if (wasPending) next = resolveRecordCorrection(existingRecord.id, next);
     if (status === "not_ok" && (options.forceNewIssue || !hasOpenLinkedIssue(next, updated.id))) {
       const checkpoint = checkpoints.find((cp) => cp.id === checkpointId);
       const linked = {
@@ -336,14 +357,21 @@ export default function App() {
   };
   const handleSaveWindowCheck = (checkpointId, periodKey, existingRecord, status, note, options = {}) => {
     if (existingRecord && isCheckpointCheckLocked(existingRecord) && role !== "General Manager") return;
+    const wasPending = existingRecord && hasPendingCorrection(existingRecord);
     if (status === "ok" && existingRecord?.status === "not_ok") {
       const { next, resolvedInfo } = autoResolveLinkedIssue(existingRecord.id, records);
-      if (resolvedInfo) { upsertRecord(resolveOriginRecord(existingRecord, null, resolvedInfo.maintenanceRecordId, resolvedInfo), next); pop(); return; }
+      if (resolvedInfo) {
+        const saved = upsertRecord(resolveOriginRecord(existingRecord, null, resolvedInfo.maintenanceRecordId, resolvedInfo), next);
+        if (wasPending) resolveRecordCorrection(existingRecord.id, saved);
+        pop();
+        return;
+      }
     }
     let base = existingRecord || { id: uid(), category: "window_restriction_check", checkpointId, periodKey, title: "Window Restriction Check", location: "", people: "", notes: "", attachments: [], tags: [] };
     if (existingRecord && isCheckpointCheckLocked(existingRecord)) base = checkpointCheckEnsureSnapshot(base);
     const updated = { ...base, status, note: status === "not_ok" ? note : "" };
     let next = upsertRecord(updated, records);
+    if (wasPending) next = resolveRecordCorrection(existingRecord.id, next);
     if (status === "not_ok" && (options.forceNewIssue || !hasOpenLinkedIssue(next, updated.id))) {
       const checkpoint = checkpoints.find((cp) => cp.id === checkpointId);
       const linked = {
@@ -357,9 +385,11 @@ export default function App() {
   };
   const handleResolve = ({ notes, date, resolvedContractorId, resolvedStaffId }) => {
     const record = current.record;
+    const wasPending = hasPendingCorrection(record);
     const resolver = resolvedContractorId ? allContractors.find((c) => c.id === resolvedContractorId)?.name : resolvedStaffId ? staff.find((s) => s.id === resolvedStaffId)?.name : null;
     const resolved = { ...record, status: "Resolved", resolvedNotes: notes, resolvedDate: date, resolvedContractorId: resolvedContractorId || null, resolvedStaffId: resolvedStaffId || null };
     let next = upsertRecord(resolved, records);
+    if (wasPending) next = resolveRecordCorrection(record.id, next);
     if (record.linkedRecordId) {
       const [originId, itemKey] = record.linkedRecordId.split(":");
       const origin = next.find((r) => r.id === originId);
