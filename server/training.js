@@ -257,6 +257,23 @@ function assignmentFor(userId) {
   return { linked: true, staffId: link.staff_id, moduleIds: rows.map((r) => r.module_id) };
 }
 
+/**
+ * The name to print for each login. A login that is paired with a Staff register entry uses that entry's name, because
+ * that is where the full, correct name is kept; a login account's own name can be just a first name or a nickname.
+ * Logins that aren't paired (for example the General Manager's own) fall back to the name on the login account, which is
+ * what was stored when they took the module. Resolved when read, so correcting a name in the Staff register corrects it
+ * on every certificate for that person.
+ */
+function printedNames() {
+  const staffNames = new Map(readStaff().map((s) => [s.id, String(s.name || "").trim()]));
+  const byUser = new Map();
+  for (const l of db.prepare("SELECT staff_id, user_id FROM training_links").all()) {
+    const name = staffNames.get(l.staff_id);
+    if (name) byUser.set(l.user_id, name);
+  }
+  return byUser;
+}
+
 function peopleSnapshot(byId) {
   const links = new Map(db.prepare("SELECT staff_id, user_id FROM training_links").all().map((l) => [l.staff_id, l.user_id]));
   const assigned = new Map();
@@ -393,9 +410,10 @@ export function trainingRouter(requireAuth) {
     const rows = isGM(req.user)
       ? db.prepare("SELECT * FROM training_attempts WHERE certificate_no IS NOT NULL ORDER BY completed_at DESC, rowid DESC").all()
       : db.prepare("SELECT * FROM training_attempts WHERE certificate_no IS NOT NULL AND user_id = ? ORDER BY completed_at DESC, rowid DESC").all(req.user.id);
+    const names = printedNames();
     res.json({
       certificates: rows.map((r) => ({
-        certificateNo: r.certificate_no, userId: r.user_id, name: r.user_name, moduleId: r.module_id,
+        certificateNo: r.certificate_no, userId: r.user_id, name: names.get(r.user_id) || r.user_name, moduleId: r.module_id,
         moduleTitle: req.training.byId.get(r.module_id)?.title || r.module_id, version: r.module_version,
         score: r.score, total: r.total, completedAt: r.completed_at, validUntil: r.valid_until,
       })),
@@ -408,7 +426,7 @@ export function trainingRouter(requireAuth) {
     if (row.user_id !== req.user.id && !isGM(req.user)) return res.status(403).json({ error: "not allowed" });
     const mod = req.training.byId.get(row.module_id);
     res.json({
-      certificateNo: row.certificate_no, name: row.user_name, moduleId: row.module_id, moduleTitle: mod?.title || row.module_id,
+      certificateNo: row.certificate_no, name: printedNames().get(row.user_id) || row.user_name, moduleId: row.module_id, moduleTitle: mod?.title || row.module_id,
       version: row.module_version, score: row.score, total: row.total, completedAt: row.completed_at, validUntil: row.valid_until,
       certNote: mod?.certNote || null, hotelName: req.training.pack.hotelName, signedBy: req.training.pack.signedBy || null,
     });
@@ -421,11 +439,12 @@ export function trainingRouter(requireAuth) {
   router.get("/records", requireGM, (req, res) => {
     const rows = db.prepare("SELECT * FROM training_attempts ORDER BY completed_at ASC, rowid ASC").all();
     const staffByUser = new Map(db.prepare("SELECT staff_id, user_id FROM training_links").all().map((l) => [l.user_id, l.staff_id]));
+    const names = printedNames();
     const map = new Map();
     for (const r of rows) {
       const key = `${r.user_id}|${r.module_id}`;
       const cur = map.get(key) || { userId: r.user_id, staffId: staffByUser.get(r.user_id) || null, userName: r.user_name, userEmail: r.user_email || null, moduleId: r.module_id, lastPass: null, attempts: 0, lastAttemptAt: null, lastAttemptPassed: false };
-      cur.userName = r.user_name; cur.userEmail = r.user_email || cur.userEmail;
+      cur.userName = names.get(r.user_id) || r.user_name; cur.userEmail = r.user_email || cur.userEmail;
       cur.attempts += 1; cur.lastAttemptAt = r.completed_at; cur.lastAttemptPassed = !!r.passed;
       if (r.passed) cur.lastPass = { score: r.score, total: r.total, completedAt: r.completed_at, validUntil: r.valid_until, certNo: r.certificate_no, version: r.module_version };
       map.set(key, cur);

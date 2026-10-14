@@ -332,8 +332,8 @@ describe("installing a pack from the browser", () => {
   const file = (name, buf) => ({ name, contentBase64: b64(buf) });
   const packFile = (mod = {}) => file("pack.json", Buffer.from(JSON.stringify({ ...pack, ...mod })));
   let freshDir;
-  const original = process.env.TRAINING_PACK_DIR;
-  beforeAll(() => { freshDir = mkdtempSync(join(tmpdir(), "training-pack-fresh-")); });
+  let original; // read inside beforeAll: the outer beforeAll is what sets TRAINING_PACK_DIR, after this block is collected
+  beforeAll(() => { original = process.env.TRAINING_PACK_DIR; freshDir = mkdtempSync(join(tmpdir(), "training-pack-fresh-")); });
   afterAll(() => { process.env.TRAINING_PACK_DIR = original; rmSync(freshDir, { recursive: true, force: true }); });
 
   it("is for a General Manager only, and reports whether the server is set up for it", async () => {
@@ -400,6 +400,47 @@ describe("installing a pack from the browser", () => {
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/TRAINING_PACK_DIR/);
     process.env.TRAINING_PACK_DIR = original;
+  });
+});
+
+describe("the name printed on a certificate", () => {
+  const original = (id) => ({ id, archived: false, email: "", role: "Receptionist" });
+  const writeStaff = (list) => gm.put("/api/storage/ledger-staff").send({ value: JSON.stringify(list) });
+  const staffList = (samName) => [
+    { ...original("staff-sam"), name: samName },
+    { ...original("staff-pat"), name: "Pat Other" },
+    { ...original("staff-hk"), name: "Agency Housekeeper" },
+  ];
+
+  it("uses the full name from the paired Staff register entry, even when the login account only has a short name", async () => {
+    await writeStaff(staffList("Samuel Reception-Jones"));
+    const list = await staff.get("/api/training/certificates");
+    expect(list.body.certificates.length).toBeGreaterThan(0);
+    expect(list.body.certificates.every((c) => c.name === "Samuel Reception-Jones")).toBe(true);
+    const no = list.body.certificates[0].certificateNo;
+    expect((await staff.get(`/api/training/certificates/${no}`)).body.name).toBe("Samuel Reception-Jones");
+    expect((await gm.get(`/api/training/certificates/${no}`)).body.name).toBe("Samuel Reception-Jones"); // a GM sees the same
+    const rec = (await gm.get("/api/training/records")).body.records.find((r) => r.userId === "user-sam");
+    expect(rec.userName).toBe("Samuel Reception-Jones");
+  });
+
+  it("follows a correction made later in the Staff register, on certificates already issued", async () => {
+    await writeStaff(staffList("Samuel R. Jones"));
+    const no = (await staff.get("/api/training/certificates")).body.certificates[0].certificateNo;
+    expect((await staff.get(`/api/training/certificates/${no}`)).body.name).toBe("Samuel R. Jones");
+  });
+
+  it("falls back to the login account's name for a login that is not paired with a Staff entry", async () => {
+    const mine = (await gm.get("/api/training/certificates")).body.certificates.filter((c) => c.userId !== "user-sam");
+    expect(mine.length).toBeGreaterThan(0);
+    expect(mine.every((c) => c.name === "Test GM")).toBe(true);
+  });
+
+  it("ignores a blank Staff register name rather than printing nothing", async () => {
+    await writeStaff(staffList("   "));
+    const names = (await staff.get("/api/training/certificates")).body.certificates.map((c) => c.name);
+    expect(new Set(names)).toEqual(new Set(["Sam Reception"]));
+    await writeStaff(staffList("Sam Reception")); // put the register back as the other tests expect
   });
 });
 
