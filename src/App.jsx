@@ -536,7 +536,9 @@ export default function App() {
     resetTo({ page: "audit-report" });
   };
   const overdueCount = records.filter(isOverdue).length;
-  const staffBadge = staff.filter((s) => ["overdue", "incomplete"].includes(staffTrainingStatus(s, displayRecords, trainingAssigned.get(s.id)))).length;
+  // Only genuinely overdue training is red. "In progress" (modules assigned but not finished yet) shows on the Staff
+  // page itself but is expected after assigning anything, so it doesn't count here.
+  const staffBadge = staff.filter((s) => staffTrainingStatus(s, displayRecords, trainingAssigned.get(s.id)) === "overdue").length;
   const certBadge = certificates.filter((c) => ["overdue", "due-soon"].includes(certificateStatus(c))).length;
   const visitBadge = visits.filter((v) => ["overdue", "open"].includes(visitStatus(v))).length;
 
