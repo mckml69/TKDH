@@ -99,6 +99,11 @@ reports `{ "enabled": false }`.
 - **Changing a module's questions or briefing?** Bump that module's `version` in `pack.json`.
   An attempt posted against an older version gets a 409 and the person is asked to reload.
 
+A General Manager installs or replaces the pack from the app (Training -> Training pack), which calls
+`PUT /api/training/pack-files`; the server validates everything before writing and writes `pack.json` last.
+`GET /api/training/pack-info` says what is installed. `status` also reports `configured` (the folder setting
+exists) so a brand-new server can show the install page before any pack exists.
+
 Endpoints (all need a session except `status`): `GET /api/training/status`, `/pack`,
 `/plans/:file`, `/me`, `/certificates/:no` (the owner or a General Manager), `/records` (a
 summary for everyone, no answers), and `POST /api/training/attempts`. Tests are in

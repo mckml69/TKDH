@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { unlinkSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { unlinkSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
 
 /**
  * Training endpoints, against the real Express app and a throwaway SQLite file, with a tiny
@@ -99,7 +99,7 @@ describe("access", () => {
   it("reports whether training is enabled without needing a login", async () => {
     const res = await request(app).get("/api/training/status");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ enabled: true });
+    expect(res.body).toEqual({ enabled: true, configured: true });
   });
 
   it("requires a session for everything else", async () => {
@@ -323,6 +323,83 @@ describe("certificate list", () => {
     const names = new Set(all.body.certificates.map((c) => c.name));
     expect(names.has("Sam Reception")).toBe(true);
     expect(names.has("Test GM")).toBe(true);
+  });
+});
+
+describe("installing a pack from the browser", () => {
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47]), Buffer.from("rest-of-a-fake-png")]);
+  const b64 = (buf) => Buffer.from(buf).toString("base64");
+  const file = (name, buf) => ({ name, contentBase64: b64(buf) });
+  const packFile = (mod = {}) => file("pack.json", Buffer.from(JSON.stringify({ ...pack, ...mod })));
+  let freshDir;
+  const original = process.env.TRAINING_PACK_DIR;
+  beforeAll(() => { freshDir = mkdtempSync(join(tmpdir(), "training-pack-fresh-")); });
+  afterAll(() => { process.env.TRAINING_PACK_DIR = original; rmSync(freshDir, { recursive: true, force: true }); });
+
+  it("is for a General Manager only, and reports whether the server is set up for it", async () => {
+    expect((await staff.get("/api/training/pack-info")).status).toBe(403);
+    expect((await staff.put("/api/training/pack-files").send({ files: [] })).status).toBe(403);
+    expect((await request(app).get("/api/training/status")).body).toEqual({ enabled: true, configured: true });
+    const info = await gm.get("/api/training/pack-info");
+    expect(info.status).toBe(200);
+    expect(info.body).toMatchObject({ configured: true, enabled: true });
+    expect(info.body.pack.modules.map((m) => m.id)).toEqual(["alpha", "beta"]);
+    expect(JSON.stringify(info.body)).not.toContain("right1");
+  });
+
+  it("on a server with no pack yet: training is off, then a General Manager installs one and it switches on", async () => {
+    process.env.TRAINING_PACK_DIR = freshDir;
+    expect((await request(app).get("/api/training/status")).body).toEqual({ enabled: false, configured: true });
+    expect((await gm.get("/api/training/pack")).status).toBe(404);
+    const info = await gm.get("/api/training/pack-info");
+    expect(info.body).toMatchObject({ configured: true, enabled: false, pack: null });
+
+    const res = await gm.put("/api/training/pack-files").send({ files: [file("ground.png", png), packFile()] });
+    expect(res.status).toBe(200);
+    expect(res.body.installed.sort()).toEqual(["ground.png", "pack.json"]);
+    expect(res.body).toMatchObject({ enabled: true, pack: { hotelName: "Test Hotel" } });
+    expect(existsSync(join(freshDir, "pack.json"))).toBe(true);
+    expect(existsSync(join(freshDir, "plans", "ground.png"))).toBe(true);
+    expect((await request(app).get("/api/training/status")).body.enabled).toBe(true);
+    expect((await gm.get("/api/training/plans/ground.png")).status).toBe(200);
+  });
+
+  it("replaces an installed pack: a changed module version is picked up straight away", async () => {
+    process.env.TRAINING_PACK_DIR = freshDir;
+    const next = JSON.parse(JSON.stringify(pack));
+    next.modules[0].version = "1.1";
+    const res = await gm.put("/api/training/pack-files").send({ files: [file("pack.json", Buffer.from(JSON.stringify(next)))] });
+    expect(res.status).toBe(200);
+    const served = (await gm.get("/api/training/pack")).body.modules.find((m) => m.id === "alpha");
+    expect(served.version).toBe("1.1");
+  });
+
+  it("refuses bad uploads, and writes nothing when it does", async () => {
+    process.env.TRAINING_PACK_DIR = freshDir;
+    const before = readFileSync(join(freshDir, "pack.json"), "utf8");
+    const put = (files) => gm.put("/api/training/pack-files").send({ files });
+    const broken = JSON.parse(JSON.stringify(pack)); broken.modules[0].questions[0].answerIndex = 99;
+    expect((await put([file("pack.json", Buffer.from(JSON.stringify(broken)))])).status).toBe(400);
+    expect((await put([file("pack.json", Buffer.from("not json at all"))])).status).toBe(400);
+    expect((await put([file("evil.sh", Buffer.from("rm -rf /"))])).status).toBe(400);
+    expect((await put([file("../escape.png", png)])).status).toBe(400);
+    expect((await put([file("plans/ground.png", png)])).status).toBe(400); // subfolders aren't accepted: send the bare file name
+    expect((await put([file("fake.png", Buffer.from("this is not a png"))])).status).toBe(400);
+    expect((await put([])).status).toBe(400);
+    expect((await put("nope")).status).toBe(400);
+    const missingPlan = JSON.parse(JSON.stringify(pack)); missingPlan.plans = [{ label: "Ghost", file: "ghost.png", note: "" }];
+    expect((await put([file("pack.json", Buffer.from(JSON.stringify(missingPlan)))])).status).toBe(400);
+    expect(readFileSync(join(freshDir, "pack.json"), "utf8")).toBe(before); // untouched by every refusal
+    expect(existsSync(join(freshDir, "evil.sh"))).toBe(false);
+  });
+
+  it("explains itself when the server has no pack folder configured", async () => {
+    delete process.env.TRAINING_PACK_DIR;
+    expect((await request(app).get("/api/training/status")).body).toEqual({ enabled: false, configured: false });
+    const res = await gm.put("/api/training/pack-files").send({ files: [file("pack.json", Buffer.from(JSON.stringify(pack)))] });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/TRAINING_PACK_DIR/);
+    process.env.TRAINING_PACK_DIR = original;
   });
 });
 

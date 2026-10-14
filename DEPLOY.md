@@ -70,21 +70,22 @@ See `server/README.md` → "Locked out?" for details.
 
 The Training section only appears on a deployment whose server has a **training pack**. The pack
 holds real phone numbers and the answer key, so it is **never committed to GitHub** (this repository
-is public). It lives as a folder on the service's persistent disk instead:
+is public). It lives as a folder on the service's persistent disk instead, and a General Manager installs it from inside the app:
 
-1. In the hotel service's **Shell** tab, create the folder: `mkdir -p /var/data/training-pack/plans`
-   (use whatever your disk's mount path is in place of `/var/data`).
-2. Copy `pack.json` and the five `plans/*.png` images into it. They come from
-   `training-pack/pack/` on the machine where the pack is built (`node build/build.js` in
-   `training-pack/`). Render's Shell has no file upload, so the simplest route is to paste the
-   file's contents into the Shell with a heredoc, or to download them from a private place you
-   control. Do not put them anywhere public.
-3. In the service's **Environment** tab, set `TRAINING_PACK_DIR=/var/data/training-pack` and redeploy.
-4. Do **not** set it on the pub's service: with it unset the pub shows no Training section at all.
+1. In the service's **Environment** tab, check `TRAINING_PACK_DIR=/var/data/training-pack` is set (`render.yaml` sets it,
+   but if this service wasn't created from it, add it by hand; use your persistent disk's mount path in place of
+   `/var/data`) and let it redeploy. Do **not** set it on the pub's service: with it
+   unset the pub shows no Training section at all.
+2. Sign in as General Manager. A **Training** item appears in the sidebar even though no pack is installed yet.
+   Open it, click **Choose folder…**, pick the `pack` folder (it contains `pack.json` and a `plans` folder), then
+   **Install on the server**. The pack is built on your computer with `node build/build.js` inside
+   `training-pack/`, which writes the `pack` folder.
+3. The server checks the whole pack before writing anything, so a mistake is refused with a reason and the
+   installed pack is left alone.
 
-To update the questions or briefings later, rebuild the pack, bump the changed module's `version`,
-and replace `pack.json` on the disk. The server picks up the new file by itself; anyone mid-quiz on
-the old version is asked to reload.
+To update the questions or briefings later, rebuild the pack, bump the changed module's `version`, and install it
+the same way (Training → **Training pack**). It takes effect straight away; anyone mid-quiz on the old version is
+asked to reload.
 
 Training results are stored in the same database file as everything else, so the daily disk
 snapshots cover them too.

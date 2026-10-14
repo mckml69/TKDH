@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { randomBytes, randomUUID } from "node:crypto";
-import { readFileSync, statSync, existsSync } from "node:fs";
+import { readFileSync, statSync, existsSync, mkdirSync, writeFileSync, renameSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { db } from "./db.js";
 import { findUserById, readUsers } from "./auth.js";
@@ -77,6 +77,58 @@ export function loadPack() {
     cache = null;
     return { enabled: false, reason: "pack is invalid" };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Installing a pack from the browser (General Manager only), so the pack can be put on the server's disk and
+// replaced later without shell access. Everything is validated BEFORE anything is written, and pack.json is
+// written last, so a half-finished upload can never leave a broken pack live.
+// ---------------------------------------------------------------------------
+
+const PLAN_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,60}\.png$/;
+const MAX_FILE_BYTES = 3 * 1024 * 1024;
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+
+export function summarisePack(pack) {
+  return {
+    hotelName: pack.hotelName,
+    modules: pack.modules.map((m) => ({ id: m.id, title: m.title, version: m.version, questions: m.questions.length })),
+    plans: (pack.plans || []).map((p) => p.file),
+  };
+}
+
+/** files: [{ name, contentBase64 }] where name is "pack.json" or a floor-plan PNG's file name. Throws { status, message }. */
+export function installPack(dir, files) {
+  const bad = (message) => ({ status: 400, message });
+  if (!Array.isArray(files) || files.length === 0 || files.length > 40) throw bad("send between 1 and 40 files");
+  let packBytes = null;
+  const plans = new Map();
+  for (const f of files) {
+    if (!f || typeof f.name !== "string" || typeof f.contentBase64 !== "string") throw bad("each file needs a name and its content");
+    const bytes = Buffer.from(f.contentBase64, "base64");
+    if (bytes.length === 0) throw bad(`${f.name} is empty`);
+    if (bytes.length > MAX_FILE_BYTES) throw bad(`${f.name} is too large`);
+    if (f.name === "pack.json") packBytes = bytes;
+    else if (PLAN_NAME.test(f.name)) {
+      if (!bytes.subarray(0, 4).equals(PNG_SIGNATURE)) throw bad(`${f.name} is not a PNG image`);
+      plans.set(f.name, bytes);
+    } else throw bad(`unexpected file "${f.name}": upload pack.json and the floor-plan .png files only`);
+  }
+  let pack = null;
+  if (packBytes) {
+    try { pack = JSON.parse(packBytes.toString("utf8")); validatePack(pack); } catch (e) { throw bad(e.message); }
+    for (const p of pack.plans || []) if (typeof p.file !== "string" || !PLAN_NAME.test(p.file)) throw bad(`training pack: plan file name "${p.file}" is not allowed`);
+  }
+  const plansDir = path.join(dir, "plans");
+  const present = new Set(existsSync(plansDir) ? readdirSync(plansDir) : []);
+  for (const n of plans.keys()) present.add(n);
+  if (pack) for (const p of pack.plans || []) if (!present.has(p.file)) throw bad(`pack.json lists the floor plan ${p.file}, but it has not been uploaded`);
+
+  mkdirSync(plansDir, { recursive: true });
+  const put = (full, bytes) => { const tmp = `${full}.tmp-${process.pid}`; writeFileSync(tmp, bytes); renameSync(tmp, full); };
+  for (const [name, bytes] of plans) put(path.join(plansDir, name), bytes);
+  if (packBytes) put(path.join(dir, "pack.json"), packBytes);
+  return { installed: [...plans.keys(), ...(packBytes ? ["pack.json"] : [])], pack: pack ? summarisePack(pack) : null };
 }
 
 /** What the browser is allowed to see: everything except answers and explanations. */
@@ -230,17 +282,38 @@ export function trainingRouter(requireAuth) {
   const router = Router();
 
   // Open on purpose: lets the frontend decide whether to show the Training section at all.
-  router.get("/status", (req, res) => res.json({ enabled: loadPack().enabled }));
+  // `configured` means this deployment is meant to have training (TRAINING_PACK_DIR is set), even if no pack has
+  // been installed yet. It lets a General Manager reach the "install the pack" page on a brand-new setup.
+  router.get("/status", (req, res) => res.json({ enabled: loadPack().enabled, configured: !!process.env.TRAINING_PACK_DIR }));
 
   router.use(requireAuth);
   router.use((req, res, next) => (req.user ? next() : res.status(401).json({ error: "authentication required" })));
+  const requireGM = (req, res, next) => (isGM(req.user) ? next() : res.status(403).json({ error: "only a General Manager can do this" }));
+
+  // Pack management works whether or not a pack is installed yet, so it sits above the "is training enabled" check.
+  router.get("/pack-info", requireGM, (req, res) => {
+    const loaded = loadPack();
+    res.json({ configured: !!process.env.TRAINING_PACK_DIR, enabled: loaded.enabled, reason: loaded.enabled ? null : loaded.reason || null, pack: loaded.enabled ? summarisePack(loaded.pack) : null });
+  });
+  router.put("/pack-files", requireGM, (req, res) => {
+    const dir = process.env.TRAINING_PACK_DIR;
+    if (!dir) return res.status(409).json({ error: "TRAINING_PACK_DIR is not set on this server, so there is nowhere to install the pack" });
+    try {
+      const result = installPack(dir, req.body?.files);
+      res.json({ ...result, enabled: loadPack().enabled });
+    } catch (e) {
+      if (e && e.status) return res.status(e.status).json({ error: e.message });
+      console.error("Installing the training pack failed:", e);
+      res.status(500).json({ error: "the pack could not be written to the server's disk" });
+    }
+  });
+
   router.use((req, res, next) => {
     const loaded = loadPack();
     if (!loaded.enabled) return res.status(404).json({ error: "training is not available on this deployment" });
     req.training = loaded;
     next();
   });
-  const requireGM = (req, res, next) => (isGM(req.user) ? next() : res.status(403).json({ error: "only a General Manager can do this" }));
 
   /** A General Manager sees every module. Everyone else sees only the modules assigned to their Staff entry. */
   router.get("/pack", (req, res) => {

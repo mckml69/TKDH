@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Award, GraduationCap, Share2, Users } from "lucide-react";
 import { SaveStatusBanner, Stamp, MouseLoader } from "../shared/UI";
 import { ModuleView, Quiz, ResultView } from "./TrainingModule";
+import { TrainingPackPanel } from "./TrainingPackPanel";
 import { trainingApi } from "../../lib/training/api";
 import { isoDay, moduleStatus, recordStatus, refreshLabel, slug } from "../../lib/training/status";
 import { buildCertificatePdf } from "../../lib/pdf/certificatePdf";
@@ -124,6 +125,7 @@ function TeamView({ pack, branding, onExportFallback }) {
   const [saveStatus, setSaveStatus] = useState(null);
 
   const load = useCallback(async () => {
+    if (!enabled) return;
     try {
       const [p, r] = await Promise.all([trainingApi.people(), trainingApi.records()]);
       setPeople(p); setRecords(r.records); setError(null);
@@ -249,7 +251,7 @@ function TeamView({ pack, branding, onExportFallback }) {
 
 /** The whole Training section: a small state machine of its own (modules → briefing → assessment → result,
     plus Certificates and, for a General Manager, Team). */
-export function TrainingPage({ isGM, branding, onExportFallback }) {
+export function TrainingPage({ isGM, enabled, branding, onExportFallback, onPackChanged }) {
   const [pack, setPack] = useState(null);
   const [me, setMe] = useState(null);
   const [loadError, setLoadError] = useState(null);
@@ -262,9 +264,15 @@ export function TrainingPage({ isGM, branding, onExportFallback }) {
       const [p, m] = await Promise.all([trainingApi.pack(), trainingApi.me()]);
       setPack(p); setMe(m); setLoadError(null);
     } catch (e) { setLoadError(e.message || "Couldn't load training."); }
-  }, []);
+  }, [enabled]);
   useEffect(() => { load(); }, [load]);
 
+  // A brand-new setup: the server is meant to have training but no pack has been installed yet.
+  if (!enabled) {
+    return isGM
+      ? <div className="module-view"><div className="module-header"><div className="module-title"><GraduationCap size={22} color="#197386" /><h2>Training</h2></div></div><TrainingPackPanel onChanged={onPackChanged} /></div>
+      : <div className="empty-state">Training isn't set up on this site.</div>;
+  }
   if (loadError) return <div className="module-view"><div className="tr-error" role="alert">{loadError}</div></div>;
   if (!pack || !me) return <MouseLoader label="Loading training…" />;
 
@@ -291,9 +299,11 @@ export function TrainingPage({ isGM, branding, onExportFallback }) {
         <button className={"chip" + (tab === "modules" ? " chip--active" : "")} onClick={() => { setTab("modules"); setView({ name: "board" }); }}>{isGM ? "All modules" : "My modules"}</button>
         <button className={"chip" + (tab === "certificates" ? " chip--active" : "")} onClick={() => setTab("certificates")}><Award size={12} style={{ verticalAlign: -2, marginRight: 3 }} />{isGM ? "All certificates" : "My certificates"}</button>
         {isGM && <button className={"chip" + (tab === "team" ? " chip--active" : "")} onClick={() => setTab("team")}><Users size={12} style={{ verticalAlign: -2, marginRight: 3 }} />Team &amp; assignments</button>}
+        {isGM && <button className={"chip" + (tab === "pack" ? " chip--active" : "")} onClick={() => setTab("pack")}>Training pack</button>}
       </div>
       {tab === "modules" && <ModuleBoard pack={pack} me={me} onOpen={(id) => setView({ name: "module", id })} />}
       {tab === "certificates" && <CertificatesView isGM={isGM} branding={branding} onExportFallback={onExportFallback} />}
+      {tab === "pack" && isGM && <TrainingPackPanel onChanged={() => { onPackChanged?.(); load(); }} />}
       {tab === "team" && isGM && <TeamView pack={pack} branding={branding} onExportFallback={onExportFallback} />}
     </div>
   );

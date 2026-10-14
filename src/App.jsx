@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Home as HomeIcon,
   Search,
@@ -102,13 +102,16 @@ export default function App() {
   } = useLedger(currentUser?.name || null);
   // Training only exists against the real backend, and only on a deployment that has a training pack
   // (the pub doesn't, so it never shows the section). Asked once a person is signed in.
-  const [trainingEnabled, setTrainingEnabled] = useState(false);
-  useEffect(() => {
-    if (!trainingSupported || !currentUser?.id) { setTrainingEnabled(false); return; }
-    let cancelled = false;
-    trainingApi.status().then((s) => { if (!cancelled) setTrainingEnabled(!!s?.enabled); }).catch(() => { if (!cancelled) setTrainingEnabled(false); });
-    return () => { cancelled = true; };
+  const [trainingStatus, setTrainingStatus] = useState({ enabled: false, configured: false });
+  const refreshTrainingStatus = useCallback(() => {
+    if (!trainingSupported || !currentUser?.id) { setTrainingStatus({ enabled: false, configured: false }); return; }
+    trainingApi.status().then((s) => setTrainingStatus({ enabled: !!s?.enabled, configured: !!s?.configured })).catch(() => setTrainingStatus({ enabled: false, configured: false }));
   }, [currentUser?.id]);
+  useEffect(() => { refreshTrainingStatus(); }, [refreshTrainingStatus]);
+  const trainingEnabled = trainingStatus.enabled;
+  // A General Manager also sees the section on a server that is set up for training but has no pack yet,
+  // so there is somewhere to install it. Everyone else only sees it once there is a pack.
+  const showTraining = trainingEnabled || (trainingStatus.configured && currentUser?.role === "General Manager");
   const { audit, saveAudit } = useAudit();
   const { person: responsiblePerson, savePerson: saveResponsiblePerson } = useResponsiblePerson();
   const { branding, saveBranding, reload: reloadBranding } = useBranding();
@@ -594,8 +597,8 @@ export default function App() {
       onEdit={(s) => push({ page: "staff-form", member: s })}
       onViewRecord={openRecordView} onEditRecord={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onResolve={(r) => push({ page: "resolve-form", record: r })} /> : null;
   } else if (current.page === "training") {
-    body = trainingEnabled
-      ? <TrainingPage isGM={role === "General Manager"} branding={branding} onExportFallback={openReportFallback} />
+    body = showTraining
+      ? <TrainingPage isGM={role === "General Manager"} enabled={trainingEnabled} branding={branding} onExportFallback={openReportFallback} onPackChanged={refreshTrainingStatus} />
       : <div className="empty-state">Training isn't set up on this site.</div>;
   } else if (current.page === "certificates") {
     body = role === "General Manager"
@@ -909,7 +912,7 @@ export default function App() {
         })()}
 
         <div className="nav-divider" />
-        {trainingEnabled && <button className={"nav-item" + (current.page === "training" ? " active" : "")} onClick={() => resetTo({ page: "training" })}><GraduationCap size={16} /> Training</button>}
+        {showTraining && <button className={"nav-item" + (current.page === "training" ? " active" : "")} onClick={() => resetTo({ page: "training" })}><GraduationCap size={16} /> Training</button>}
         <button className={"nav-item" + (current.page === "library" || current.page === "requirement-detail" ? " active" : "")} onClick={() => resetTo({ page: "library" })}><BookOpen size={16} /> Compliance Library</button>
         <button className={"nav-item" + (["audit-intro", "audit-wizard", "audit-report"].includes(current.page) ? " active" : "")} onClick={() => resetTo({ page: "audit-intro" })}><ListChecks size={16} /> First Day Audit</button>
         {role === "General Manager" && (

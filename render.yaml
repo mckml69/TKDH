@@ -22,6 +22,11 @@ services:
         value: "true"
       - key: DATABASE_PATH
         value: /var/data/data.sqlite
+      # Staff training: the folder on the persistent disk where a General Manager installs the training pack from
+      # inside the app (Training -> Training pack). The pack itself is never in this repository. Leave this out of
+      # any venue that has no pack of its own (e.g. the pub): with it unset, that venue has no Training section.
+      - key: TRAINING_PACK_DIR
+        value: /var/data/training-pack
       # VITE_STORAGE_MODE is a BUILD-time variable — Vite bakes it into the bundle
       # during "npm run build", it isn't read at runtime. .env (which normally sets
       # this locally) is gitignored on purpose, so it must be set here or the deployed
