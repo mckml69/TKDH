@@ -125,7 +125,6 @@ function TeamView({ pack, branding, onExportFallback }) {
   const [saveStatus, setSaveStatus] = useState(null);
 
   const load = useCallback(async () => {
-    if (!enabled) return;
     try {
       const [p, r] = await Promise.all([trainingApi.people(), trainingApi.records()]);
       setPeople(p); setRecords(r.records); setError(null);
@@ -260,6 +259,7 @@ export function TrainingPage({ isGM, enabled, branding, onExportFallback, onPack
   const saver = useCertificateSaver(branding, onExportFallback);
 
   const load = useCallback(async () => {
+    if (!enabled) return;
     try {
       const [p, m] = await Promise.all([trainingApi.pack(), trainingApi.me()]);
       setPack(p); setMe(m); setLoadError(null);
