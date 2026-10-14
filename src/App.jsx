@@ -49,6 +49,8 @@ import { TrainingPage } from "./components/training/Training";
 import { trainingApi, trainingSupported } from "./lib/training/api";
 import { deriveTrainingRecords } from "./lib/training/derive";
 import { useTrainingSummary } from "./hooks/useTrainingSummary";
+import { DickyMessage } from "./components/shared/DickyApproves";
+import { dailyFireSittingJustCompleted, isNewPestRecord, maybeDickyVisit } from "./lib/dicky";
 import { ResetPasswordPage, SignInScreen, UserFormPage, UsersList } from "./components/users/Users";
 import { VisitDetail, VisitFormPage, VisitsList } from "./components/visits/Visits";
 import { WindowCheckDetailPage, WindowChecksExportPage, WindowRestrictionChecksPage } from "./components/windowchecks/WindowChecks";
@@ -76,6 +78,7 @@ import {
 } from "./lib/helpers";
 import "./styles/global.css";
 import "./styles/training.css";
+import "./styles/dicky.css";
 
 export default function App() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -145,6 +148,9 @@ export default function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [logoClicks, setLogoClicks] = useState(0);
   const [showGorilla, setShowGorilla] = useState(false);
+  const [dicky, setDicky] = useState(null); // { n, kind } while Dicky is on screen; a new n restarts his card
+  const showDicky = useCallback((kind) => setDicky((d) => ({ n: (d?.n || 0) + 1, kind })), []);
+  const hideDicky = useCallback(() => setDicky(null), []);
   const [checksOpen, setChecksOpen] = useState(true);
   const [stack, setStack] = useState([{ page: "home" }]);
   const current = stack[stack.length - 1];
@@ -212,6 +218,8 @@ export default function App() {
   const handleSaveRecord = (form, logAnother) => {
     const isExisting = records.some((r) => r.id === form.id);
     if (isExisting && role !== "General Manager") return;
+    // Dicky takes an interest in every newly logged pest record. Cosmetic only; can never get in the way of saving.
+    try { if (isNewPestRecord(isExisting ? form : null, form)) showDicky("pest"); } catch { /* never let a kitten stop a record */ }
     const template = TEMPLATES[form.category];
     const wasPending = isExisting && hasPendingCorrection(records.find((r) => r.id === form.id));
     let next = upsertRecord(form, records);
@@ -280,6 +288,11 @@ export default function App() {
     // done, not typed in by hand — same auto-attribution the rest of the app already uses. Only set
     // once each, so a later edit (fixing a comment, say) doesn't reassign credit to whoever happened
     // to touch the record last.
+    // Dicky occasionally approves when today's opening or closing checks are finished. Cosmetic only, and wrapped so
+    // that nothing about it can ever get in the way of the check being saved.
+    try {
+      if (category === "fire_daily" && dailyFireSittingJustCompleted(base, checks, periodKey, todayStr()) && maybeDickyVisit()) showDicky("approves");
+    } catch { /* never let a kitten stop a fire check */ }
     if (category === "fire_daily") {
       const bothDone = (a, b) => !!(checks[a]?.done && checks[b]?.done);
       if (!base.openedBy && bothDone("exitDoorsOpen", "openingProcedure")) next.openedBy = currentUser?.name || null;
@@ -956,6 +969,7 @@ export default function App() {
           {body}
         </main>
       </div>
+      {dicky && <DickyMessage key={dicky.n} kind={dicky.kind} onDone={hideDicky} />}
       {showGorilla && (
         <div className="gorilla-overlay" onClick={() => setShowGorilla(false)}>
           <img src="/gorilla.png" alt="" />
