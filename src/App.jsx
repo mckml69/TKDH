@@ -152,7 +152,7 @@ export default function App() {
   // handed to the screens that only read records (Home, Ledger, Staff, Search, Library, First Day Audit) and are
   // never passed to anything that saves, so they can never be written into the shared records. Refreshed whenever
   // the person moves to another page, so a module someone has just passed shows up straight away.
-  const { rows: trainingRows, reload: reloadTrainingRows } = useTrainingSummary(trainingEnabled && role === "General Manager");
+  const { rows: trainingRows, assigned: trainingAssigned, reload: reloadTrainingRows } = useTrainingSummary(trainingEnabled && role === "General Manager");
   useEffect(() => { reloadTrainingRows(); }, [current.page, reloadTrainingRows]);
   const trainingRecords = useMemo(() => deriveTrainingRecords(trainingRows, staff), [trainingRows, staff]);
   const displayRecords = useMemo(() => (trainingRecords.length ? [...records, ...trainingRecords] : records), [records, trainingRecords]);
@@ -523,7 +523,7 @@ export default function App() {
     resetTo({ page: "audit-report" });
   };
   const overdueCount = records.filter(isOverdue).length;
-  const staffBadge = staff.filter((s) => staffTrainingStatus(s, displayRecords) === "overdue").length;
+  const staffBadge = staff.filter((s) => ["overdue", "incomplete"].includes(staffTrainingStatus(s, displayRecords, trainingAssigned.get(s.id)))).length;
   const certBadge = certificates.filter((c) => ["overdue", "due-soon"].includes(certificateStatus(c))).length;
   const visitBadge = visits.filter((v) => ["overdue", "open"].includes(visitStatus(v))).length;
 
@@ -590,10 +590,10 @@ export default function App() {
       onOpenAsset={(id) => push({ page: "asset-detail", assetId: id })}
       onOpenCertificate={(id) => push({ page: "certificate-detail", certificateId: id })} /> : null;
   } else if (current.page === "staff") {
-    body = <StaffList staff={staff} records={displayRecords} onOpen={(id) => push({ page: "staff-detail", staffId: id })} onAdd={() => push({ page: "staff-form", member: null })} onEdit={(s) => push({ page: "staff-form", member: s })} onDelete={handleDeleteStaff} onRestore={restoreStaff} onExportFallback={openReportFallback} branding={branding} />;
+    body = <StaffList staff={staff} records={displayRecords} trainingAssigned={trainingAssigned} onOpen={(id) => push({ page: "staff-detail", staffId: id })} onAdd={() => push({ page: "staff-form", member: null })} onEdit={(s) => push({ page: "staff-form", member: s })} onDelete={handleDeleteStaff} onRestore={restoreStaff} onExportFallback={openReportFallback} branding={branding} />;
   } else if (current.page === "staff-detail") {
     const member = staff.find((s) => s.id === current.staffId);
-    body = member ? <StaffDetail member={member} records={displayRecords} assets={assets} onBack={pop}
+    body = member ? <StaffDetail member={member} records={displayRecords} trainingAssigned={trainingAssigned} assets={assets} onBack={pop}
       onEdit={(s) => push({ page: "staff-form", member: s })}
       onViewRecord={openRecordView} onEditRecord={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onResolve={(r) => push({ page: "resolve-form", record: r })} /> : null;
   } else if (current.page === "training") {
@@ -788,7 +788,7 @@ export default function App() {
   } else if (current.page === "report-fallback") {
     body = <ReportFallback title={current.title} pdfBytes={current.pdfBytes} onBack={pop} />;
   } else if (current.page === "search-results") {
-    body = <SearchResults query={searchQuery} records={displayRecords} assets={assets} rooms={rooms} contractors={allContractors} staff={staff} certificates={certificates} visits={visits} venuePull={venuePull}
+    body = <SearchResults query={searchQuery} records={displayRecords} trainingAssigned={trainingAssigned} assets={assets} rooms={rooms} contractors={allContractors} staff={staff} certificates={certificates} visits={visits} venuePull={venuePull}
       onView={openRecordView} onEditRecord={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onDeleteRecord={handleDeleteRecord} onResolve={(r) => push({ page: "resolve-form", record: r })}
       onOpenAsset={(id) => push({ page: "asset-detail", assetId: id })}
       onOpenRoom={(id) => push({ page: "room-detail", roomId: id })}

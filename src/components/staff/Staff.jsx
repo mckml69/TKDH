@@ -17,7 +17,7 @@ import {
 import { AttachmentsField } from "../shared/AttachmentsField";
 import { ErrorBanner, FormPage, HistoryList, SaveStatusBanner, Stamp, Timeline } from "../shared/UI";
 import { RoleContext } from "../../lib/constants";
-import { fmtDate, formatBytes, getEventDate, getMode, staffHaystack, staffLinkedToRecord, staffTrainingStatus, todayStr, uid, validateStaff } from "../../lib/helpers";
+import { fmtDate, formatBytes, getEventDate, getMode, staffHaystack, staffLinkedToRecord, staffOutstandingTraining, staffTrainingStatus, todayStr, uid, validateStaff } from "../../lib/helpers";
 import { buildRegisterPdf } from "../../lib/pdf/registerPdf";
 import { exportPdfReport } from "../../lib/pdf/exportPdf";
 
@@ -59,12 +59,14 @@ export function StaffFormPage({ member, onSave, onClose }) {
    CERTIFICATE FORM PAGE
 --------------------------------------------------------- */
 
-export function StaffDetail({ member, records, assets, onBack, onEdit, onViewRecord, onEditRecord, onResolve }) {
+export function StaffDetail({ member, records, assets, trainingAssigned, onBack, onEdit, onViewRecord, onEditRecord, onResolve }) {
   const { canEdit, canViewSensitive } = useContext(RoleContext);
   const linked = useMemo(() => records.filter((r) => staffLinkedToRecord(r, member.id)), [records, member.id]);
   const trainings = useMemo(() => linked.filter((r) => getMode(r) === "expiry").sort((a, b) => (getEventDate(b) || "").localeCompare(getEventDate(a) || "")), [linked]);
   const workRecords = useMemo(() => linked.filter((r) => getMode(r) !== "expiry").sort((a, b) => (getEventDate(b) || "").localeCompare(getEventDate(a) || "")), [linked]);
-  const status = staffTrainingStatus(member, records);
+  const assignedTypes = trainingAssigned?.get(member.id);
+  const status = staffTrainingStatus(member, records, assignedTypes);
+  const outstanding = staffOutstandingTraining(member, records, assignedTypes);
 
   return (
     <div className="module-view">
@@ -80,6 +82,7 @@ export function StaffDetail({ member, records, assets, onBack, onEdit, onViewRec
         <div><span className="field-label">Training status</span><p><Stamp status={status} dense /></p></div>
         <div><span className="field-label">Start date</span><p>{member.startDate ? fmtDate(member.startDate) : "—"}</p></div>
       </div>
+      {outstanding.length > 0 && <p className="muted" style={{ marginBottom: 10 }}>Training still to complete: {outstanding.join(", ")}.</p>}
       {member.notes && <p className="muted" style={{ marginBottom: 10 }}>{member.notes}</p>}
       {(member.attachments || []).length > 0 && canViewSensitive && (
         <div className="feed-section">
@@ -109,7 +112,7 @@ export function StaffDetail({ member, records, assets, onBack, onEdit, onViewRec
   );
 }
 
-export function StaffList({ staff, records, onOpen, onAdd, onEdit, onDelete, onRestore, onExportFallback, branding }) {
+export function StaffList({ staff, records, trainingAssigned, onOpen, onAdd, onEdit, onDelete, onRestore, onExportFallback, branding }) {
   const { canDelete, canEdit } = useContext(RoleContext);
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -120,7 +123,7 @@ export function StaffList({ staff, records, onOpen, onAdd, onEdit, onDelete, onR
   const handleSave = async () => {
     const rows = filtered.map((s) => ({
       name: s.name, role: s.role || "", contact: s.phone || s.email || "",
-      records: records.filter((r) => staffLinkedToRecord(r, s.id)).length, status: staffTrainingStatus(s, records),
+      records: records.filter((r) => staffLinkedToRecord(r, s.id)).length, status: staffTrainingStatus(s, records, trainingAssigned?.get(s.id)),
     }));
     const title = "Staff Register";
     const columns = [
@@ -163,7 +166,7 @@ export function StaffList({ staff, records, onOpen, onAdd, onEdit, onDelete, onR
                 <span className="mono-strong" style={{ cursor: "pointer" }} onClick={() => onOpen(s.id)}>{s.name}{s.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}</span>
                 <span className="muted">{s.role || "—"}</span>
                 <span className="muted">{trainings}</span>
-                <span><Stamp status={staffTrainingStatus(s, records)} dense /></span>
+                <span><Stamp status={staffTrainingStatus(s, records, trainingAssigned?.get(s.id))} dense /></span>
                 <span></span>
                 <span className="row-actions">
                   {!s.archived && canEdit && <button className="icon-btn" onClick={() => onEdit(s)}><Pencil size={15} /></button>}

@@ -691,6 +691,8 @@ export const STATUS_META = {
   "tr-expired": { label: "Expired", color: "#C65450" },
   "tr-failed": { label: "Not passed", color: "#C65450" },
   "tr-not-started": { label: "Not started", color: "#65767C" },
+  // A staff member's overall training status when modules have been assigned to them and not all are done yet.
+  incomplete: { label: "In progress", color: "#C0722F" },
 };
 
 export const RECORD_HISTORY_FIELDS = {

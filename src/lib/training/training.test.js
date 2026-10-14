@@ -195,3 +195,49 @@ describe("Library entries for the in-house training types", () => {
     expect(requirementStatus(req, matchRequirement(req, [d], []))).toBe("compliant");
   });
 });
+
+import { staffOutstandingTraining } from "../helpers";
+
+describe("training status takes assigned modules into account", () => {
+  const staff = { id: "s1" };
+  const fire = rec({ id: "f", detail: "Fire Safety Awareness", expiryDate: "2099-01-01" });
+  const manual = rec({ id: "m", detail: "Manual Handling", expiryDate: "2099-01-01" });
+  const ALL = ["Fire Safety Awareness", "Manual Handling", "Legionella Awareness"];
+
+  it("passing some of what was assigned is In progress, not Compliant", () => {
+    expect(staffTrainingStatus(staff, [fire], ALL)).toBe("incomplete");
+    expect(staffTrainingStatus(staff, [fire, manual], ALL)).toBe("incomplete");
+    expect(staffOutstandingTraining(staff, [fire, manual], ALL)).toEqual(["Legionella Awareness"]);
+  });
+  it("is Compliant only once every assigned module has an in-date record", () => {
+    const legionella = rec({ id: "l", detail: "Legionella Awareness", expiryDate: "2099-01-01" });
+    expect(staffTrainingStatus(staff, [fire, manual, legionella], ALL)).toBe("compliant");
+    expect(staffOutstandingTraining(staff, [fire, manual, legionella], ALL)).toEqual([]);
+  });
+  it("shows assigned-but-untouched as In progress instead of 'No checks logged'", () => {
+    expect(staffTrainingStatus(staff, [], ALL)).toBe("incomplete");
+    expect(staffTrainingStatus(staff, [], [])).toBe("no-checks");
+    expect(staffTrainingStatus(staff, [], undefined)).toBe("no-checks");
+  });
+  it("overdue outranks incomplete, which outranks due soon and compliant", () => {
+    const expired = rec({ id: "e", detail: "Manual Handling", expiryDate: "2020-01-01" });
+    const soon = rec({ id: "d", detail: "Fire Safety Awareness", expiryDate: new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10) });
+    expect(staffTrainingStatus(staff, [fire, expired], ALL)).toBe("overdue");
+    expect(staffTrainingStatus(staff, [soon, manual], ["Fire Safety Awareness", "Manual Handling", "Legionella Awareness"])).toBe("incomplete");
+    expect(staffTrainingStatus(staff, [soon, manual], ["Fire Safety Awareness", "Manual Handling"])).toBe("due-soon");
+  });
+  it("an expired record counts as done-but-overdue, not outstanding, and a renewal supersedes it", () => {
+    const expired = rec({ id: "e", detail: "Fire Safety Awareness", expiryDate: "2020-01-01" });
+    expect(staffOutstandingTraining(staff, [expired], ["Fire Safety Awareness"])).toEqual([]);
+    expect(staffTrainingStatus(staff, [expired], ["Fire Safety Awareness"])).toBe("overdue");
+    expect(staffTrainingStatus(staff, [expired, fire], ["Fire Safety Awareness"])).toBe("compliant");
+  });
+  it("ignores archived records and other people's records", () => {
+    const other = rec({ id: "o", staffId: "s2", detail: "Fire Safety Awareness", expiryDate: "2099-01-01" });
+    const archived = rec({ id: "a", detail: "Fire Safety Awareness", expiryDate: "2099-01-01", archived: true });
+    expect(staffOutstandingTraining(staff, [other, archived], ["Fire Safety Awareness"])).toEqual(["Fire Safety Awareness"]);
+  });
+  it("the In progress status has a label and colour for the app and the PDF", () => {
+    expect(STATUS_META.incomplete).toMatchObject({ label: "In progress", color: expect.stringMatching(/^#/) });
+  });
+});

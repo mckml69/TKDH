@@ -24,7 +24,7 @@ export function SearchSection({ title, icon: Icon, count, children }) {
   );
 }
 
-export function SearchResults({ query, records, assets, rooms, contractors, staff, certificates, visits, venuePull, onView, onEditRecord, onDeleteRecord, onResolve, onOpenAsset, onOpenRoom, onOpenContractor, onOpenStaff, onOpenCertificate, onOpenVisit, onOpenRequirement }) {
+export function SearchResults({ query, records, trainingAssigned, assets, rooms, contractors, staff, certificates, visits, venuePull, onView, onEditRecord, onDeleteRecord, onResolve, onOpenAsset, onOpenRoom, onOpenContractor, onOpenStaff, onOpenCertificate, onOpenVisit, onOpenRequirement }) {
   const { role } = useContext(RoleContext);
   // Same merge as the Ledger and Home dashboard's "pub issues" section — General Manager only,
   // and the pulled records carry their own asset/room/contractor/staff context along with them so
@@ -111,7 +111,7 @@ export function SearchResults({ query, records, assets, rooms, contractors, staf
                   <span className="muted">{s.role || "—"}</span>
                   <span className="muted">{s.phone || s.email || "—"}</span>
                   <span className="muted">{records.filter((r) => r.staffId === s.id).length} training{records.filter((r) => r.staffId === s.id).length === 1 ? "" : "s"}</span>
-                  <span><Stamp status={staffTrainingStatus(s, records)} dense /></span>
+                  <span><Stamp status={staffTrainingStatus(s, records, trainingAssigned?.get(s.id))} dense /></span>
                 </div>
               ))}
             </div>

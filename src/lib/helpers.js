@@ -862,11 +862,24 @@ export function isSupersededTraining(record, records) {
 /** Records generated from the Training module's results rather than typed in. They are read-only and are
     never saved into the shared records, only merged in for display (see src/lib/training/derive.js). */
 export const isTrainingDerived = (record) => !!record?.__training;
-export function staffTrainingStatus(staff, records) {
+/** The training types assigned to this person that they have no record of at all yet (not even an expired one).
+    `assigned` is a list of training type names, e.g. ["Fire Safety Awareness", "Manual Handling"]. */
+export function staffOutstandingTraining(staff, records, assigned = []) {
+  if (!assigned || assigned.length === 0) return [];
+  const have = new Set(records.filter((r) => r.staffId === staff.id && !r.archived && getMode(r) === "expiry").map((r) => r.detail));
+  return assigned.filter((type) => !have.has(type));
+}
+/** One status for a person's training. Worst wins: overdue, then incomplete (assigned modules not yet done), then
+    due soon, then compliant. Someone with nothing recorded and nothing assigned is "no-checks". Passing some of
+    what was assigned is NOT compliant: every assigned module has to be done and in date. */
+export function staffTrainingStatus(staff, records, assigned = []) {
   const linked = records.filter((r) => r.staffId === staff.id && !r.archived && getMode(r) === "expiry" && !isSupersededTraining(r, records));
-  if (linked.length === 0) return "no-checks";
-  const rank = { overdue: 0, "due-soon": 1, compliant: 2 };
-  return linked.map(getStatus).sort((a, b) => rank[a] - rank[b])[0];
+  const outstanding = staffOutstandingTraining(staff, records, assigned);
+  if (linked.length === 0 && outstanding.length === 0) return "no-checks";
+  const statuses = linked.map(getStatus);
+  if (outstanding.length > 0) statuses.push("incomplete");
+  const rank = { overdue: 0, incomplete: 1, "due-soon": 2, compliant: 3 };
+  return statuses.sort((a, b) => rank[a] - rank[b])[0];
 }
 export function certificateStatus(cert) {
   if (!cert.expiryDate) return "missing";
