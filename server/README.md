@@ -76,6 +76,34 @@ or return the row directly. This means:
   backend and returns them as a data URL, so there's no need for public bucket URLs
   or signed links.
 
+## Staff training
+
+`training.js` serves a staff training pack, marks answers on the server and stores every
+attempt in the `training_attempts` table. It is **off unless `TRAINING_PACK_DIR` is set**, so a
+venue with no pack of its own (the pub) just leaves it unset and `/api/training/status`
+reports `{ "enabled": false }`.
+
+- **The pack is not in this repository, on purpose.** It holds real contact details and the
+  answer key, and this repository is public. `TRAINING_PACK_DIR` points at a folder holding
+  `pack.json` and a `plans/` folder of floor-plan images. On Render, put that folder on the
+  persistent disk (for example `/var/data/training-pack`) and set the variable to it.
+  `pack.json` is re-read when its modification time changes, so replacing the file updates
+  the pack without a restart. A broken pack disables training and logs why.
+- **No answers go to the browser.** `GET /api/training/pack` returns briefings and questions
+  with options only. The browser posts the text of the option chosen for each question to
+  `POST /api/training/attempts`, and the server decides the score, pass or fail, expiry and
+  certificate number. Identity comes from the session cookie, never from the request body.
+- **Append-only.** Database triggers make `UPDATE` and `DELETE` on `training_attempts` fail.
+  A failed attempt is stored like a pass. To correct a genuine mistake by hand, drop the
+  relevant trigger in `sqlite3`, fix the row, and restart the server to recreate it.
+- **Changing a module's questions or briefing?** Bump that module's `version` in `pack.json`.
+  An attempt posted against an older version gets a 409 and the person is asked to reload.
+
+Endpoints (all need a session except `status`): `GET /api/training/status`, `/pack`,
+`/plans/:file`, `/me`, `/certificates/:no` (the owner or a General Manager), `/records` (a
+summary for everyone, no answers), and `POST /api/training/attempts`. Tests are in
+`training.test.js` and use a small fake pack, never the real one.
+
 ## Locked out?
 
 There's no email server in this stack, so "forgot password" doesn't send a reset

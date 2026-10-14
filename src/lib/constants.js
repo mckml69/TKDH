@@ -62,7 +62,7 @@ export const TEMPLATES = {
   risk: { key: "risk", label: "Risk Assessments", short: "Risk", icon: ShieldAlert, mode: "review", accent: "#5B4A8A", assetEligible: false, roomEligible: false, contractorEligible: true,
     presets: ["General H&S risk assessment", "COSHH assessment", "Manual handling assessment", "Slips, trips & falls assessment", "Lone working assessment", "Legionella risk assessment"] },
   training: { key: "training", label: "Staff Training", short: "Training", icon: GraduationCap, mode: "expiry", accent: "#2F6B4C", assetEligible: false, roomEligible: false, contractorEligible: false, staffEligible: true,
-    presets: ["Fire Safety Awareness", "First Aid at Work", "Food Hygiene Level 2", "Manual Handling", "Health & Safety Induction", "Legionella Awareness"] },
+    presets: ["Fire Safety Awareness", "First Aid at Work", "First Aid Awareness", "Food Hygiene Level 2", "Manual Handling", "Health & Safety Induction", "Legionella Awareness", "Equality & Discrimination", "Bullying & Harassment", "Data Protection (GDPR)"] },
   pest: { key: "pest", label: "Pest Control", short: "Pest", icon: Bug, mode: "incident", accent: "#7A4B26", assetEligible: false, roomEligible: true, contractorEligible: true,
     presets: ["Mice / rodents", "Bed bugs", "Cockroaches", "Ants", "Wasps / hornets", "Other"] },
   deep_clean: { key: "deep_clean", label: "Deep Clean", short: "Deep Clean", icon: Brush, mode: "recurring", accent: "#1D7A72", assetEligible: false, roomEligible: true, contractorEligible: true,
@@ -153,8 +153,27 @@ export const TRAINING_DEFAULT_VALIDITY_DAYS = {
   "Fire Safety Awareness": 365,
   "First Aid at Work": 1095, // 3 years — Emergency First Aid at Work is the 1-year qualification; this preset is specifically the 3-year one
   "Food Hygiene Level 2": 1095, // 3 years — industry convention (CIEH/RSPH), not a legal expiry at all
-  "Manual Handling": 912, // ~2.5 years, splitting the commonly-cited 2–3 year refresh convention
-  "Legionella Awareness": 912, // same 2–3 year convention
+  // The in-house training modules (see src/lib/training and server/training.js). These refresh periods are the
+  // General Manager's own choice, not a legal number, and match the periods set in the training pack.
+  "Health & Safety Induction": 1095, // 36 months
+  "First Aid Awareness": 365, // 12 months. In-house awareness only: it never replaces First Aid at Work above
+  "Manual Handling": 730, // 24 months (was ~2.5 years)
+  "Legionella Awareness": 730, // 24 months (was ~2.5 years)
+  "Equality & Discrimination": 730, // 24 months
+  "Bullying & Harassment": 365, // 12 months
+  "Data Protection (GDPR)": 365, // 12 months
+};
+/** Which Ledger training type each in-house training module is recorded as. A module not listed here falls
+    back to its own title. */
+export const TRAINING_MODULE_PRESET = {
+  induction: "Health & Safety Induction",
+  fire: "Fire Safety Awareness",
+  firstaid: "First Aid Awareness",
+  manual: "Manual Handling",
+  legionella: "Legionella Awareness",
+  equality: "Equality & Discrimination",
+  harassment: "Bullying & Harassment",
+  data: "Data Protection (GDPR)",
 };
 export const CERT_DEFAULT_VALIDITY_DAYS = {
   "Gas Safety Certificate (CP12)": 365,
@@ -473,10 +492,10 @@ export const REQUIREMENTS = [
     retention: "Duration of employment.",
     legislation: "Manual Handling Operations Regulations 1992 (duty is law; refresh interval is convention)." },
   { id: "hs-induction", category: "training", matchMode: "preset", matchValues: ["Health & Safety Induction"], title: "Health & Safety Induction",
-    timingModel: "log", basis: ["law"], sourceConfidence: "unverified",
-    whatToKeep: "A record that every new starter received a H&S induction before starting unsupervised work.",
-    why: "General duty to provide information, instruction, training and supervision. This is a one-time event, not something that expires or repeats on a schedule.",
-    frequency: "Before starting work, then reinforced through ongoing training — there's no repeat/expiry concept here at all.",
+    basis: ["law"], sourceConfidence: "unverified",
+    whatToKeep: "A record that every new starter received a H&S induction before starting unsupervised work, repeated every 36 months.",
+    why: "General duty to provide information, instruction, training and supervision. The law doesn't set a repeat interval; the 36-month refresh is the hotel's own policy.",
+    frequency: "Before starting work, then refreshed every 36 months (the hotel's own choice, not a legal number).",
     evidence: "Signed induction checklist.",
     retention: "Duration of employment.",
     legislation: "Health and Safety at Work etc Act 1974; Management of Health and Safety at Work Regulations 1999." },
@@ -488,6 +507,38 @@ export const REQUIREMENTS = [
     evidence: "Training certificate.",
     retention: "Duration of appointment.",
     legislation: "HSE ACOP L8 (competency requirement is guidance, no fixed refresh interval)." },
+  { id: "first-aid-awareness-training", category: "training", matchMode: "preset", matchValues: ["First Aid Awareness"], title: "First Aid Awareness Training",
+    basis: ["policy"], sourceConfidence: "unverified",
+    whatToKeep: "A record per staff member that they completed the in-house First Aid Awareness module.",
+    why: "Staff need to recognise an emergency and know what to do until help arrives. This is awareness only: it does not replace First Aid at Work (the external qualification, tracked separately above).",
+    frequency: "Every 12 months (the hotel's own choice, not a legal number).",
+    evidence: "The certificate issued when the module is passed.",
+    retention: "Duration of employment.",
+    legislation: "Health and Safety (First-Aid) Regulations 1981 (general duty to provide adequate provision); this module is a hotel policy and not a recognised qualification." },
+  { id: "equality-training", category: "training", matchMode: "preset", matchValues: ["Equality & Discrimination"], title: "Equality & Discrimination Training",
+    basis: ["policy", "guidance"], sourceConfidence: "unverified",
+    whatToKeep: "A record per staff member that they completed equality and discrimination training.",
+    why: "An employer can be liable for discrimination by its staff unless it took all reasonable steps to prevent it, and training is the usual way to show that.",
+    frequency: "Every 24 months (the hotel's own choice, not a legal number).",
+    evidence: "The certificate issued when the module is passed.",
+    retention: "Duration of employment.",
+    legislation: "Equality Act 2010 (employer liability for staff acts; training is a typical 'reasonable step', not a stated requirement)." },
+  { id: "harassment-training", category: "training", matchMode: "preset", matchValues: ["Bullying & Harassment"], title: "Bullying & Harassment Training",
+    basis: ["law", "guidance"], sourceConfidence: "unverified",
+    whatToKeep: "A record per staff member that they completed bullying and harassment training.",
+    why: "From 30 October 2026 employers must take all reasonable steps to prevent sexual harassment of staff, and become liable for harassment of staff by third parties such as guests. Training is a typical reasonable step, not a stated requirement. Check the commencement date against the official regulations.",
+    frequency: "Every 12 months (the hotel's own choice, not a legal number).",
+    evidence: "The certificate issued when the module is passed.",
+    retention: "Duration of employment.",
+    legislation: "Employment Rights Act 2025; Equality Act 2010." },
+  { id: "data-protection-training", category: "training", matchMode: "preset", matchValues: ["Data Protection (GDPR)"], title: "Data Protection (GDPR) Training",
+    basis: ["law", "guidance"], sourceConfidence: "unverified",
+    whatToKeep: "A record per staff member that they completed data protection training.",
+    why: "Anyone handling guest data needs to know how to keep it safe and what to do if something goes wrong. The ICO expects organisations to train their staff.",
+    frequency: "Every 12 months (the hotel's own choice, not a legal number).",
+    evidence: "The certificate issued when the module is passed.",
+    retention: "Duration of employment.",
+    legislation: "UK GDPR and Data Protection Act 2018 (security and accountability duties; ICO guidance on staff training)." },
   { id: "pest-monitoring", category: "pest", matchMode: "category", matchValues: [], title: "Pest Monitoring & Control",
     basis: ["law", "guidance"], sourceConfidence: "unverified",
     whatToKeep: "Ongoing monitoring records plus a log of every sighting and the action taken.",
@@ -634,6 +685,12 @@ export const STATUS_META = {
   "review-overdue": { label: "Review overdue", color: "#C65450" },
   "review-due": { label: "Review due", color: "#C89235" },
   reviewed: { label: "Reviewed", color: "#3B8268" },
+  // Staff training (see src/lib/training/status.js)
+  "tr-passed": { label: "Passed", color: "#3B8268" },
+  "tr-due-soon": { label: "Refresh due soon", color: "#C89235" },
+  "tr-expired": { label: "Expired", color: "#C65450" },
+  "tr-failed": { label: "Not passed", color: "#C65450" },
+  "tr-not-started": { label: "Not started", color: "#65767C" },
 };
 
 export const RECORD_HISTORY_FIELDS = {

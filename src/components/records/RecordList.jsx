@@ -30,6 +30,10 @@ export function RecordRow({ record, assets, rooms, contractors = [], staff = [],
   // record into this venue's own data. Every action is suppressed; resolving still happens on the
   // other venue's own site, same as anywhere else this comes up.
   const pulled = !!record.__pulled;
+  // Generated from the Training module's results: just as read-only, but it belongs to this venue, so it
+  // is tagged "Training" rather than with the other venue's name.
+  const fromTraining = !!record.__training;
+  const locked = pulled || fromTraining;
 
   return (
     <div className="ledger-row">
@@ -41,11 +45,12 @@ export function RecordRow({ record, assets, rooms, contractors = [], staff = [],
       <span><Stamp status={status} dense />{record.flagged && !record.flagResolved && <span className="flag-tag">Flagged</span>}{record.archived && <span className="flag-tag" style={{ color: "#8A6D1F", background: "#FCF6EE" }}>Archived</span>}{pending && <span className="flag-tag" style={{ color: "#2A3A6E", background: "#EEF0FA" }}>Correction requested</span>}</span>
       <span className="row-actions">
         {pulled && <span className="flag-tag" style={{ color: "#2A3A6E", background: "#EEF0FA", fontSize: 12.5, padding: "5px 10px", fontWeight: 600, margin: 0 }}>{PUB_VENUE_NAME}</span>}
-        {!pulled && !record.archived && isOpenIssue(record) && <button className="btn btn-ghost" style={{ padding: "5px 10px", fontSize: 12.5 }} onClick={() => onResolve(record)}>Resolve</button>}
+        {fromTraining && <span className="flag-tag" style={{ color: "#2F6B4C", background: "#EAF4EE", fontSize: 12.5, padding: "5px 10px", fontWeight: 600, margin: 0 }}>From Training</span>}
+        {!locked && !record.archived && isOpenIssue(record) && <button className="btn btn-ghost" style={{ padding: "5px 10px", fontSize: 12.5 }} onClick={() => onResolve(record)}>Resolve</button>}
         <button className="icon-btn" onClick={() => onView(record)}><Eye size={15} /></button>
-        {!pulled && !record.archived && canEdit && <button className="icon-btn" onClick={() => onEdit(record)}><Pencil size={15} /></button>}
-        {!pulled && !record.archived && !canEdit && onRequestCorrection && <button className="icon-btn" onClick={() => onRequestCorrection(record)} title="Request a correction"><MessageSquareWarning size={15} /></button>}
-        {!pulled && canDelete && (record.archived
+        {!locked && !record.archived && canEdit && <button className="icon-btn" onClick={() => onEdit(record)}><Pencil size={15} /></button>}
+        {!locked && !record.archived && !canEdit && onRequestCorrection && <button className="icon-btn" onClick={() => onRequestCorrection(record)} title="Request a correction"><MessageSquareWarning size={15} /></button>}
+        {!locked && canDelete && (record.archived
           ? <button className="icon-btn" onClick={() => onRestore(record.id)}><ArchiveRestore size={15} /></button>
           : <button className="icon-btn" onClick={() => onDelete(record.id)}><Archive size={15} /></button>)}
       </span>

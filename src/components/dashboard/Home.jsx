@@ -12,7 +12,7 @@ import { ResponsiblePersonCard } from "../settings/ResponsiblePerson";
 import { BrandingCard } from "../settings/Branding";
 import { CategoryTag, DashboardSection, Stamp } from "../shared/UI";
 import { PUB_VENUE_NAME, REQUIREMENTS, ROOM_ICON, ROOM_LABEL, ROOM_LABEL_PLURAL, RoleContext } from "../../lib/constants";
-import { assetComplianceStatus, assetUnreliability, belongsToRoom, certificateStatus, findRecurringIssue, findRepeatFailure, fmtDate, getMode, getStatus, hasPendingCorrection, isOpenIssue, isReviewMode, isScheduleMode, matchRequirement, recordDetailText, requirementStatus, roomLabelText, roomProblemCounts, timeGreeting, todaysActionItems } from "../../lib/helpers";
+import { assetComplianceStatus, assetUnreliability, belongsToRoom, certificateStatus, findRecurringIssue, findRepeatFailure, fmtDate, getMode, getStatus, hasPendingCorrection, isSupersededTraining, isOpenIssue, isReviewMode, isScheduleMode, matchRequirement, recordDetailText, requirementStatus, roomLabelText, roomProblemCounts, timeGreeting, todaysActionItems } from "../../lib/helpers";
 
 export function Home({ records, assets, rooms, certificates, venuePull, responsiblePerson, onEditResponsiblePerson, branding, onEditBranding, onEdit, onOpenRoom, onOpenAsset, onOpenCertificate, onOpenLibrary, onResolve, goToLedger }) {
   const { role, currentUser } = useContext(RoleContext);
@@ -31,7 +31,7 @@ export function Home({ records, assets, rooms, certificates, venuePull, responsi
   }, [certsExpiringTraining, certsExpiringDocs]);
   const roomProblems = useMemo(() => roomProblemCounts(activeRecords, activeAssets, activeRooms), [activeRecords, activeAssets, activeRooms]);
   const unreliableAssets = useMemo(() => assetUnreliability(activeRecords, activeAssets), [activeRecords, activeAssets]);
-  const overdueTraining = useMemo(() => activeRecords.filter((r) => getMode(r) === "expiry" && getStatus(r) === "overdue").sort((a, b) => (a.expiryDate || "").localeCompare(b.expiryDate || "")), [activeRecords]);
+  const overdueTraining = useMemo(() => activeRecords.filter((r) => getMode(r) === "expiry" && getStatus(r) === "overdue" && !isSupersededTraining(r, activeRecords)).sort((a, b) => (a.expiryDate || "").localeCompare(b.expiryDate || "")), [activeRecords]);
   // Deliberately separate from every schedule-mode stat below: a review target passing isn't the
   // same claim as a certificate expiring, and shouldn't be counted alongside "Overdue"/"Due soon" —
   // isScheduleMode already excludes review-mode records from those for exactly this reason.

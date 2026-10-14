@@ -162,8 +162,8 @@ describe("record mode/status logic", () => {
     expect(getMode({ category: "maintenance", title: "COSHH assessment" })).toBe("maintenance");
   });
 
-  it("getMode: Health & Safety Induction overrides to log mode — a one-time event, not something that expires. Training records key off 'detail' (the preset), not 'title' (the staff member's name), same field getMatchKey uses for expiry mode", () => {
-    expect(getMode({ category: "training", detail: "Health & Safety Induction", title: "Some Staff Member" })).toBe("log");
+  it("getMode: every training type, Health & Safety Induction included, is an expiry record (induction is refreshed every 36 months). Training records key off 'detail' (the preset), not 'title' (the staff member's name), same field getMatchKey uses for expiry mode", () => {
+    expect(getMode({ category: "training", detail: "Health & Safety Induction", title: "Some Staff Member" })).toBe("expiry");
     expect(getMode({ category: "training", detail: "First Aid at Work", title: "Some Staff Member" })).toBe("expiry");
   });
 

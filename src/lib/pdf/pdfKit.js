@@ -35,7 +35,7 @@ export const COLORS = {
 
 /** Decodes a `data:<mime>;base64,<data>` string to raw bytes — pdf-lib's embedPng/embedJpg
     want actual image bytes, not a data URL. */
-function dataUrlToBytes(dataUrl) {
+export function dataUrlToBytes(dataUrl) {
   const base64 = dataUrl.split(",")[1] || "";
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);

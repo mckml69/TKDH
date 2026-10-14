@@ -66,6 +66,29 @@ node reset-password.js someone@yourhotel.com newPassword123
 
 See `server/README.md` → "Locked out?" for details.
 
+## 4b. Staff training (hotel only)
+
+The Training section only appears on a deployment whose server has a **training pack**. The pack
+holds real phone numbers and the answer key, so it is **never committed to GitHub** (this repository
+is public). It lives as a folder on the service's persistent disk instead:
+
+1. In the hotel service's **Shell** tab, create the folder: `mkdir -p /var/data/training-pack/plans`
+   (use whatever your disk's mount path is in place of `/var/data`).
+2. Copy `pack.json` and the five `plans/*.png` images into it. They come from
+   `training-pack/pack/` on the machine where the pack is built (`node build/build.js` in
+   `training-pack/`). Render's Shell has no file upload, so the simplest route is to paste the
+   file's contents into the Shell with a heredoc, or to download them from a private place you
+   control. Do not put them anywhere public.
+3. In the service's **Environment** tab, set `TRAINING_PACK_DIR=/var/data/training-pack` and redeploy.
+4. Do **not** set it on the pub's service: with it unset the pub shows no Training section at all.
+
+To update the questions or briefings later, rebuild the pack, bump the changed module's `version`,
+and replace `pack.json` on the disk. The server picks up the new file by itself; anyone mid-quiz on
+the old version is asked to reload.
+
+Training results are stored in the same database file as everything else, so the daily disk
+snapshots cover them too.
+
 ## 5. Adding a second venue (e.g. a pub & kitchen the same GM is responsible for)
 
 This same repo can run as a second, fully independent deployment — its own

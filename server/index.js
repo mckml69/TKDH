@@ -11,6 +11,7 @@ import {
   getCredential, getSessionUser, publicUser, readUsers, setCredential, verifyPassword, writeUsers,
 } from "./auth.js";
 import { r2Enabled, putAttachment, getAttachment, deleteAttachment } from "./r2.js";
+import { trainingRouter } from "./training.js";
 
 /**
  * Reference backend for Compliance Ledger.
@@ -243,6 +244,9 @@ app.delete("/api/storage/:key", requireAuth, async (req, res) => {
 });
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
+
+// Staff training (see training.js). Off unless TRAINING_PACK_DIR points at a pack.
+app.use("/api/training", trainingRouter(requireAuth));
 
 // ---------------------------------------------------------------------------
 // CROSS-VENUE SHARING — this same codebase gets deployed once per venue (e.g.

@@ -93,7 +93,9 @@ export function RecordFormPage({ template, record, assets, rooms, contractors, s
       >
         <ErrorBanner errors={errors} />
         {readOnly && (
-          <p className="muted" style={{ margin: "-4px 0 0" }}>Read-only — this record belongs to {PUB_VENUE_NAME}'s own system. Resolving or editing it happens there.</p>
+          <p className="muted" style={{ margin: "-4px 0 0" }}>{record?.__training
+            ? "Read-only — this record was generated from the staff member's result in the Training module. To change it, they retake the module."
+            : `Read-only — this record belongs to ${PUB_VENUE_NAME}'s own system. Resolving or editing it happens there.`}</p>
         )}
         <fieldset disabled={viewOnly} className="view-fieldset">
 

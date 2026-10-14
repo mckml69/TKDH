@@ -23,6 +23,7 @@ import {
   Gauge,
   Menu,
   ExternalLink,
+  GraduationCap,
 } from "lucide-react";
 import { AssetDetail, AssetFormPage, AssetsList, ReplaceAssetPage } from "./components/assets/Assets";
 import { AuditIntro, AuditReport, AuditWizardStep } from "./components/audit/Audit";
@@ -44,6 +45,10 @@ import { ResponsiblePersonFormPage } from "./components/settings/ResponsiblePers
 import { BrandingFormPage } from "./components/settings/Branding";
 import { ConfirmDeletePage, MouseLoader, ReportFallback, TemplatePickerPage } from "./components/shared/UI";
 import { StaffDetail, StaffFormPage, StaffList } from "./components/staff/Staff";
+import { TrainingPage } from "./components/training/Training";
+import { trainingApi, trainingSupported } from "./lib/training/api";
+import { deriveTrainingRecords } from "./lib/training/derive";
+import { useTrainingSummary } from "./hooks/useTrainingSummary";
 import { ResetPasswordPage, SignInScreen, UserFormPage, UsersList } from "./components/users/Users";
 import { VisitDetail, VisitFormPage, VisitsList } from "./components/visits/Visits";
 import { WindowCheckDetailPage, WindowChecksExportPage, WindowRestrictionChecksPage } from "./components/windowchecks/WindowChecks";
@@ -70,6 +75,7 @@ import {
   legionellaTempCheckEnsureSnapshot, resolveOriginRecord, findOpenLinkedIssue, hasOpenLinkedIssue,
 } from "./lib/helpers";
 import "./styles/global.css";
+import "./styles/training.css";
 
 export default function App() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -94,9 +100,18 @@ export default function App() {
     upsertCertificate, archiveCertificate, restoreCertificate,
     upsertVisit, archiveVisit, restoreVisit,
   } = useLedger(currentUser?.name || null);
+  // Training only exists against the real backend, and only on a deployment that has a training pack
+  // (the pub doesn't, so it never shows the section). Asked once a person is signed in.
+  const [trainingEnabled, setTrainingEnabled] = useState(false);
+  useEffect(() => {
+    if (!trainingSupported || !currentUser?.id) { setTrainingEnabled(false); return; }
+    let cancelled = false;
+    trainingApi.status().then((s) => { if (!cancelled) setTrainingEnabled(!!s?.enabled); }).catch(() => { if (!cancelled) setTrainingEnabled(false); });
+    return () => { cancelled = true; };
+  }, [currentUser?.id]);
   const { audit, saveAudit } = useAudit();
   const { person: responsiblePerson, savePerson: saveResponsiblePerson } = useResponsiblePerson();
-  const { branding, saveBranding } = useBranding();
+  const { branding, saveBranding, reload: reloadBranding } = useBranding();
   const { pin: dangerZonePin, savePin: saveDangerZonePin } = useDangerZonePin();
   const venuePull = useVenuePull();
   // Whole-building contractors are meant to be genuinely usable here, not just visible — assigning a
@@ -130,6 +145,14 @@ export default function App() {
   const [checksOpen, setChecksOpen] = useState(true);
   const [stack, setStack] = useState([{ page: "home" }]);
   const current = stack[stack.length - 1];
+  // Training results as read-only Staff Training records (General Manager only), merged in for DISPLAY. They are
+  // handed to the screens that only read records (Home, Ledger, Staff, Search, Library, First Day Audit) and are
+  // never passed to anything that saves, so they can never be written into the shared records. Refreshed whenever
+  // the person moves to another page, so a module someone has just passed shows up straight away.
+  const { rows: trainingRows, reload: reloadTrainingRows } = useTrainingSummary(trainingEnabled && role === "General Manager");
+  useEffect(() => { reloadTrainingRows(); }, [current.page, reloadTrainingRows]);
+  const trainingRecords = useMemo(() => deriveTrainingRecords(trainingRows, staff), [trainingRows, staff]);
+  const displayRecords = useMemo(() => (trainingRecords.length ? [...records, ...trainingRecords] : records), [records, trainingRecords]);
   useEffect(() => { setMobileNavOpen(false); }, [current.page]);
   const push = (v) => setStack((s) => [...s, v]);
   const pop = () => setStack((s) => (s.length > 1 ? s.slice(0, -1) : [{ page: "home" }]));
@@ -178,7 +201,7 @@ export default function App() {
     // A pulled record has no id in this venue's own storage — Save would either 404 or silently write
     // a foreign record into local data, so it's always forced read-only regardless of what the caller
     // asked for, same boundary already applied to pulled contractors/certificates.
-    push({ page: "record-form", template, record, prefill, viewOnly: !!viewOnly || !!record?.__pulled, readOnly: !!record?.__pulled });
+    push({ page: "record-form", template, record, prefill, viewOnly: !!viewOnly || !!record?.__pulled || !!record?.__training, readOnly: !!record?.__pulled || !!record?.__training });
   };
   const openRecordView = (r) => openRecordForm(TEMPLATES[r.category], r, null, true);
   const openReportFallback = (result) => push({ page: "report-fallback", title: result.title, pdfBytes: result.pdfBytes });
@@ -497,7 +520,7 @@ export default function App() {
     resetTo({ page: "audit-report" });
   };
   const overdueCount = records.filter(isOverdue).length;
-  const staffBadge = staff.filter((s) => staffTrainingStatus(s, records) === "overdue").length;
+  const staffBadge = staff.filter((s) => staffTrainingStatus(s, displayRecords) === "overdue").length;
   const certBadge = certificates.filter((c) => ["overdue", "due-soon"].includes(certificateStatus(c))).length;
   const visitBadge = visits.filter((v) => ["overdue", "open"].includes(visitStatus(v))).length;
 
@@ -505,7 +528,7 @@ export default function App() {
   if (loading || !usersLoaded || !sessionLoaded) {
     body = <MouseLoader label="Loading ledger…" />;
   } else if (current.page === "home") {
-    body = <Home records={records} assets={assets} rooms={rooms} certificates={certificates} venuePull={venuePull} responsiblePerson={responsiblePerson} onEditResponsiblePerson={() => push({ page: "responsible-person-form" })} branding={branding} onEditBranding={() => push({ page: "branding-form" })} onEdit={openRecordView}
+    body = <Home records={displayRecords} assets={assets} rooms={rooms} certificates={certificates} venuePull={venuePull} responsiblePerson={responsiblePerson} onEditResponsiblePerson={() => push({ page: "responsible-person-form" })} branding={branding} onEditBranding={() => push({ page: "branding-form" })} onEdit={openRecordView}
       onOpenRoom={(id) => push({ page: "room-detail", roomId: id })}
       onOpenAsset={(id) => push({ page: "asset-detail", assetId: id })}
       onOpenCertificate={(id) => push({ page: "certificate-detail", certificateId: id })}
@@ -513,7 +536,7 @@ export default function App() {
       onResolve={(r) => push({ page: "resolve-form", record: r })}
       goToLedger={goToLedger} />;
   } else if (current.page === "ledger") {
-    body = <Ledger records={records} assets={assets} rooms={rooms} contractors={allContractors} staff={staff} venuePull={venuePull} filters={ledgerFilters} setFilters={setLedgerFilters} onView={openRecordView} onEdit={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onDelete={handleDeleteRecord} onRestore={restoreRecord} onResolve={(r) => push({ page: "resolve-form", record: r })} onRequestCorrection={handleRequestCorrection} onAdd={() => ledgerFilters.category !== "all" ? openRecordForm(TEMPLATES[ledgerFilters.category], null, null) : openTemplatePicker(TEMPLATE_LIST)} onExportFallback={openReportFallback} branding={branding} />;
+    body = <Ledger records={displayRecords} assets={assets} rooms={rooms} contractors={allContractors} staff={staff} venuePull={venuePull} filters={ledgerFilters} setFilters={setLedgerFilters} onView={openRecordView} onEdit={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onDelete={handleDeleteRecord} onRestore={restoreRecord} onResolve={(r) => push({ page: "resolve-form", record: r })} onRequestCorrection={handleRequestCorrection} onAdd={() => ledgerFilters.category !== "all" ? openRecordForm(TEMPLATES[ledgerFilters.category], null, null) : openTemplatePicker(TEMPLATE_LIST)} onExportFallback={openReportFallback} branding={branding} />;
   } else if (current.page === "assets") {
     body = <AssetsList assets={assets} records={records} onOpen={(id) => push({ page: "asset-detail", assetId: id })} onAdd={() => push({ page: "asset-form", asset: null })} onEdit={(a) => push({ page: "asset-form", asset: a })} onDelete={handleDeleteAsset} onRestore={restoreAsset} onExportFallback={openReportFallback} branding={branding} />;
   } else if (current.page === "asset-detail") {
@@ -564,12 +587,16 @@ export default function App() {
       onOpenAsset={(id) => push({ page: "asset-detail", assetId: id })}
       onOpenCertificate={(id) => push({ page: "certificate-detail", certificateId: id })} /> : null;
   } else if (current.page === "staff") {
-    body = <StaffList staff={staff} records={records} onOpen={(id) => push({ page: "staff-detail", staffId: id })} onAdd={() => push({ page: "staff-form", member: null })} onEdit={(s) => push({ page: "staff-form", member: s })} onDelete={handleDeleteStaff} onRestore={restoreStaff} onExportFallback={openReportFallback} branding={branding} />;
+    body = <StaffList staff={staff} records={displayRecords} onOpen={(id) => push({ page: "staff-detail", staffId: id })} onAdd={() => push({ page: "staff-form", member: null })} onEdit={(s) => push({ page: "staff-form", member: s })} onDelete={handleDeleteStaff} onRestore={restoreStaff} onExportFallback={openReportFallback} branding={branding} />;
   } else if (current.page === "staff-detail") {
     const member = staff.find((s) => s.id === current.staffId);
-    body = member ? <StaffDetail member={member} records={records} assets={assets} onBack={pop}
+    body = member ? <StaffDetail member={member} records={displayRecords} assets={assets} onBack={pop}
       onEdit={(s) => push({ page: "staff-form", member: s })}
       onViewRecord={openRecordView} onEditRecord={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onResolve={(r) => push({ page: "resolve-form", record: r })} /> : null;
+  } else if (current.page === "training") {
+    body = trainingEnabled
+      ? <TrainingPage isGM={role === "General Manager"} branding={branding} onExportFallback={openReportFallback} />
+      : <div className="empty-state">Training isn't set up on this site.</div>;
   } else if (current.page === "certificates") {
     body = role === "General Manager"
       ? <CertificatesList certificates={certificates} assets={assets} contractors={contractors} venuePull={venuePull} onOpen={(id) => push({ page: "certificate-detail", certificateId: id })} onAdd={() => push({ page: "certificate-form", cert: null })} onEdit={(c) => push({ page: "certificate-form", cert: c })} onDelete={handleDeleteCertificate} onRestore={restoreCertificate} onExportFallback={openReportFallback} branding={branding} />
@@ -758,7 +785,7 @@ export default function App() {
   } else if (current.page === "report-fallback") {
     body = <ReportFallback title={current.title} pdfBytes={current.pdfBytes} onBack={pop} />;
   } else if (current.page === "search-results") {
-    body = <SearchResults query={searchQuery} records={records} assets={assets} rooms={rooms} contractors={allContractors} staff={staff} certificates={certificates} visits={visits} venuePull={venuePull}
+    body = <SearchResults query={searchQuery} records={displayRecords} assets={assets} rooms={rooms} contractors={allContractors} staff={staff} certificates={certificates} visits={visits} venuePull={venuePull}
       onView={openRecordView} onEditRecord={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onDeleteRecord={handleDeleteRecord} onResolve={(r) => push({ page: "resolve-form", record: r })}
       onOpenAsset={(id) => push({ page: "asset-detail", assetId: id })}
       onOpenRoom={(id) => push({ page: "room-detail", roomId: id })}
@@ -768,7 +795,7 @@ export default function App() {
       onOpenVisit={(id) => push({ page: "visit-detail", visitId: id })}
       onOpenRequirement={(id) => push({ page: "requirement-detail", reqId: id })} />;
   } else if (current.page === "library") {
-    body = <LibraryList records={records} certificates={certificates} onOpen={(id) => push({ page: "requirement-detail", reqId: id })} catFilter={libraryCatFilter} setCatFilter={setLibraryCatFilter} />;
+    body = <LibraryList records={displayRecords} certificates={certificates} onOpen={(id) => push({ page: "requirement-detail", reqId: id })} catFilter={libraryCatFilter} setCatFilter={setLibraryCatFilter} />;
   } else if (current.page === "users") {
     body = role === "General Manager"
       ? <UsersList users={users} currentUser={currentUser} onAdd={() => push({ page: "user-form", user: null })} onEdit={(u) => push({ page: "user-form", user: u })} onDelete={handleDeleteUser} onRestore={restoreUser}
@@ -791,7 +818,7 @@ export default function App() {
       onBack={() => setWizardStep((s) => Math.max(s - 1, 0))}
       onFinish={handleAuditFinish} />;
   } else if (current.page === "audit-report") {
-    body = <AuditReport audit={audit} records={records}
+    body = <AuditReport audit={audit} records={displayRecords}
       onEditWizard={() => { setWizardStep(0); resetTo({ page: "audit-wizard" }); }}
       onOpenRequirement={(id) => push({ page: "requirement-detail", reqId: id })}
       onExportFallback={openReportFallback}
@@ -799,7 +826,7 @@ export default function App() {
       />;
   } else if (current.page === "requirement-detail") {
     const req = REQUIREMENTS.find((r) => r.id === current.reqId);
-    body = req ? <RequirementDetail req={req} records={records} certificates={certificates} onBack={pop}
+    body = req ? <RequirementDetail req={req} records={displayRecords} certificates={certificates} onBack={pop}
       onLogNow={(r) => openRecordForm(TEMPLATES[r.matchCategories?.[0] || r.category], null, { title: r.matchValues[0] })}
       onViewRecord={openRecordView} onEditRecord={(r) => openRecordForm(TEMPLATES[r.category], r, null)} onDeleteRecord={handleDeleteRecord} onResolve={(r) => push({ page: "resolve-form", record: r })}
       onOpenCertificate={(id) => push({ page: "certificate-detail", certificateId: id })} /> : null;
@@ -814,8 +841,8 @@ export default function App() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", gap: 10, color: "#6E6A61", padding: "80px 0" }}><Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Loading…</div>
       ) : !currentUser ? (
         <SignInScreen users={users} onSignIn={setCurrentUserId} onCreateUser={(u) => { upsertUser(u, users); setCurrentUserId(u.id); }}
-          onLogin={async (email, password) => { await login(email, password); await Promise.all([reloadUsers(), reloadLedger()]); }}
-          onBootstrap={async (form) => { await bootstrap(form); await Promise.all([reloadUsers(), reloadLedger()]); }} />
+          onLogin={async (email, password) => { await login(email, password); await Promise.all([reloadUsers(), reloadLedger(), reloadBranding()]); }}
+          onBootstrap={async (form) => { await bootstrap(form); await Promise.all([reloadUsers(), reloadLedger(), reloadBranding()]); }} />
       ) : (
       <>
       {mobileNavOpen && <div className="sidebar-backdrop" onClick={() => setMobileNavOpen(false)} />}
@@ -882,6 +909,7 @@ export default function App() {
         })()}
 
         <div className="nav-divider" />
+        {trainingEnabled && <button className={"nav-item" + (current.page === "training" ? " active" : "")} onClick={() => resetTo({ page: "training" })}><GraduationCap size={16} /> Training</button>}
         <button className={"nav-item" + (current.page === "library" || current.page === "requirement-detail" ? " active" : "")} onClick={() => resetTo({ page: "library" })}><BookOpen size={16} /> Compliance Library</button>
         <button className={"nav-item" + (["audit-intro", "audit-wizard", "audit-report"].includes(current.page) ? " active" : "")} onClick={() => resetTo({ page: "audit-intro" })}><ListChecks size={16} /> First Day Audit</button>
         {role === "General Manager" && (

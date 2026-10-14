@@ -850,8 +850,20 @@ export function staffHaystack(s) {
   return [s.name, s.role, s.email, s.phone, s.notes, tagBlob(s.tags), attachmentBlob(s.attachments), dateSearchBlob(dates)]
     .filter(Boolean).join(" ").toLowerCase();
 }
+/** A training record that has been renewed: the same person, the same training type, and a newer record
+    that runs further. Only the newest counts for status, so an old expired Fire Safety Awareness record
+    can't keep someone "overdue" after they have since passed the module again. Records with no expiry date
+    are never treated as superseded (there is nothing to compare). */
+export function isSupersededTraining(record, records) {
+  if (!record.expiryDate || !record.staffId || !record.detail) return false;
+  return records.some((o) => o !== record && !o.archived && o.category === record.category && o.staffId === record.staffId
+    && o.detail === record.detail && o.expiryDate && o.expiryDate > record.expiryDate);
+}
+/** Records generated from the Training module's results rather than typed in. They are read-only and are
+    never saved into the shared records, only merged in for display (see src/lib/training/derive.js). */
+export const isTrainingDerived = (record) => !!record?.__training;
 export function staffTrainingStatus(staff, records) {
-  const linked = records.filter((r) => r.staffId === staff.id && !r.archived && getMode(r) === "expiry");
+  const linked = records.filter((r) => r.staffId === staff.id && !r.archived && getMode(r) === "expiry" && !isSupersededTraining(r, records));
   if (linked.length === 0) return "no-checks";
   const rank = { overdue: 0, "due-soon": 1, compliant: 2 };
   return linked.map(getStatus).sort((a, b) => rank[a] - rank[b])[0];
@@ -932,7 +944,8 @@ export function requirementStatus(req, matched) {
   // failed (not_ok) is real, live information and must outrank one that's merely compliant, exactly
   // like an overdue record already does.
   const rank = { "review-overdue": 0, overdue: 0, open: 0, "review-due": 1, "due-soon": 1, "in-progress": 1, reviewed: 2, compliant: 2, logged: 2 };
-  const statuses = [...matched.records.map(getStatus), ...matched.certificates.map(certificateStatus)];
+  // A renewed training record supersedes the older one for the same person and type (see isSupersededTraining).
+  const statuses = [...matched.records.filter((r) => !isSupersededTraining(r, matched.records)).map(getStatus), ...matched.certificates.map(certificateStatus)];
   return statuses.sort((a, b) => (rank[a] ?? 3) - (rank[b] ?? 3))[0];
 }
 /** A record "belongs to" a room if linked directly, or via an asset installed in that room. */

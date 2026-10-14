@@ -50,3 +50,51 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 `);
+
+/**
+ * Staff training results (see server/training.js). A real table, not a kv_store blob: the blob
+ * is last-write-wins, so a stale client could overwrite everyone's results. This table is
+ * append-only — the triggers below make UPDATE and DELETE fail outright, so a bug (or a
+ * stale browser) can only ever add a row, never change or lose one. To correct a genuine
+ * mistake by hand, drop the trigger in sqlite3, fix the row, and recreate the trigger by
+ * restarting the server.
+ */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS training_attempts (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    user_name TEXT NOT NULL,
+    user_email TEXT,
+    module_id TEXT NOT NULL,
+    module_version TEXT NOT NULL,
+    score INTEGER NOT NULL,
+    total INTEGER NOT NULL,
+    pass_mark_count INTEGER NOT NULL,
+    passed INTEGER NOT NULL,
+    completed_at TEXT NOT NULL,
+    valid_until TEXT,
+    certificate_no TEXT UNIQUE,
+    answers TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_training_user_module ON training_attempts(user_id, module_id, completed_at);
+  -- Which login belongs to which Staff register entry (set by hand by a General Manager). One login per
+  -- staff member and one staff member per login. staff_id is the "ledger-staff" blob's id.
+  CREATE TABLE IF NOT EXISTS training_links (
+    staff_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL UNIQUE,
+    linked_at TEXT NOT NULL DEFAULT (datetime('now')),
+    linked_by TEXT
+  );
+  -- Which modules each Staff register entry has been asked to complete.
+  CREATE TABLE IF NOT EXISTS training_assignments (
+    staff_id TEXT NOT NULL,
+    module_id TEXT NOT NULL,
+    assigned_at TEXT NOT NULL DEFAULT (datetime('now')),
+    assigned_by TEXT,
+    PRIMARY KEY (staff_id, module_id)
+  );
+  CREATE TRIGGER IF NOT EXISTS training_attempts_no_update BEFORE UPDATE ON training_attempts
+    BEGIN SELECT RAISE(ABORT, 'training_attempts is append-only'); END;
+  CREATE TRIGGER IF NOT EXISTS training_attempts_no_delete BEFORE DELETE ON training_attempts
+    BEGIN SELECT RAISE(ABORT, 'training_attempts is append-only'); END;
+`);
