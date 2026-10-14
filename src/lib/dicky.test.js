@@ -105,20 +105,25 @@ describe("the cooldown keeps him from being annoying", () => {
   });
 });
 
-import { DICKY_VISITS, isNewPestRecord } from "./dicky";
+import { DICKY_VISITS, isNewMiceRecord } from "./dicky";
 
-describe("Dicky and pest records", () => {
-  it("takes an interest in every newly logged pest record, whatever the pest", () => {
-    for (const detail of ["Mice / rodents", "Bed bugs", "Cockroaches", "Ants", "Wasps / hornets", "Other"]) {
-      expect(isNewPestRecord(null, { category: "pest", detail })).toBe(true);
+describe("Dicky and mice", () => {
+  it("takes an interest in every newly logged mice or rodent record", () => {
+    for (const title of ["Mice / rodents", "mice", "Mouse in the store", "Rats", "rodent droppings"]) {
+      expect(isNewMiceRecord(null, { category: "pest", title })).toBe(true);
     }
-    expect(isNewPestRecord(undefined, { category: "pest" })).toBe(true);
   });
-  it("does not when a pest record is edited or resolved later, or for any other kind of record", () => {
-    expect(isNewPestRecord({ id: "x" }, { category: "pest" })).toBe(false);
-    expect(isNewPestRecord(null, { category: "maintenance" })).toBe(false);
-    expect(isNewPestRecord(null, { category: "fire_daily" })).toBe(false);
-    expect(isNewPestRecord(null, null)).toBe(false);
+  it("leaves every other pest alone: mice are his area of expertise", () => {
+    for (const title of ["Bed bugs", "Cockroaches", "Ants", "Wasps / hornets", "Other", "", undefined]) {
+      expect(isNewMiceRecord(null, { category: "pest", title })).toBe(false);
+    }
+    expect(isNewMiceRecord(null, { category: "pest", title: "Rattan furniture" })).toBe(false); // a word that merely contains "rat"
+  });
+  it("does not when a mice record is edited or resolved later, or for any other kind of record", () => {
+    expect(isNewMiceRecord({ id: "x" }, { category: "pest", title: "Mice / rodents" })).toBe(false);
+    expect(isNewMiceRecord(null, { category: "maintenance", title: "Mice / rodents" })).toBe(false);
+    expect(isNewMiceRecord(null, { category: "fire_daily", title: "mice" })).toBe(false);
+    expect(isNewMiceRecord(null, null)).toBe(false);
   });
   it("has the agreed wording, and keeps the longer message up a little longer", () => {
     expect(DICKY_VISITS.approves.text).toBe("Dicky approves");

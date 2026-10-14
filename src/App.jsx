@@ -50,7 +50,7 @@ import { trainingApi, trainingSupported } from "./lib/training/api";
 import { deriveTrainingRecords } from "./lib/training/derive";
 import { useTrainingSummary } from "./hooks/useTrainingSummary";
 import { DickyMessage } from "./components/shared/DickyApproves";
-import { dailyFireSittingJustCompleted, isNewPestRecord, maybeDickyVisit } from "./lib/dicky";
+import { dailyFireSittingJustCompleted, isNewMiceRecord, maybeDickyVisit } from "./lib/dicky";
 import { ResetPasswordPage, SignInScreen, UserFormPage, UsersList } from "./components/users/Users";
 import { VisitDetail, VisitFormPage, VisitsList } from "./components/visits/Visits";
 import { WindowCheckDetailPage, WindowChecksExportPage, WindowRestrictionChecksPage } from "./components/windowchecks/WindowChecks";
@@ -218,8 +218,8 @@ export default function App() {
   const handleSaveRecord = (form, logAnother) => {
     const isExisting = records.some((r) => r.id === form.id);
     if (isExisting && role !== "General Manager") return;
-    // Dicky takes an interest in every newly logged pest record. Cosmetic only; can never get in the way of saving.
-    try { if (isNewPestRecord(isExisting ? form : null, form)) showDicky("pest"); } catch { /* never let a kitten stop a record */ }
+    // Dicky takes an interest in every newly logged mice record (his area of expertise). Cosmetic only; can never get in the way of saving.
+    try { if (isNewMiceRecord(isExisting ? form : null, form)) showDicky("pest"); } catch { /* never let a kitten stop a record */ }
     const template = TEMPLATES[form.category];
     const wasPending = isExisting && hasPendingCorrection(records.find((r) => r.id === form.id));
     let next = upsertRecord(form, records);

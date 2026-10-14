@@ -52,12 +52,14 @@ export function maybeDickyVisit({ random = Math.random, now = Date.now(), storag
 }
 
 /**
- * True when a pest record is being logged for the first time (not edited, not resolved later). Pest records are rare,
- * so unlike the daily fire check this is not random and has no cooldown: Dicky takes an interest every time, whatever
- * the pest, mice and other rodents included.
+ * True when a pest record about mice (or other rodents) is being logged for the first time: not edited, not resolved
+ * later, and no other kind of pest. Mice are Dicky's area of expertise. Pest records are rare, so unlike the daily fire
+ * check this is not random and has no cooldown. A pest record keeps its pest type in "title" (the Pest type dropdown,
+ * whose option is "Mice / rodents"), so that is the field checked.
  */
-export function isNewPestRecord(existingRecord, form) {
-  return !existingRecord && form?.category === "pest";
+const MICE_WORDS = /\b(mice|mouse|rodents?|rats?)\b/i;
+export function isNewMiceRecord(existingRecord, form) {
+  return !existingRecord && form?.category === "pest" && MICE_WORDS.test(String(form.title || ""));
 }
 
 /**
