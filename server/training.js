@@ -40,7 +40,16 @@ export function validatePack(pack) {
     if (!m || typeof m.id !== "string" || !m.id) fail("every module needs an id");
     if (ids.has(m.id)) fail(`duplicate module id ${m.id}`);
     ids.add(m.id);
-    for (const f of ["code", "title", "version"]) if (typeof m[f] !== "string" || !m[f]) fail(`module ${m.id}: ${f} is required`);
+    if (m.kind !== undefined && m.kind !== "info" && m.kind !== "assessment") fail(`module ${m.id}: kind must be "assessment" or "info"`);
+    // An "info" module is read-only awareness material with no quiz and no certificate: people mark it as read.
+    const info = m.kind === "info";
+    for (const f of info ? ["title", "version"] : ["code", "title", "version"]) if (typeof m[f] !== "string" || !m[f]) fail(`module ${m.id}: ${f} is required`);
+    if (info) {
+      if (m.refreshMonths != null && (!Number.isInteger(m.refreshMonths) || m.refreshMonths < 1)) fail(`module ${m.id}: refreshMonths must be a positive whole number, or left out for no expiry`);
+      if (typeof m.briefing !== "string" || !m.briefing.trim()) fail(`module ${m.id}: an information module needs a briefing`);
+      if (Array.isArray(m.questions) && m.questions.length > 0) fail(`module ${m.id}: an information module has no questions`);
+      continue;
+    }
     if (!/^[A-Z]{2,5}$/.test(m.code)) fail(`module ${m.id}: code must be 2-5 capital letters`);
     if (!Number.isInteger(m.refreshMonths) || m.refreshMonths < 1) fail(`module ${m.id}: refreshMonths must be a positive whole number`);
     if (!Array.isArray(m.questions) || m.questions.length === 0) fail(`module ${m.id}: questions must be a non-empty array`);
@@ -67,6 +76,7 @@ export function loadPack() {
   try {
     const pack = JSON.parse(readFileSync(file, "utf8"));
     validatePack(pack);
+    for (const m of pack.modules) { m.kind = m.kind === "info" ? "info" : "assessment"; if (!Array.isArray(m.questions)) m.questions = []; }
     cache = {
       enabled: true, dir, mtimeMs: st.mtimeMs, pack,
       byId: new Map(pack.modules.map((m) => [m.id, m])),
@@ -92,7 +102,7 @@ const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 export function summarisePack(pack) {
   return {
     hotelName: pack.hotelName,
-    modules: pack.modules.map((m) => ({ id: m.id, title: m.title, version: m.version, questions: m.questions.length })),
+    modules: pack.modules.map((m) => ({ id: m.id, title: m.title, version: m.version, kind: m.kind || "assessment", questions: (m.questions || []).length })),
     plans: (pack.plans || []).map((p) => p.file),
   };
 }
@@ -139,12 +149,12 @@ export function publicPack(pack) {
     signedBy: pack.signedBy || null,
     plans: (pack.plans || []).map((p) => ({ label: p.label, file: p.file, note: p.note || "" })),
     modules: pack.modules.map((m) => ({
-      id: m.id, code: m.code, title: m.title, group: m.group || "", version: m.version,
-      refreshMonths: m.refreshMonths, minutes: m.minutes || null, certNote: m.certNote || null,
+      id: m.id, code: m.code || null, kind: m.kind || "assessment", title: m.title, group: m.group || "", version: m.version,
+      refreshMonths: m.refreshMonths ?? null, minutes: m.minutes || null, certNote: m.certNote || null,
       briefing: m.briefing || "",
-      questionCount: m.questions.length,
-      passMarkCount: passMarkCount(m.questions.length, pack.passMark),
-      questions: m.questions.map((q) => ({ stem: q.stem, options: q.options })),
+      questionCount: (m.questions || []).length,
+      passMarkCount: passMarkCount((m.questions || []).length, pack.passMark),
+      questions: (m.questions || []).map((q) => ({ stem: q.stem, options: q.options })),
     })),
   };
 }
@@ -363,10 +373,32 @@ export function trainingRouter(requireAuth) {
     });
   });
 
+  // An information-only module has no quiz: the person confirms they have read it. Stored like every other result
+  // (append-only, same assignment rules), but with no score and no certificate. It expires only if the module says so.
+  router.post("/acknowledge", (req, res) => {
+    const { moduleId, moduleVersion } = req.body || {};
+    const mod = typeof moduleId === "string" ? req.training.byId.get(moduleId) : null;
+    if (!mod) return res.status(400).json({ error: "unknown module" });
+    if (mod.kind !== "info") return res.status(400).json({ error: "this module has an assessment; take the assessment instead" });
+    if (!isGM(req.user) && !assignmentFor(req.user.id).moduleIds.includes(mod.id)) {
+      return res.status(403).json({ error: "this module has not been assigned to you" });
+    }
+    if (moduleVersion !== mod.version) return res.status(409).json({ error: "this module has been updated; reload the page and read it again", currentVersion: mod.version });
+    const completedAt = new Date();
+    const validUntil = mod.refreshMonths ? addMonths(completedAt, mod.refreshMonths) : null;
+    insertAttempt.run({
+      id: randomUUID(), user_id: req.user.id, user_name: req.user.name, user_email: req.user.email || null,
+      module_id: mod.id, module_version: mod.version, score: 0, total: 0, pass_mark_count: 0, passed: 1,
+      completed_at: completedAt.toISOString(), valid_until: validUntil ? validUntil.toISOString() : null, certificate_no: null, answers: "[]",
+    });
+    res.status(201).json({ acknowledged: true, moduleId: mod.id, version: mod.version, completedAt: completedAt.toISOString(), validUntil: validUntil ? validUntil.toISOString() : null });
+  });
+
   router.post("/attempts", (req, res) => {
     const { moduleId, moduleVersion, answers } = req.body || {};
     const mod = typeof moduleId === "string" ? req.training.byId.get(moduleId) : null;
     if (!mod) return res.status(400).json({ error: "unknown module" });
+    if (mod.kind === "info") return res.status(400).json({ error: "this module has no assessment; mark it as read instead" });
     if (!isGM(req.user) && !assignmentFor(req.user.id).moduleIds.includes(mod.id)) {
       return res.status(403).json({ error: "this module has not been assigned to you" });
     }
@@ -449,7 +481,7 @@ export function trainingRouter(requireAuth) {
       if (r.passed) cur.lastPass = { score: r.score, total: r.total, completedAt: r.completed_at, validUntil: r.valid_until, certNo: r.certificate_no, version: r.module_version };
       map.set(key, cur);
     }
-    res.json({ records: [...map.values()].map((r) => ({ ...r, moduleTitle: req.training.byId.get(r.moduleId)?.title || r.moduleId })) });
+    res.json({ records: [...map.values()].map((r) => ({ ...r, moduleTitle: req.training.byId.get(r.moduleId)?.title || r.moduleId, kind: req.training.byId.get(r.moduleId)?.kind || "assessment" })) });
   });
 
   router.get("/people", requireGM, (req, res) => res.json(peopleSnapshot(req.training.byId)));

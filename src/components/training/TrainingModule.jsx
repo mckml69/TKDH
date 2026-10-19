@@ -27,7 +27,7 @@ function PlanViewer({ plans }) {
   );
 }
 
-export function ModuleView({ module, plans, onBack, onStart }) {
+export function ModuleView({ module, plans, result, onBack, onStart, onAcknowledge, ackBusy, ackError }) {
   const html = useMemo(() => ({ __html: module.briefing }), [module.briefing]);
   const ref = useRef(null);
   const [slot, setSlot] = useState(null);
@@ -38,14 +38,31 @@ export function ModuleView({ module, plans, onBack, onStart }) {
       <div className="module-header">
         <div className="module-title"><GraduationCap size={22} color="#197386" /><h2>{module.title}</h2></div>
       </div>
-      <p className="muted" style={{ marginBottom: 14 }}>About {module.minutes || 10} minutes · repeat {refreshLabel(module.refreshMonths)} · version {module.version}</p>
+      <p className="muted" style={{ marginBottom: 14 }}>
+        {module.kind === "info"
+          ? <>About {module.minutes || 10} minutes · information only, no quiz{module.refreshMonths ? <> · read again {refreshLabel(module.refreshMonths)}</> : null}</>
+          : <>About {module.minutes || 10} minutes · repeat {refreshLabel(module.refreshMonths)} · version {module.version}</>}
+      </p>
       <div className="tr-brief" ref={ref} dangerouslySetInnerHTML={html} />
       {slot && createPortal(<PlanViewer plans={plans} />, slot)}
-      <div className="tr-actions">
-        <button className="btn btn-primary" onClick={onStart}>Start assessment ({module.questionCount} questions)</button>
-        <span className="muted">Pass mark: {module.passMarkCount} of {module.questionCount} correct.</span>
-      </div>
-      {module.certNote && <p className="muted">{module.certNote}</p>}
+      {module.kind === "info" ? (
+        <>
+          <div className="tr-actions">
+            {result?.passed && !(result.validUntil && new Date(result.validUntil) < new Date())
+              ? <span className="muted"><CheckCircle2 size={15} style={{ verticalAlign: -3 }} color="#3B8268" /> You marked this as read on {fmtDate(isoDay(result.completedAt))}.</span>
+              : <button className="btn btn-primary" onClick={onAcknowledge} disabled={ackBusy}>{ackBusy ? "Saving…" : "I've read and understood this"}</button>}
+          </div>
+          {ackError && <div className="tr-error" role="alert">{ackError}</div>}
+        </>
+      ) : (
+        <>
+          <div className="tr-actions">
+            <button className="btn btn-primary" onClick={onStart}>Start assessment ({module.questionCount} questions)</button>
+            <span className="muted">Pass mark: {module.passMarkCount} of {module.questionCount} correct.</span>
+          </div>
+          {module.certNote && <p className="muted">{module.certNote}</p>}
+        </>
+      )}
     </div>
   );
 }

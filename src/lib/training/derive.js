@@ -30,7 +30,10 @@ export function deriveTrainingRecords(rows, staff) {
       staffId: member.id,
       completedDate: completed,
       expiryDate: isoDay(r.lastPass.validUntil),
-      notes: `Completed in the Ledger training module (content version ${r.lastPass.version}), score ${r.lastPass.score} of ${r.lastPass.total}, certificate ${r.lastPass.certNo}. This record is generated from the training results and can't be edited here.`,
+      // An information-only module has no score or certificate: the person simply confirmed they had read it.
+      notes: r.kind === "info" || r.lastPass.total === 0
+        ? `Read and marked as read in the Ledger training module (content version ${r.lastPass.version}). This record is generated from the training results and can't be edited here.`
+        : `Completed in the Ledger training module (content version ${r.lastPass.version}), score ${r.lastPass.score} of ${r.lastPass.total}, certificate ${r.lastPass.certNo}. This record is generated from the training results and can't be edited here.`,
       location: "", people: "", attachments: [], tags: [], archived: false, flagged: false,
       createdAt: completed, updatedAt: completed, history: [],
       __training: true,

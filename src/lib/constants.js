@@ -62,7 +62,7 @@ export const TEMPLATES = {
   risk: { key: "risk", label: "Risk Assessments", short: "Risk", icon: ShieldAlert, mode: "review", accent: "#5B4A8A", assetEligible: false, roomEligible: false, contractorEligible: true,
     presets: ["General H&S risk assessment", "COSHH assessment", "Manual handling assessment", "Slips, trips & falls assessment", "Lone working assessment", "Legionella risk assessment"] },
   training: { key: "training", label: "Staff Training", short: "Training", icon: GraduationCap, mode: "expiry", accent: "#2F6B4C", assetEligible: false, roomEligible: false, contractorEligible: false, staffEligible: true,
-    presets: ["Fire Safety Awareness", "First Aid at Work", "First Aid Awareness", "Food Hygiene Level 2", "Manual Handling", "Health & Safety Induction", "Legionella Awareness", "Equality & Discrimination", "Bullying & Harassment", "Data Protection (GDPR)"] },
+    presets: ["Fire Safety Awareness", "First Aid at Work", "First Aid Awareness", "Food Hygiene Level 2", "Manual Handling", "Health & Safety Induction", "Legionella Awareness", "Equality & Discrimination", "Bullying & Harassment", "Data Protection (GDPR)", "Bed Bug Awareness"] },
   pest: { key: "pest", label: "Pest Control", short: "Pest", icon: Bug, mode: "incident", accent: "#7A4B26", assetEligible: false, roomEligible: true, contractorEligible: true,
     presets: ["Mice / rodents", "Bed bugs", "Cockroaches", "Ants", "Wasps / hornets", "Other"] },
   deep_clean: { key: "deep_clean", label: "Deep Clean", short: "Deep Clean", icon: Brush, mode: "recurring", accent: "#1D7A72", assetEligible: false, roomEligible: true, contractorEligible: true,
@@ -162,6 +162,7 @@ export const TRAINING_DEFAULT_VALIDITY_DAYS = {
   "Equality & Discrimination": 730, // 24 months
   "Bullying & Harassment": 365, // 12 months
   "Data Protection (GDPR)": 365, // 12 months
+  // "Bed Bug Awareness" is information to read once, with no expiry, so it deliberately has no default here.
 };
 /** Which Ledger training type each in-house training module is recorded as. A module not listed here falls
     back to its own title. */
@@ -174,6 +175,7 @@ export const TRAINING_MODULE_PRESET = {
   equality: "Equality & Discrimination",
   harassment: "Bullying & Harassment",
   data: "Data Protection (GDPR)",
+  bedbugs: "Bed Bug Awareness",
 };
 export const CERT_DEFAULT_VALIDITY_DAYS = {
   "Gas Safety Certificate (CP12)": 365,
@@ -539,6 +541,14 @@ export const REQUIREMENTS = [
     evidence: "The certificate issued when the module is passed.",
     retention: "Duration of employment.",
     legislation: "UK GDPR and Data Protection Act 2018 (security and accountability duties; ICO guidance on staff training)." },
+  { id: "bed-bug-awareness-training", category: "training", matchMode: "preset", matchValues: ["Bed Bug Awareness"], title: "Bed Bug Awareness",
+    basis: ["policy"], sourceConfidence: "unverified",
+    whatToKeep: "A record per staff member that they have read the bed bug awareness information.",
+    why: "Guests often report bed bugs. Most reports turn out to be something else, but every one has to be handled calmly and fairly, so staff need to know what to look for and what to say and do. This is information to read, not a qualification: there is no quiz and no certificate.",
+    frequency: "Read once. No expiry (the hotel's own choice).",
+    evidence: "The record created when the person marks the information as read.",
+    retention: "Duration of employment.",
+    legislation: "No specific legal requirement. Facts about bed bugs are from the NHS website." },
   { id: "pest-monitoring", category: "pest", matchMode: "category", matchValues: [], title: "Pest Monitoring & Control",
     basis: ["law", "guidance"], sourceConfidence: "unverified",
     whatToKeep: "Ongoing monitoring records plus a log of every sighting and the action taken.",
@@ -691,6 +701,9 @@ export const STATUS_META = {
   "tr-expired": { label: "Expired", color: "#C65450" },
   "tr-failed": { label: "Not passed", color: "#C65450" },
   "tr-not-started": { label: "Not started", color: "#65767C" },
+  // Information-only modules (no quiz): read, or not yet read.
+  "tr-read": { label: "Read", color: "#3B8268" },
+  "tr-unread": { label: "Not read", color: "#65767C" },
   // A staff member's overall training status when modules have been assigned to them and not all are done yet.
   incomplete: { label: "In progress", color: "#C0722F" },
 };

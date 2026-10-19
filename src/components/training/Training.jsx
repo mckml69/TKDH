@@ -42,15 +42,19 @@ function ModuleBoard({ pack, me, onOpen }) {
     <div className="tr-board">
       {pack.modules.map((m) => {
         const result = me.results[m.id];
-        const status = moduleStatus(result);
+        const status = moduleStatus(result, new Date(), m.kind);
         return (
           <button key={m.id} className="tr-card" onClick={() => onOpen(m.id)}>
             <div>
               <h3>{m.title}</h3>
               <div className="tr-meta">
-                About {m.minutes || 10} min · repeat {refreshLabel(m.refreshMonths)}
-                {result?.passed && result.validUntil && <> · valid until {fmtDate(isoDay(result.validUntil))}</>}
-                {result && !result.passed && <> · last score {result.score}/{result.total}</>}
+                {m.kind === "info"
+                  ? <>About {m.minutes || 10} min · information only{result?.passed && <> · read on {fmtDate(isoDay(result.completedAt))}</>}</>
+                  : <>
+                      About {m.minutes || 10} min · repeat {refreshLabel(m.refreshMonths)}
+                      {result?.passed && result.validUntil && <> · valid until {fmtDate(isoDay(result.validUntil))}</>}
+                      {result && !result.passed && <> · last score {result.score}/{result.total}</>}
+                    </>}
               </div>
             </div>
             <Stamp status={status} dense />
@@ -160,7 +164,7 @@ function TeamView({ pack, branding, onExportFallback }) {
         if (!s.moduleIds.includes(m.id)) continue;
         const rec = recFor(s.id, m.id);
         rows.push({
-          name: s.name, module: m.title, status: recordStatus(rec),
+          name: s.name, module: m.title, status: recordStatus(rec, new Date(), m.kind),
           completed: rec?.lastPass ? fmtDate(isoDay(rec.lastPass.completedAt)) : "",
           until: rec?.lastPass?.validUntil ? fmtDate(isoDay(rec.lastPass.validUntil)) : "",
           cert: rec?.lastPass?.certNo || "",
@@ -232,7 +236,7 @@ function TeamView({ pack, branding, onExportFallback }) {
                               onChange={(e) => act(() => trainingApi.setAssignments([s.id], [m.id], e.target.checked))} />
                             Assigned
                           </label>
-                          {(assigned || rec) && <Stamp status={recordStatus(rec)} dense />}
+                          {(assigned || rec) && <Stamp status={recordStatus(rec, new Date(), m.kind)} dense />}
                           {rec?.lastPass?.validUntil && <span className="muted">until {fmtDate(isoDay(rec.lastPass.validUntil))}</span>}
                         </div>
                       </td>
@@ -257,6 +261,7 @@ export function TrainingPage({ isGM, enabled, branding, onExportFallback, onPack
   const [tab, setTab] = useState("modules"); // modules | certificates | team
   const [view, setView] = useState({ name: "board" }); // board | module | quiz | result
   const saver = useCertificateSaver(branding, onExportFallback);
+  const [ack, setAck] = useState({ busy: false, error: null }); // marking an information-only module as read
 
   const load = useCallback(async () => {
     if (!enabled) return;
@@ -278,9 +283,22 @@ export function TrainingPage({ isGM, enabled, branding, onExportFallback, onPack
 
   const moduleById = (id) => pack.modules.find((m) => m.id === id);
   const toBoard = () => { setView({ name: "board" }); load(); };
+  const acknowledge = async (id) => {
+    const m = moduleById(id);
+    setAck({ busy: true, error: null });
+    try {
+      await trainingApi.acknowledge(m.id, m.version);
+      await load();
+      setView({ name: "board" });
+      setAck({ busy: false, error: null });
+    } catch (e) {
+      setAck({ busy: false, error: e.status ? e.message : "Couldn't reach the server. Please try again." });
+    }
+  };
 
   if (tab === "modules" && view.name === "module" && moduleById(view.id)) {
-    return <ModuleView module={moduleById(view.id)} plans={pack.plans} onBack={toBoard} onStart={() => setView({ name: "quiz", id: view.id })} />;
+    return <ModuleView module={moduleById(view.id)} plans={pack.plans} result={me.results[view.id]} onBack={() => { setAck({ busy: false, error: null }); toBoard(); }}
+      onStart={() => setView({ name: "quiz", id: view.id })} onAcknowledge={() => acknowledge(view.id)} ackBusy={ack.busy} ackError={ack.error} />;
   }
   if (tab === "modules" && view.name === "quiz" && moduleById(view.id)) {
     return <Quiz module={moduleById(view.id)} onCancel={() => setView({ name: "module", id: view.id })} onDone={(result) => { setView({ name: "result", id: view.id, result }); load(); }} />;

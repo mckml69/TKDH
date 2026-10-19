@@ -444,6 +444,80 @@ describe("the name printed on a certificate", () => {
   });
 });
 
+describe("information-only modules (no quiz)", () => {
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64");
+  const infoModule = (over = {}) => ({ id: "notes", title: "Info Sheet", group: "Health & safety", version: "1.0", minutes: 3, kind: "info", briefing: "<p>Read this.</p>", ...over });
+  let dir;
+  const original = {};
+  beforeAll(async () => {
+    original.dir = process.env.TRAINING_PACK_DIR;
+    dir = mkdtempSync(join(tmpdir(), "training-pack-info-"));
+    process.env.TRAINING_PACK_DIR = dir;
+    const withInfo = { ...pack, modules: [pack.modules[0], infoModule(), infoModule({ id: "notes-expiring", title: "Yearly Sheet", refreshMonths: 12 })] };
+    const res = await gm.put("/api/training/pack-files").send({ files: [{ name: "pack.json", contentBase64: b64(withInfo) }, { name: "ground.png", contentBase64: Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47]), Buffer.from("x")]).toString("base64") }] });
+    expect(res.status).toBe(200);
+  });
+  afterAll(() => { process.env.TRAINING_PACK_DIR = original.dir; rmSync(dir, { recursive: true, force: true }); });
+
+  it("accepts an information module with no code and no questions, and rejects a malformed one", async () => {
+    const { validatePack } = await import("./training.js");
+    const ok = { ...pack, modules: [infoModule()] };
+    expect(() => validatePack(ok)).not.toThrow();
+    expect(() => validatePack({ ...pack, modules: [infoModule({ briefing: "" })] })).toThrow(/briefing/);
+    expect(() => validatePack({ ...pack, modules: [infoModule({ questions: [{ stem: "q", options: ["a", "b"], answerIndex: 0 }] })] })).toThrow(/no questions/);
+    expect(() => validatePack({ ...pack, modules: [infoModule({ refreshMonths: 0 })] })).toThrow(/refreshMonths/);
+    expect(() => validatePack({ ...pack, modules: [infoModule({ kind: "quiz" })] })).toThrow(/kind/);
+    expect(() => validatePack({ ...pack, modules: [{ ...pack.modules[0], code: undefined }] })).toThrow(/code/); // an assessment still needs its certificate code
+  });
+
+  it("serves it with no questions, and only to people it has been assigned to (a General Manager sees it)", async () => {
+    const forGm = (await gm.get("/api/training/pack")).body.modules.find((m) => m.id === "notes");
+    expect(forGm).toMatchObject({ kind: "info", title: "Info Sheet", briefing: "<p>Read this.</p>", questionCount: 0, questions: [], refreshMonths: null });
+    expect((await staff.get("/api/training/pack")).body.modules.map((m) => m.id)).toEqual(["alpha"]);
+  });
+
+  it("refuses to be acknowledged until it is assigned, then records it as read with no score and no certificate", async () => {
+    const read = (id = "notes", version = "1.0") => staff.post("/api/training/acknowledge").send({ moduleId: id, moduleVersion: version });
+    expect((await read()).status).toBe(403);
+    expect((await gm.put("/api/training/assignments").send({ staffIds: ["staff-sam"], moduleIds: ["notes", "notes-expiring"], assigned: true })).status).toBe(200);
+    expect((await staff.get("/api/training/pack")).body.modules.map((m) => m.id).sort()).toEqual(["alpha", "notes", "notes-expiring"]);
+
+    const certsBefore = (await staff.get("/api/training/certificates")).body.certificates.length;
+    const res = await read();
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ acknowledged: true, moduleId: "notes", validUntil: null });
+    const me = await staff.get("/api/training/me");
+    expect(me.body.results.notes).toMatchObject({ passed: true, score: 0, total: 0, certNo: null, validUntil: null });
+    expect((await staff.get("/api/training/certificates")).body.certificates.length).toBe(certsBefore); // no certificate for reading
+
+    const rec = (await gm.get("/api/training/records")).body.records.find((r) => r.userId === "user-sam" && r.moduleId === "notes");
+    expect(rec).toMatchObject({ kind: "info", lastAttemptPassed: true, staffId: "staff-sam" });
+    expect(rec.lastPass).toMatchObject({ score: 0, total: 0, certNo: null });
+  });
+
+  it("gives an expiry date only when the module asks for one", async () => {
+    const res = await staff.post("/api/training/acknowledge").send({ moduleId: "notes-expiring", moduleVersion: "1.0" });
+    expect(res.status).toBe(201);
+    const until = new Date(res.body.validUntil), done = new Date(res.body.completedAt);
+    expect(until.getUTCFullYear() * 12 + until.getUTCMonth()).toBe(done.getUTCFullYear() * 12 + done.getUTCMonth() + 12);
+  });
+
+  it("rejects the wrong kind of call: no quiz on an information module, no acknowledging an assessment, stale versions", async () => {
+    expect((await staff.post("/api/training/attempts").send({ moduleId: "notes", moduleVersion: "1.0", answers: [] })).status).toBe(400);
+    expect((await staff.post("/api/training/acknowledge").send({ moduleId: "alpha", moduleVersion: "1.0" })).status).toBe(400);
+    expect((await staff.post("/api/training/acknowledge").send({ moduleId: "nope", moduleVersion: "1.0" })).status).toBe(400);
+    const stale = await staff.post("/api/training/acknowledge").send({ moduleId: "notes", moduleVersion: "0.1" });
+    expect(stale.status).toBe(409);
+    expect((await request(app).post("/api/training/acknowledge").send({ moduleId: "notes", moduleVersion: "1.0" })).status).toBe(401);
+  });
+
+  it("lets a General Manager mark one as read without being assigned, and keeps every acknowledgement (append-only)", async () => {
+    expect((await gm.post("/api/training/acknowledge").send({ moduleId: "notes", moduleVersion: "1.0" })).status).toBe(201);
+    const { db } = await import("./db.js");
+    expect(db.prepare("SELECT COUNT(*) AS c FROM training_attempts WHERE module_id = 'notes' AND total = 0").get().c).toBeGreaterThanOrEqual(2);
+  });
+});
+
 describe("append-only", () => {
   it("refuses to update or delete a stored attempt, even through SQL", async () => {
     const { db } = await import("./db.js");

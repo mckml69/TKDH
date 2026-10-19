@@ -10,7 +10,13 @@ export const DUE_SOON_DAYS = 30;
  * result: the latest pass for a module if there is one, else the latest attempt, or null/undefined.
  * { passed, validUntil } is all that is read from it.
  */
-export function moduleStatus(result, now = new Date()) {
+export function moduleStatus(result, now = new Date(), kind = "assessment") {
+  const base = assessedStatus(result, now);
+  if (kind !== "info") return base;
+  // An information-only module (no quiz) is simply read or not read; an expired or due-soon re-read keeps its date wording.
+  return base === "tr-passed" ? "tr-read" : base === "tr-not-started" ? "tr-unread" : base;
+}
+function assessedStatus(result, now) {
   if (!result) return "tr-not-started";
   if (!result.passed) return "tr-failed";
   if (!result.validUntil) return "tr-passed";
@@ -21,10 +27,10 @@ export function moduleStatus(result, now = new Date()) {
 }
 
 /** The same, from one row of GET /api/training/records (a person + module summary). */
-export function recordStatus(rec, now = new Date()) {
-  if (!rec) return "tr-not-started";
-  if (rec.lastPass) return moduleStatus({ passed: true, validUntil: rec.lastPass.validUntil }, now);
-  return rec.attempts > 0 ? "tr-failed" : "tr-not-started";
+export function recordStatus(rec, now = new Date(), kind = rec?.kind || "assessment") {
+  if (!rec) return moduleStatus(null, now, kind);
+  if (rec.lastPass) return moduleStatus({ passed: true, validUntil: rec.lastPass.validUntil }, now, kind);
+  return rec.attempts > 0 ? "tr-failed" : moduleStatus(null, now, kind);
 }
 
 /** Short human text for how often a module must be repeated. */

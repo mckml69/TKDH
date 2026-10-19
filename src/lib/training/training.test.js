@@ -142,7 +142,8 @@ describe("deriveTrainingRecords", () => {
   it("maps each module to its Ledger training type, and every mapped type is a real preset with a default expiry", () => {
     for (const preset of Object.values(TRAINING_MODULE_PRESET)) {
       expect(TEMPLATES.training.presets).toContain(preset);
-      expect(TRAINING_DEFAULT_VALIDITY_DAYS[preset]).toBeGreaterThan(0);
+      // Information-only modules ("Bed Bug Awareness") are read once and have no expiry, so no default period.
+      if (preset !== "Bed Bug Awareness") expect(TRAINING_DEFAULT_VALIDITY_DAYS[preset]).toBeGreaterThan(0);
     }
     expect(TEMPLATES.training.presets).toContain("First Aid at Work"); // the external certificate stays
     expect(TRAINING_MODULE_PRESET.firstaid).toBe("First Aid Awareness"); // and the in-house module is a separate type
@@ -239,5 +240,42 @@ describe("training status takes assigned modules into account", () => {
   });
   it("the In progress status has a label and colour for the app and the PDF", () => {
     expect(STATUS_META.incomplete).toMatchObject({ label: "In progress", color: expect.stringMatching(/^#/) });
+  });
+});
+
+describe("information-only modules (no quiz)", () => {
+  const NOW = new Date("2026-10-19T12:00:00Z");
+  it("show Read or Not read, never Passed or Not started", () => {
+    expect(moduleStatus(null, NOW, "info")).toBe("tr-unread");
+    expect(moduleStatus({ passed: true, validUntil: null }, NOW, "info")).toBe("tr-read");
+    expect(moduleStatus(null, NOW)).toBe("tr-not-started"); // an assessed module is unchanged
+    expect(moduleStatus({ passed: true, validUntil: null }, NOW)).toBe("tr-passed");
+  });
+  it("keep the date wording if a module asks for a re-read: due soon and expired still show", () => {
+    expect(moduleStatus({ passed: true, validUntil: new Date(NOW.getTime() - 86400000).toISOString() }, NOW, "info")).toBe("tr-expired");
+    expect(moduleStatus({ passed: true, validUntil: new Date(NOW.getTime() + 5 * 86400000).toISOString() }, NOW, "info")).toBe("tr-due-soon");
+  });
+  it("the team summary rows use the module kind the server reports", () => {
+    expect(recordStatus({ kind: "info", attempts: 1, lastPass: { validUntil: null } }, NOW)).toBe("tr-read");
+    expect(recordStatus(undefined, NOW, "info")).toBe("tr-unread");
+    expect(recordStatus({ kind: "assessment", attempts: 1, lastPass: { validUntil: null } }, NOW)).toBe("tr-passed");
+    for (const k of ["tr-read", "tr-unread"]) expect(STATUS_META[k]).toMatchObject({ label: expect.any(String), color: expect.stringMatching(/^#/) });
+  });
+  it("becomes a read-only Staff Training record that says it was read, with no score or certificate", () => {
+    const row = { userId: "u1", staffId: "s1", userName: "Sam", moduleId: "bedbugs", moduleTitle: "Bed Bug Awareness", kind: "info", attempts: 1, lastAttemptPassed: true,
+      lastPass: { score: 0, total: 0, completedAt: "2026-10-19T09:00:00.000Z", validUntil: null, certNo: null, version: "2026.10" } };
+    const [r] = deriveTrainingRecords([row], [{ id: "s1", name: "Sam Reception" }]);
+    expect(r).toMatchObject({ category: "training", detail: "Bed Bug Awareness", staffId: "s1", completedDate: "2026-10-19", expiryDate: "", __training: true });
+    expect(r.notes).toMatch(/Read and marked as read/);
+    expect(r.notes).not.toMatch(/score|certificate/i);
+    expect(getStatus(r)).toBe("compliant"); // no expiry date means nothing to run out
+  });
+  it("has a Library entry, so someone who has read it counts, and being assigned but unread keeps a person In progress", () => {
+    const req = REQUIREMENTS.find((x) => x.id === "bed-bug-awareness-training");
+    expect(req).toMatchObject({ category: "training", matchMode: "preset", matchValues: ["Bed Bug Awareness"] });
+    const read = rec({ id: "b", detail: "Bed Bug Awareness", completedDate: "2026-10-19", expiryDate: "" });
+    expect(requirementStatus(req, matchRequirement(req, [read], []))).toBe("compliant");
+    expect(staffTrainingStatus({ id: "s1" }, [], ["Bed Bug Awareness"])).toBe("incomplete");
+    expect(staffTrainingStatus({ id: "s1" }, [read], ["Bed Bug Awareness"])).toBe("compliant");
   });
 });
