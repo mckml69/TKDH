@@ -279,3 +279,20 @@ describe("information-only modules (no quiz)", () => {
     expect(staffTrainingStatus({ id: "s1" }, [read], ["Bed Bug Awareness"])).toBe("compliant");
   });
 });
+
+import { pickPackFiles } from "../../components/training/TrainingPackPanel";
+
+describe("choosing the pack folder to install", () => {
+  const files = ["pack.json", "ground.png", "first.png", "bedbug-bites.jpg", "other.JPEG", "extra.webp", "notes.txt", "CREDITS.md", "pack.json.bak"].map((n) => new File(["x"], n));
+  it("sends pack.json and floor plans by their plain name, and briefing photos under images/", () => {
+    const picked = pickPackFiles(files).map((c) => c.name);
+    expect(picked).toEqual(["pack.json", "ground.png", "first.png", "images/bedbug-bites.jpg", "images/other.JPEG", "images/extra.webp"]);
+  });
+  it("ignores everything else that happens to be in the folder", () => {
+    const names = pickPackFiles(files).map((c) => c.file.name);
+    for (const junk of ["notes.txt", "CREDITS.md", "pack.json.bak"]) expect(names).not.toContain(junk);
+  });
+  it("copes with nothing chosen", () => {
+    expect(pickPackFiles([])).toEqual([]);
+  });
+});

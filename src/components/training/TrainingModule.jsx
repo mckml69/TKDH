@@ -31,7 +31,11 @@ export function ModuleView({ module, plans, result, onBack, onStart, onAcknowled
   const html = useMemo(() => ({ __html: module.briefing }), [module.briefing]);
   const ref = useRef(null);
   const [slot, setSlot] = useState(null);
-  useEffect(() => { setSlot(ref.current?.querySelector("[data-training-plans]") || null); }, [module.id]);
+  useEffect(() => {
+    setSlot(ref.current?.querySelector("[data-training-plans]") || null);
+    // Photos in a briefing are <img data-training-image="name.jpg">: point each at the server (sign-in required) once the briefing is on screen.
+    ref.current?.querySelectorAll("img[data-training-image]").forEach((img) => { img.src = trainingApi.imageUrl(img.dataset.trainingImage); });
+  }, [module.id]);
   return (
     <div className="module-view">
       <button className="btn btn-ghost" style={{ padding: "4px 0", marginBottom: 10 }} onClick={onBack}><ArrowLeft size={15} /> Back to modules</button>

@@ -518,6 +518,65 @@ describe("information-only modules (no quiz)", () => {
   });
 });
 
+describe("photos inside a briefing", () => {
+  const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from("fake-jpeg-body")]);
+  const webp = Buffer.concat([Buffer.from("RIFF"), Buffer.from([1, 2, 3, 4]), Buffer.from("WEBPVP8 ")]);
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47]), Buffer.from("x")]);
+  const file = (name, buf) => ({ name, contentBase64: buf.toString("base64") });
+  const packWith = (imgTag) => ({ ...pack, modules: [pack.modules[0], { id: "pics", title: "Pictures", group: "Health & safety", version: "1.0", kind: "info", briefing: `<p>See:</p>${imgTag}` }] });
+  const packFile = (p) => file("pack.json", Buffer.from(JSON.stringify(p)));
+  let dir;
+  const original = {};
+  beforeAll(() => { original.dir = process.env.TRAINING_PACK_DIR; dir = mkdtempSync(join(tmpdir(), "training-pack-img-")); process.env.TRAINING_PACK_DIR = dir; });
+  afterAll(() => { process.env.TRAINING_PACK_DIR = original.dir; rmSync(dir, { recursive: true, force: true }); });
+  const put = (files) => gm.put("/api/training/pack-files").send({ files });
+  const tag = '<img data-training-image="bug.jpg" alt="a bug">';
+
+  it("finds the photos a briefing refers to", async () => {
+    const { referencedImages } = await import("./training.js");
+    expect([...referencedImages(packWith(tag + '<img data-training-image="two.webp">'))].sort()).toEqual(["bug.jpg", "two.webp"]);
+    expect(referencedImages({ modules: [{ briefing: "<p>none</p>" }] }).size).toBe(0);
+  });
+
+  it("refuses a pack whose briefing uses a photo that was not uploaded, and writes nothing", async () => {
+    const res = await put([packFile(packWith(tag))]);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/bug\.jpg/);
+    expect(existsSync(join(dir, "pack.json"))).toBe(false);
+  });
+
+  it("refuses bad image uploads: wrong type, bad names, subfolders, traversal, fake content", async () => {
+    expect((await put([file("images/bug.jpg", Buffer.from("this is not a jpeg"))])).status).toBe(400);
+    expect((await put([file("images/bug.png", png)])).status).toBe(400); // photos are .jpg/.jpeg/.webp; a bare .png is a floor plan
+    expect((await put([file("images/evil.exe", jpeg)])).status).toBe(400);
+    expect((await put([file("images/../escape.jpg", jpeg)])).status).toBe(400);
+    expect((await put([file("images/sub/bug.jpg", jpeg)])).status).toBe(400);
+    expect((await put([file("bug.jpg", jpeg)])).status).toBe(400); // must be sent as images/bug.jpg
+  });
+
+  it("installs a pack with its photos, and serves them only to signed-in people", async () => {
+    const res = await put([file("images/bug.jpg", jpeg), file("images/other.webp", webp), file("ground.png", png), packFile(packWith(tag))]);
+    expect(res.status).toBe(200);
+    expect(res.body.installed).toEqual(expect.arrayContaining(["images/bug.jpg", "images/other.webp", "ground.png", "pack.json"]));
+    expect(existsSync(join(dir, "images", "bug.jpg"))).toBe(true);
+
+    const ok = await staff.get("/api/training/images/bug.jpg");
+    expect(ok.status).toBe(200);
+    expect(ok.headers["content-type"]).toMatch(/jpeg/);
+    expect(ok.headers["cache-control"]).toMatch(/private/);
+    expect((await staff.get("/api/training/images/other.webp")).status).toBe(200);
+    expect((await request(app).get("/api/training/images/bug.jpg")).status).toBe(401);
+    expect((await staff.get("/api/training/images/missing.jpg")).status).toBe(404);
+    expect((await staff.get("/api/training/images/..%2Fpack.json")).status).toBe(404);
+    expect((await staff.get("/api/training/images/ground.png")).status).toBe(404); // a floor plan is not served as a photo
+  });
+
+  it("accepts a later pack.json update without re-sending photos that are already on the server", async () => {
+    const res = await put([packFile(packWith(tag + "<p>more words</p>"))]);
+    expect(res.status).toBe(200);
+  });
+});
+
 describe("append-only", () => {
   it("refuses to update or delete a stored attempt, even through SQL", async () => {
     const { db } = await import("./db.js");

@@ -99,6 +99,9 @@ reports `{ "enabled": false }`.
 - **Information-only modules.** A module with `"kind": "info"` (a briefing and no questions) has no quiz and no certificate: the
   person confirms they have read it through `POST /api/training/acknowledge`, which is stored like any other result. It needs
   `id`, `title`, `version` and `briefing`; `refreshMonths` is optional (left out means no expiry) and `code` isn't needed.
+- **Photos in a briefing.** A briefing can show photos with `<img data-training-image="name.jpg">`. The files (.jpg, .jpeg or .webp)
+  live in an `images/` folder next to `pack.json`, are served to signed-in people by `GET /api/training/images/:file`, and are uploaded
+  as `images/<name>` through the same install call. The install is refused if a briefing uses a photo that isn't there.
 - **Changing a module's questions or briefing?** Bump that module's `version` in `pack.json`.
   An attempt posted against an older version gets a 409 and the person is asked to reload.
 

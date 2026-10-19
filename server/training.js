@@ -98,6 +98,16 @@ export function loadPack() {
 const PLAN_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,60}\.png$/;
 const MAX_FILE_BYTES = 3 * 1024 * 1024;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+// Photos used inside a briefing (<img data-training-image="name.jpg">) live in an images/ folder next to pack.json.
+const IMAGE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,60}\.(jpe?g|webp)$/i;
+const isJpeg = (b) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+const isWebp = (b) => b.length > 12 && b.subarray(0, 4).toString("latin1") === "RIFF" && b.subarray(8, 12).toString("latin1") === "WEBP";
+/** The image file names a briefing refers to. */
+export function referencedImages(pack) {
+  const names = new Set();
+  for (const m of pack?.modules || []) for (const mt of String(m.briefing || "").matchAll(/data-training-image="([^"]+)"/g)) names.add(mt[1]);
+  return names;
+}
 
 export function summarisePack(pack) {
   return {
@@ -107,12 +117,13 @@ export function summarisePack(pack) {
   };
 }
 
-/** files: [{ name, contentBase64 }] where name is "pack.json" or a floor-plan PNG's file name. Throws { status, message }. */
+/** files: [{ name, contentBase64 }] where name is "pack.json", a floor-plan PNG's bare file name, or "images/<name>.jpg" for a briefing photo. Throws { status, message }. */
 export function installPack(dir, files) {
   const bad = (message) => ({ status: 400, message });
   if (!Array.isArray(files) || files.length === 0 || files.length > 40) throw bad("send between 1 and 40 files");
   let packBytes = null;
   const plans = new Map();
+  const images = new Map();
   for (const f of files) {
     if (!f || typeof f.name !== "string" || typeof f.contentBase64 !== "string") throw bad("each file needs a name and its content");
     const bytes = Buffer.from(f.contentBase64, "base64");
@@ -122,7 +133,10 @@ export function installPack(dir, files) {
     else if (PLAN_NAME.test(f.name)) {
       if (!bytes.subarray(0, 4).equals(PNG_SIGNATURE)) throw bad(`${f.name} is not a PNG image`);
       plans.set(f.name, bytes);
-    } else throw bad(`unexpected file "${f.name}": upload pack.json and the floor-plan .png files only`);
+    } else if (f.name.startsWith("images/") && IMAGE_NAME.test(f.name.slice(7))) {
+      if (!isJpeg(bytes) && !isWebp(bytes)) throw bad(`${f.name} is not a JPEG or WebP image`);
+      images.set(f.name.slice(7), bytes);
+    } else throw bad(`unexpected file "${f.name}": upload pack.json, the floor-plan .png files and images/<name>.jpg photos only`);
   }
   let pack = null;
   if (packBytes) {
@@ -130,15 +144,21 @@ export function installPack(dir, files) {
     for (const p of pack.plans || []) if (typeof p.file !== "string" || !PLAN_NAME.test(p.file)) throw bad(`training pack: plan file name "${p.file}" is not allowed`);
   }
   const plansDir = path.join(dir, "plans");
+  const imagesDir = path.join(dir, "images");
+  const haveImages = new Set(existsSync(imagesDir) ? readdirSync(imagesDir) : []);
+  for (const n of images.keys()) haveImages.add(n);
+  if (pack) for (const n of referencedImages(pack)) if (!haveImages.has(n)) throw bad(`a briefing uses the photo ${n}, but it has not been uploaded (send it as images/${n})`);
   const present = new Set(existsSync(plansDir) ? readdirSync(plansDir) : []);
   for (const n of plans.keys()) present.add(n);
   if (pack) for (const p of pack.plans || []) if (!present.has(p.file)) throw bad(`pack.json lists the floor plan ${p.file}, but it has not been uploaded`);
 
   mkdirSync(plansDir, { recursive: true });
+  if (images.size) mkdirSync(imagesDir, { recursive: true });
   const put = (full, bytes) => { const tmp = `${full}.tmp-${process.pid}`; writeFileSync(tmp, bytes); renameSync(tmp, full); };
   for (const [name, bytes] of plans) put(path.join(plansDir, name), bytes);
+  for (const [name, bytes] of images) put(path.join(imagesDir, name), bytes);
   if (packBytes) put(path.join(dir, "pack.json"), packBytes);
-  return { installed: [...plans.keys(), ...(packBytes ? ["pack.json"] : [])], pack: pack ? summarisePack(pack) : null };
+  return { installed: [...plans.keys(), ...[...images.keys()].map((n) => "images/" + n), ...(packBytes ? ["pack.json"] : [])], pack: pack ? summarisePack(pack) : null };
 }
 
 /** What the browser is allowed to see: everything except answers and explanations. */
@@ -350,6 +370,15 @@ export function trainingRouter(requireAuth) {
       full.modules = full.modules.filter((m) => mine.has(m.id));
     }
     res.json(full);
+  });
+
+  // Photos used inside briefings. Any signed-in person may load them (they are part of the briefings they can read).
+  router.get("/images/:file", (req, res) => {
+    const file = path.basename(req.params.file);
+    const full = path.join(req.training.dir, "images", file);
+    if (!IMAGE_NAME.test(file) || !existsSync(full)) return res.status(404).json({ error: "not found" });
+    res.set("Cache-Control", "private, max-age=3600");
+    res.sendFile(path.resolve(full));
   });
 
   router.get("/plans/:file", (req, res) => {

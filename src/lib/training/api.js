@@ -43,5 +43,6 @@ export const trainingApi = {
   setAssignments: (staffIds, moduleIds, assigned) => request("PUT", "/assignments", { staffIds, moduleIds, assigned }),
   packInfo: () => request("GET", "/pack-info"),
   installPack: (files) => request("PUT", "/pack-files", { files }),
+  imageUrl: (file) => `${API_BASE}/training/images/${encodeURIComponent(file)}`,
   planUrl: (file) => `${API_BASE}/training/plans/${encodeURIComponent(file)}`,
 };

@@ -42,6 +42,11 @@
 .tr-brief .small { font-size:12.5px; }
 .tr-brief a { color:#197386; font-weight:600; text-decoration:underline; text-underline-offset:2px; }
 .tr-brief a:hover { color:#123F4A; }
+.tr-brief .tr-figs { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; }
+.tr-brief figure { margin:0; background:var(--bg); border:1px solid var(--line); border-radius:8px; overflow:hidden; display:flex; flex-direction:column; }
+.tr-brief figure img { display:block; width:100%; height:auto; background:#fff; }
+.tr-brief figcaption { padding:8px 11px 10px; font-size:12.5px; line-height:1.45; color:var(--muted); }
+.tr-brief figcaption .credit { display:block; margin-top:3px; font-size:11.5px; opacity:.85; }
 .tr-brief .ph { background:#FFF3C4; padding:0 4px; border-radius:3px; font-weight:700; }
 .tr-brief .ph, .tr-brief .ph * { color:#5C4500; }
 .tr-brief .legend { list-style:none; padding:0; flex-direction:row; flex-wrap:wrap; gap:5px 14px; font-size:12.5px; }

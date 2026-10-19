@@ -10,9 +10,16 @@ async function toBase64(file) {
   return btoa(binary);
 }
 
-/** Keeps pack.json and the floor-plan PNGs from whatever was chosen, by bare file name. Anything else in a folder is ignored. */
+/** What to upload from whatever was chosen, as { file, name } where name is how the server expects it: "pack.json", a
+    floor-plan PNG by its bare name, or a briefing photo (.jpg/.jpeg/.webp) as "images/<name>". Anything else in a folder is ignored. */
 export function pickPackFiles(fileList) {
-  return [...fileList].filter((f) => f.name === "pack.json" || /\.png$/i.test(f.name));
+  const out = [];
+  for (const f of fileList) {
+    if (f.name === "pack.json") out.push({ file: f, name: "pack.json" });
+    else if (/\.(jpe?g|webp)$/i.test(f.name)) out.push({ file: f, name: "images/" + f.name });
+    else if (/\.png$/i.test(f.name)) out.push({ file: f, name: f.name });
+  }
+  return out;
 }
 
 /**
@@ -40,7 +47,7 @@ export function TrainingPackPanel({ onChanged }) {
     setBusy(true); setError(null); setMessage(null);
     try {
       const files = [];
-      for (const f of chosen) files.push({ name: f.name, contentBase64: await toBase64(f) });
+      for (const c of chosen) files.push({ name: c.name, contentBase64: await toBase64(c.file) });
       const res = await trainingApi.installPack(files);
       setMessage(`Installed ${res.installed.length} file${res.installed.length === 1 ? "" : "s"}.${res.enabled ? " Training is now available." : ""}`);
       setChosen([]);
@@ -52,7 +59,9 @@ export function TrainingPackPanel({ onChanged }) {
     finally { setBusy(false); }
   };
 
-  const hasPack = chosen.some((f) => f.name === "pack.json");
+  const hasPack = chosen.some((c) => c.name === "pack.json");
+  const photoCount = chosen.filter((c) => c.name.startsWith("images/")).length;
+  const planCount = chosen.filter((c) => c.name !== "pack.json" && !c.name.startsWith("images/")).length;
   return (
     <div>
       <p className="muted" style={{ marginBottom: 12 }}>
@@ -75,7 +84,7 @@ export function TrainingPackPanel({ onChanged }) {
       )}
       {info?.configured && (
         <>
-          <p style={{ marginBottom: 8 }}><strong>Choose the pack folder</strong> (the one containing <code>pack.json</code> and a <code>plans</code> folder), or pick the files individually:</p>
+          <p style={{ marginBottom: 8 }}><strong>Choose the pack folder</strong> (the one containing <code>pack.json</code> and a <code>plans</code> folder), or pick the files individually (the pack folder also holds an <code>images</code> folder of briefing photos):</p>
           <div className="tr-actions" style={{ margin: "0 0 10px" }}>
             <label className="btn btn-ghost" style={{ cursor: "pointer" }}>
               <Upload size={15} /> Choose folder…
@@ -88,7 +97,7 @@ export function TrainingPackPanel({ onChanged }) {
           </div>
           {chosen.length > 0 && (
             <p className="muted" style={{ marginBottom: 8 }}>
-              {hasPack ? "pack.json" : "No pack.json chosen"} · {chosen.filter((f) => f.name !== "pack.json").length} floor plan image{chosen.filter((f) => f.name !== "pack.json").length === 1 ? "" : "s"}
+              {hasPack ? "pack.json" : "No pack.json chosen"} · {planCount} floor plan image{planCount === 1 ? "" : "s"} · {photoCount} briefing photo{photoCount === 1 ? "" : "s"}
             </p>
           )}
           <button className="btn btn-primary" onClick={upload} disabled={busy || chosen.length === 0}>{busy ? "Installing…" : "Install on the server"}</button>
