@@ -296,3 +296,17 @@ describe("choosing the pack folder to install", () => {
     expect(pickPackFiles([])).toEqual([]);
   });
 });
+
+import { reminderReason } from "./status";
+
+describe("reminder wording", () => {
+  it("says plainly why each module is on the list", () => {
+    expect(reminderReason({ kind: "assessment", reason: "not-started" })).toBe("not started");
+    expect(reminderReason({ kind: "assessment", reason: "not-passed" })).toBe("last attempt not passed");
+    expect(reminderReason({ kind: "assessment", reason: "expired" })).toBe("has expired, take it again");
+  });
+  it("uses reading words for an information module, not quiz words", () => {
+    expect(reminderReason({ kind: "info", reason: "not-started" })).toBe("not read yet");
+    expect(reminderReason({ kind: "info", reason: "expired" })).toBe("needs reading again");
+  });
+});

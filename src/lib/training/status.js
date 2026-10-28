@@ -33,6 +33,14 @@ export function recordStatus(rec, now = new Date(), kind = rec?.kind || "assessm
   return rec.attempts > 0 ? "tr-failed" : moduleStatus(null, now, kind);
 }
 
+/** Why a module is on someone's reminder list, in a few words. item: one entry from GET /api/training/reminders. */
+export function reminderReason(item) {
+  const info = item.kind === "info";
+  if (item.reason === "expired") return info ? "needs reading again" : "has expired, take it again";
+  if (item.reason === "not-passed") return "last attempt not passed";
+  return info ? "not read yet" : "not started";
+}
+
 /** Short human text for how often a module must be repeated. */
 export function refreshLabel(months) {
   if (months % 12 === 0) {

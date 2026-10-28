@@ -66,6 +66,14 @@
 .tr-plan-img { background:#fff; border:1px solid var(--line); border-radius:8px; padding:6px; text-align:center; }
 .tr-plan-img img { display:block; max-width:100%; height:auto; margin:0 auto; }
 
+.tr-remind { display:flex; gap:12px; align-items:flex-start; background:#FCF6EE; border:1px solid #EEDFC4; border-left:4px solid #C89235; border-radius:10px; padding:14px 16px; margin:0 0 16px; }
+.tr-remind, .tr-remind * { color:#5E4410; }
+.tr-remind svg { flex:none; margin-top:2px; }
+.tr-remind-body { display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
+.tr-remind-body ul { margin:0; padding-left:1.2em; font-size:13.5px; }
+.tr-remind-body .btn { margin-top:4px; }
+.tr-remind-body .btn, .tr-remind-body .btn * { color:#fff; }
+.nav-badge.nav-badge--amber { background:#C89235; }
 .tr-quiz { max-width:760px; }
 .tr-qbar { height:6px; background:var(--line); border-radius:3px; overflow:hidden; margin:8px 0 16px; }
 .tr-qbar i { display:block; height:100%; background:var(--navy); transition:width .2s; }

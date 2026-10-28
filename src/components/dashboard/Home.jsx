@@ -14,7 +14,9 @@ import { CategoryTag, DashboardSection, Stamp } from "../shared/UI";
 import { PUB_VENUE_NAME, REQUIREMENTS, ROOM_ICON, ROOM_LABEL, ROOM_LABEL_PLURAL, RoleContext } from "../../lib/constants";
 import { assetComplianceStatus, assetUnreliability, belongsToRoom, certificateStatus, findRecurringIssue, findRepeatFailure, fmtDate, getMode, getStatus, hasPendingCorrection, isSupersededTraining, isOpenIssue, isReviewMode, isScheduleMode, matchRequirement, recordDetailText, requirementStatus, roomLabelText, roomProblemCounts, timeGreeting, todaysActionItems } from "../../lib/helpers";
 
-export function Home({ records, assets, rooms, certificates, venuePull, responsiblePerson, onEditResponsiblePerson, branding, onEditBranding, onEdit, onOpenRoom, onOpenAsset, onOpenCertificate, onOpenLibrary, onResolve, goToLedger }) {
+import { TrainingReminderCard } from "../training/TrainingReminder";
+
+export function Home({ records, assets, rooms, certificates, venuePull, responsiblePerson, onEditResponsiblePerson, branding, onEditBranding, onEdit, onOpenRoom, onOpenAsset, onOpenCertificate, onOpenLibrary, onResolve, goToLedger, trainingReminders, onOpenTraining }) {
   const { role, currentUser } = useContext(RoleContext);
   const activeRecords = useMemo(() => records.filter((r) => !r.archived), [records]);
   const pendingCorrections = useMemo(() => activeRecords.filter(hasPendingCorrection), [activeRecords]);
@@ -63,6 +65,7 @@ export function Home({ records, assets, rooms, certificates, venuePull, responsi
           ? "Everything critical is under control."
           : `${today.length} thing${today.length === 1 ? "" : "s"} need${today.length === 1 ? "s" : ""} your attention.`}
       </p>
+      <TrainingReminderCard reminders={trainingReminders} onOpen={onOpenTraining} />
       <div className="stat-row">
         <div className="stat-card" style={{ cursor: "pointer", borderTopColor: today.length > 0 ? "var(--critical)" : undefined }} onClick={() => goToLedger({ category: "all", status: "all", query: "" })}>
           <span className="stat-num" style={{ color: today.length > 0 ? "var(--critical)" : "var(--ink)" }}>{today.length}</span>

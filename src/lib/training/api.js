@@ -33,6 +33,7 @@ export const trainingApi = {
   pack: () => request("GET", "/pack"),
   me: () => request("GET", "/me"),
   attempt: (body) => request("POST", "/attempts", body),
+  reminders: () => request("GET", "/reminders"),
   acknowledge: (moduleId, moduleVersion) => request("POST", "/acknowledge", { moduleId, moduleVersion }),
   certificates: () => request("GET", "/certificates"),
   certificate: (no) => request("GET", `/certificates/${encodeURIComponent(no)}`),

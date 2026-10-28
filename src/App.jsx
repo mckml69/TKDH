@@ -49,6 +49,7 @@ import { TrainingPage } from "./components/training/Training";
 import { trainingApi, trainingSupported } from "./lib/training/api";
 import { deriveTrainingRecords } from "./lib/training/derive";
 import { useTrainingSummary } from "./hooks/useTrainingSummary";
+import { useTrainingReminders } from "./hooks/useTrainingReminders";
 import { DickyMessage } from "./components/shared/DickyApproves";
 import { dailyFireSittingJustCompleted, isNewMiceRecord, maybeDickyVisit } from "./lib/dicky";
 import { ResetPasswordPage, SignInScreen, UserFormPage, UsersList } from "./components/users/Users";
@@ -160,6 +161,9 @@ export default function App() {
   // the person moves to another page, so a module someone has just passed shows up straight away.
   const { rows: trainingRows, assigned: trainingAssigned, reload: reloadTrainingRows } = useTrainingSummary(trainingEnabled && role === "General Manager");
   useEffect(() => { reloadTrainingRows(); }, [current.page, reloadTrainingRows]);
+  // The signed-in person's own unfinished training (assigned modules only), refreshed as they move around so it clears as soon as they finish.
+  const { outstanding: trainingReminders, reload: reloadTrainingReminders } = useTrainingReminders(trainingEnabled && !!currentUser?.id);
+  useEffect(() => { reloadTrainingReminders(); }, [current.page, reloadTrainingReminders]);
   const trainingRecords = useMemo(() => deriveTrainingRecords(trainingRows, staff), [trainingRows, staff]);
   const displayRecords = useMemo(() => (trainingRecords.length ? [...records, ...trainingRecords] : records), [records, trainingRecords]);
   useEffect(() => { setMobileNavOpen(false); }, [current.page]);
@@ -546,7 +550,7 @@ export default function App() {
   if (loading || !usersLoaded || !sessionLoaded) {
     body = <MouseLoader label="Loading ledger…" />;
   } else if (current.page === "home") {
-    body = <Home records={displayRecords} assets={assets} rooms={rooms} certificates={certificates} venuePull={venuePull} responsiblePerson={responsiblePerson} onEditResponsiblePerson={() => push({ page: "responsible-person-form" })} branding={branding} onEditBranding={() => push({ page: "branding-form" })} onEdit={openRecordView}
+    body = <Home trainingReminders={trainingReminders} onOpenTraining={() => resetTo({ page: "training" })} records={displayRecords} assets={assets} rooms={rooms} certificates={certificates} venuePull={venuePull} responsiblePerson={responsiblePerson} onEditResponsiblePerson={() => push({ page: "responsible-person-form" })} branding={branding} onEditBranding={() => push({ page: "branding-form" })} onEdit={openRecordView}
       onOpenRoom={(id) => push({ page: "room-detail", roomId: id })}
       onOpenAsset={(id) => push({ page: "asset-detail", assetId: id })}
       onOpenCertificate={(id) => push({ page: "certificate-detail", certificateId: id })}
@@ -927,7 +931,7 @@ export default function App() {
         })()}
 
         <div className="nav-divider" />
-        {showTraining && <button className={"nav-item" + (current.page === "training" ? " active" : "")} onClick={() => resetTo({ page: "training" })}><GraduationCap size={16} /> Training</button>}
+        {showTraining && <button className={"nav-item" + (current.page === "training" ? " active" : "")} onClick={() => resetTo({ page: "training" })}><GraduationCap size={16} /> Training{trainingReminders.length > 0 && <span className="nav-badge nav-badge--amber">{trainingReminders.length}</span>}</button>}
         <button className={"nav-item" + (current.page === "library" || current.page === "requirement-detail" ? " active" : "")} onClick={() => resetTo({ page: "library" })}><BookOpen size={16} /> Compliance Library</button>
         <button className={"nav-item" + (["audit-intro", "audit-wizard", "audit-report"].includes(current.page) ? " active" : "")} onClick={() => resetTo({ page: "audit-intro" })}><ListChecks size={16} /> First Day Audit</button>
         {role === "General Manager" && (

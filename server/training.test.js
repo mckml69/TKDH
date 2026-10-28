@@ -577,6 +577,73 @@ describe("photos inside a briefing", () => {
   });
 });
 
+describe("reminders: assigned training that is not finished", () => {
+  const remind = (agent) => agent.get("/api/training/reminders");
+
+  it("needs a sign-in", async () => {
+    expect((await request(app).get("/api/training/reminders")).status).toBe(401);
+  });
+
+  it("reminds a person only about their own assigned modules, and only the ones not done", async () => {
+    // Sam is assigned alpha and beta. Earlier tests passed alpha (valid for a year) and left beta failed.
+    const res = await remind(staff);
+    expect(res.status).toBe(200);
+    expect(res.body.outstanding).toHaveLength(1);
+    expect(res.body.outstanding[0]).toMatchObject({ moduleId: "beta", title: "Beta Basics", kind: "assessment", reason: "not-passed" });
+  });
+
+  it("gives nothing to someone whose login isn't paired with a Staff entry, or who has nothing assigned", async () => {
+    await gm.put("/api/training/links").send({ staffId: "staff-pat", userId: null });
+    expect((await remind(pat)).body.outstanding).toEqual([]);
+    await gm.put("/api/training/links").send({ staffId: "staff-pat", userId: "user-pat" });
+    await gm.put("/api/training/assignments").send({ staffIds: ["staff-pat"], moduleIds: ["alpha", "beta"], assigned: false });
+    expect((await remind(pat)).body.outstanding).toEqual([]); // paired, but nothing assigned
+  });
+
+  it("does not nag a General Manager about modules nobody assigned them, even though they can open every module", async () => {
+    expect((await remind(gm)).body.outstanding).toEqual([]);
+  });
+
+  it("lists an assigned module that has never been started, in pack order", async () => {
+    await gm.put("/api/training/assignments").send({ staffIds: ["staff-pat"], moduleIds: ["beta", "alpha"], assigned: true });
+    // Pat's earlier fail on beta is still on record, so beta is "not passed"; alpha has never been attempted.
+    const out = (await remind(pat)).body.outstanding;
+    expect(out.map((o) => [o.moduleId, o.reason])).toEqual([["alpha", "not-started"], ["beta", "not-passed"]]);
+  });
+
+  it("lists a passed module once it has expired, and stops once it is done again", async () => {
+    const { db } = await import("./db.js");
+    // An old pass whose expiry has run out (a direct insert: the table is append-only, so rows can be added but never changed).
+    db.prepare(`INSERT INTO training_attempts (id, user_id, user_name, user_email, module_id, module_version, score, total, pass_mark_count, passed, completed_at, valid_until, certificate_no, answers)
+      VALUES ('old-pass-pat', 'user-pat', 'Pat Other', NULL, 'alpha', '1.0', 5, 5, 4, 1, '2020-01-01T00:00:00.000Z', '2021-01-01T00:00:00.000Z', 'ALP-20200101-OLD1', '[]')`).run();
+    const expired = (await remind(pat)).body.outstanding.find((o) => o.moduleId === "alpha");
+    expect(expired).toMatchObject({ reason: "expired", validUntil: "2021-01-01T00:00:00.000Z" });
+
+    const redo = await pat.post("/api/training/attempts").send({ moduleId: "alpha", moduleVersion: "1.0", answers: ALL_RIGHT });
+    expect(redo.status).toBe(201);
+    expect((await remind(pat)).body.outstanding.some((o) => o.moduleId === "alpha")).toBe(false);
+  });
+
+  it("treats an unread information module as outstanding, and a read one as done", async () => {
+    // Uses the pack that the information-module tests installed: re-install it here so this test stands alone.
+    const dir2 = mkdtempSync(join(tmpdir(), "training-pack-remind-"));
+    const before = process.env.TRAINING_PACK_DIR;
+    try {
+      process.env.TRAINING_PACK_DIR = dir2;
+      const withInfo = { ...pack, plans: [], modules: [pack.modules[0], { id: "notes", title: "Info Sheet", group: "Health & safety", version: "1.0", minutes: 3, kind: "info", briefing: "<p>Read this.</p>" }] };
+      expect((await gm.put("/api/training/pack-files").send({ files: [{ name: "pack.json", contentBase64: Buffer.from(JSON.stringify(withInfo)).toString("base64") }] })).status).toBe(200);
+      await gm.put("/api/training/assignments").send({ staffIds: ["staff-pat"], moduleIds: ["notes"], assigned: true });
+      const unread = (await remind(pat)).body.outstanding.find((o) => o.moduleId === "notes");
+      expect(unread).toMatchObject({ kind: "info", reason: "not-started" });
+      expect((await pat.post("/api/training/acknowledge").send({ moduleId: "notes", moduleVersion: "1.0" })).status).toBe(201);
+      expect((await remind(pat)).body.outstanding.some((o) => o.moduleId === "notes")).toBe(false);
+    } finally {
+      process.env.TRAINING_PACK_DIR = before;
+      rmSync(dir2, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("append-only", () => {
   it("refuses to update or delete a stored attempt, even through SQL", async () => {
     const { db } = await import("./db.js");

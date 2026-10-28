@@ -402,6 +402,27 @@ export function trainingRouter(requireAuth) {
     });
   });
 
+  // Training this person has been asked to do and hasn't finished: assigned modules they haven't started, last attempted
+  // without passing, or passed but expired. Only what is actually assigned to their Staff entry counts, so a General
+  // Manager (who can open every module) isn't reminded about modules nobody gave them, and someone with nothing
+  // assigned, or whose login isn't paired with a Staff entry, gets no reminder at all.
+  router.get("/reminders", (req, res) => {
+    const assigned = new Set(assignmentFor(req.user.id).moduleIds);
+    const results = resultsFor(req.user.id);
+    const now = Date.now();
+    const outstanding = [];
+    for (const mod of req.training.pack.modules) {
+      if (!assigned.has(mod.id)) continue;
+      const r = results[mod.id];
+      let reason = null;
+      if (!r) reason = "not-started";
+      else if (!r.passed) reason = "not-passed";
+      else if (r.validUntil && new Date(r.validUntil).getTime() < now) reason = "expired";
+      if (reason) outstanding.push({ moduleId: mod.id, title: mod.title, kind: mod.kind || "assessment", reason, validUntil: r?.validUntil || null });
+    }
+    res.json({ outstanding });
+  });
+
   // An information-only module has no quiz: the person confirms they have read it. Stored like every other result
   // (append-only, same assignment rules), but with no score and no certificate. It expires only if the module says so.
   router.post("/acknowledge", (req, res) => {
